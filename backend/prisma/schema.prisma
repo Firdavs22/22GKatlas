@@ -41,14 +41,20 @@ enum Role {
 }
 
 model Child {
-  id         String      @id @default(uuid())
-  name       String
-  birthDate  DateTime
-  photo      String?
-  enrolledAt DateTime    @default(now())
-  status     ChildStatus @default(active)
-  externalId String?
-  createdAt  DateTime    @default(now())
+  id              String      @id @default(uuid())
+  name            String
+  birthDate       DateTime
+  photo           String?
+  enrolledAt      DateTime    @default(now())
+  status          ChildStatus @default(active)
+  externalId      String?
+  contacts        Json?       // [{name, phone, relation}]
+  representatives Json?       // [{name, phone, relation}]
+  extraServices   String[]    @default([])
+  allergies       String?
+  documents       Json?       // {medCard: bool, birthCert: bool, ...}
+  notes           String?
+  createdAt       DateTime    @default(now())
 
   group           Group?            @relation(fields: [groupId], references: [id])
   groupId         String?
@@ -75,6 +81,8 @@ model Group {
   name       String
   ageRange   String
   year       Int
+  capacity   Int      @default(24)
+  monthlyFee Float    @default(75000)
   externalId String?
 
   teacher   User?      @relation("GroupTeacher", fields: [teacherId], references: [id])
@@ -318,6 +326,8 @@ enum ChatType {
   teacher_parent
   pediatrician_parent
   teacher_psychologist
+  admin_parent
+  psychologist_parent
 }
 
 model ChatParticipant {
@@ -403,6 +413,7 @@ model Event {
   title       String
   description String?
   eventDate   DateTime
+  mediaUrls   String[] @default([])
   author      User     @relation(fields: [authorId], references: [id])
   authorId    String
   createdAt   DateTime @default(now())

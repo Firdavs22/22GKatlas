@@ -30,11 +30,14 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
     { label: 'Портфолио', href: '/teacher/portfolio' },
   ],
   parent: [
-    { label: 'Лента', href: '/parent' },
+    { label: 'Главная', href: '/parent' },
+    { label: 'Лента', href: '/parent/feed' },
     { label: 'Прогресс', href: '/parent/progress' },
     { label: 'Чаты', href: '/parent/chats' },
-    { label: 'Сообщество', href: '/parent/community' },
     { label: 'Посещаемость', href: '/parent/attendance' },
+    { label: 'Расписание', href: '/parent/schedule' },
+    { label: 'Меню', href: '/parent/menu' },
+    { label: 'Оплата', href: '/parent/payments' },
   ],
   psychologist: [
     { label: 'Дети', href: '/psychologist' },

@@ -302,19 +302,29 @@ export default function MontessoriDashboard() {
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {portfolio.length === 0 && <div className="col-span-2 text-gray-500 text-center py-10">Портфолио пусто</div>}
-              {portfolio.map((item) => (
-                <div key={item.id} style={{ background: colors.card, borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                  <div style={{ height: 100, background: `linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>
-                    🎒
+              {portfolio.map((item) => {
+                const isImage = item.mediaUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(item.mediaUrl);
+                const isVideo = item.mediaUrl && /\.(mp4|mov|webm)$/i.test(item.mediaUrl);
+                return (
+                  <div key={item.id} style={{ background: colors.card, borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                    {isImage ? (
+                      <img src={item.mediaUrl} alt={item.title} style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                    ) : isVideo ? (
+                      <video src={item.mediaUrl} controls style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ height: 100, background: `linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>
+                        🎒
+                      </div>
+                    )}
+                    <div style={{ padding: 12 }}>
+                      <div style={{ fontSize: 10, color: colors.textSecondary, marginBottom: 2 }}>{new Date(item.date).toLocaleDateString('ru-RU')}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{item.title}</div>
+                      <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 1.4 }}>{item.description}</div>
+                      {item.mediaUrl && !isImage && !isVideo && <a href={item.mediaUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 mt-2 block hover:underline">Открыть / Скачать</a>}
+                    </div>
                   </div>
-                  <div style={{ padding: 12 }}>
-                    <div style={{ fontSize: 10, color: colors.textSecondary, marginBottom: 2 }}>{new Date(item.date).toLocaleDateString('ru-RU')}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{item.title}</div>
-                    <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 1.4 }}>{item.description}</div>
-                    {item.mediaUrl && <a href={item.mediaUrl} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 mt-2 block hover:underline">Открыть / Скачать</a>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

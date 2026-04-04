@@ -11,6 +11,14 @@ export class ChatsController {
   @Get()
   getChats(@CurrentUser() user: any) { return this.chatsService.getChatsForUser(user.id); }
 
+  @Get('staff')
+  getAvailableStaff(@CurrentUser() user: any) { return this.chatsService.getAvailableStaff(user.id); }
+
+  @Post()
+  createChat(@Body() dto: { targetUserId: string; type: string }, @CurrentUser() user: any) {
+    return this.chatsService.createOrGetChat(dto.targetUserId, dto.type, user.id);
+  }
+
   @Get(':id/messages')
   getMessages(@Param('id') id: string, @CurrentUser() user: any) {
     return this.chatsService.getMessages(id, user.id);

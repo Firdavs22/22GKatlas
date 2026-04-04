@@ -53,13 +53,13 @@ export class ActivitiesService {
   // ===================== EVENTS =====================
   async getEvents() {
     return this.prisma.event.findMany({
-      orderBy: { eventDate: 'desc' },
+      orderBy: { eventDate: 'asc' },
       include: { author: { select: { id: true, name: true, role: true } } },
     });
   }
 
   async createEvent(authorId: string, data: any) {
-    const { title, description, eventDate } = data;
+    const { title, description, eventDate, mediaUrls } = data;
     if (!title || !eventDate) {
       throw new BadRequestException('Укажите название и дату события');
     }
@@ -71,7 +71,8 @@ export class ActivitiesService {
         title,
         description,
         eventDate: edate,
-        authorId,
+        mediaUrls: mediaUrls || [],
+        author: { connect: { id: authorId } },
       },
     });
 
@@ -80,9 +81,10 @@ export class ActivitiesService {
       data: {
         type: 'event',
         scope: 'school',
-        authorId,
+        author: { connect: { id: authorId } },
         title: `Событие: ${title}`,
         text: description ? `Дата: ${edate.toLocaleDateString('ru')}\n\n${description}` : `Дата: ${edate.toLocaleDateString('ru')}`,
+        mediaUrls: mediaUrls || [],
       },
     });
 

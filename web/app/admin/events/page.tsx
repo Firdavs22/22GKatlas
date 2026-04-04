@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import PageLayout from '@/components/PageLayout';
+import FileUpload from '@/components/FileUpload';
 import api from '@/lib/api';
 
 export default function AdminEvents() {
@@ -11,6 +12,7 @@ export default function AdminEvents() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
   const loadEvents = () => {
     api.get('/activities/events').then(res => {
@@ -24,9 +26,9 @@ export default function AdminEvents() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/activities/events', { title, description, eventDate });
+      await api.post('/activities/events', { title, description, eventDate, mediaUrls });
       setShowForm(false);
-      setTitle(''); setDescription(''); setEventDate('');
+      setTitle(''); setDescription(''); setEventDate(''); setMediaUrls([]);
       loadEvents();
     } catch (err: any) {
       alert(err.message || 'Ошибка при сохранении события');
@@ -64,6 +66,17 @@ export default function AdminEvents() {
               <label className="block text-xs font-medium text-gray-700 mb-1">Описание (опционально)</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Подробности для родителей..." className="w-full border rounded px-3 py-2 text-sm h-24" />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">Медиафайлы (фото / видео)</label>
+              <FileUpload onUpload={(urls) => setMediaUrls(prev => [...prev, ...urls])} multiple />
+              {mediaUrls.length > 0 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                  {mediaUrls.map((url, i) => (
+                    <img key={i} src={url} alt="Uploaded" className="h-16 w-16 object-cover rounded shadow-sm border" />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm w-full hover:bg-green-700">
             Добавить в Календарь и Ленту
@@ -91,6 +104,13 @@ export default function AdminEvents() {
               {evt.description && (
                 <div className="text-sm text-gray-600 whitespace-pre-wrap mt-2">
                   {evt.description}
+                </div>
+              )}
+              {evt.mediaUrls && evt.mediaUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-4">
+                  {evt.mediaUrls.map((url: string, i: number) => (
+                    <img key={i} src={url} alt="Media" className="w-full h-24 object-cover rounded border" />
+                  ))}
                 </div>
               )}
             </div>

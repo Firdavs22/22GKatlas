@@ -24,7 +24,7 @@ export class AdminService {
       where: { id },
       include: {
         teacher: { select: { id: true, name: true, email: true, avatar: true } },
-        children: { orderBy: { name: 'asc' }, select: { id: true, name: true, status: true, birthDate: true } },
+        children: { orderBy: { name: 'asc' }, include: { parents: { include: { parent: { select: { name: true, email: true } } } } } },
         schedules: { orderBy: [{ dayOfWeek: 'asc' }, { timeStart: 'asc' }] },
       },
     });
@@ -50,7 +50,15 @@ export class AdminService {
     return this.prisma.group.update({ where: { id }, data: dto });
   }
 
-  deleteGroup(id: string) { return this.prisma.group.delete({ where: { id } }); }
+  async deleteGroup(id: string) {
+    // Unlink children from this group
+    await this.prisma.child.updateMany({ where: { groupId: id }, data: { groupId: null } });
+    // Delete schedules
+    await this.prisma.schedule.deleteMany({ where: { groupId: id } });
+    // Delete feed items linked to this group
+    await this.prisma.feedItem.deleteMany({ where: { groupId: id } });
+    return this.prisma.group.delete({ where: { id } });
+  }
 
   // ── CHILDREN ─────────────────────────────────────────────
   getChildren() {
@@ -58,6 +66,7 @@ export class AdminService {
       include: {
         group: { select: { id: true, name: true } },
         parents: { include: { parent: { select: { id: true, name: true, email: true } } } },
+        specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
       },
       orderBy: { name: 'asc' },
     });
@@ -75,8 +84,39 @@ export class AdminService {
     });
   }
 
-  createChild(dto: any) { return this.prisma.child.create({ data: dto }); }
-  updateChild(id: string, dto: any) { return this.prisma.child.update({ where: { id }, data: dto }); }
+  createChild(dto: any) {
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo } = dto;
+    return this.prisma.child.create({
+      data: {
+        name,
+        birthDate: new Date(birthDate),
+        ...(groupId ? { groupId } : {}),
+        ...(photo ? { photo } : {}),
+        ...(contacts ? { contacts } : {}),
+        ...(representatives ? { representatives } : {}),
+        ...(extraServices ? { extraServices } : {}),
+        ...(allergies ? { allergies } : {}),
+        ...(documents ? { documents } : {}),
+        ...(notes ? { notes } : {}),
+      },
+    });
+  }
+
+  updateChild(id: string, dto: any) {
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo } = dto;
+    const data: any = {};
+    if (name !== undefined) data.name = name;
+    if (birthDate !== undefined) data.birthDate = new Date(birthDate);
+    if (groupId !== undefined) data.groupId = groupId || null;
+    if (photo !== undefined) data.photo = photo;
+    if (contacts !== undefined) data.contacts = contacts;
+    if (representatives !== undefined) data.representatives = representatives;
+    if (extraServices !== undefined) data.extraServices = extraServices;
+    if (allergies !== undefined) data.allergies = allergies;
+    if (documents !== undefined) data.documents = documents;
+    if (notes !== undefined) data.notes = notes;
+    return this.prisma.child.update({ where: { id }, data });
+  }
   archiveChild(id: string) { return this.prisma.child.update({ where: { id }, data: { status: 'left' } }); }
   enrollChild(childId: string, groupId: string) {
     return this.prisma.child.update({ where: { id: childId }, data: { groupId } });

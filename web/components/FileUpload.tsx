@@ -3,32 +3,37 @@ import { useState, useRef } from 'react';
 import api from '@/lib/api';
 
 interface FileUploadProps {
-  onUpload: (url: string) => void;
+  onUpload: (urls: string[]) => void;
   accept?: string;
   label?: string;
+  multiple?: boolean;
 }
 
-export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.doc,.docx', label = 'Загрузить файл' }: FileUploadProps) {
+export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.doc,.docx', label = 'Загрузить файл', multiple = false }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
+    const uploadedUrls: string[] = [];
 
     try {
-      const { data } = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      onUpload(data.url);
-      
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append('file', files[i]);
+        const { data } = await api.post('/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uploadedUrls.push(data.url);
+      }
+      onUpload(uploadedUrls);
+
       // Clear input so same file can be uploaded again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
@@ -39,6 +44,8 @@ export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.d
     }
   };
 
+  const inputId = `file-upload-${Math.random().toString(36).slice(2, 9)}`;
+
   return (
     <div className="relative inline-block w-full">
       <input
@@ -46,12 +53,13 @@ export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.d
         ref={fileInputRef}
         onChange={handleFileChange}
         accept={accept}
+        multiple={multiple}
         className="hidden"
-        id="file-upload-input"
+        id={inputId}
         disabled={uploading}
       />
       <label
-        htmlFor="file-upload-input"
+        htmlFor={inputId}
         className={`flex items-center justify-center px-4 py-2 border border-dashed rounded-lg text-sm font-medium transition-colors ${
           uploading
             ? 'border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50'
