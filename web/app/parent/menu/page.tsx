@@ -39,6 +39,8 @@ const MEAL_ICONS: Record<string, string> = {
 export default function ParentMenu() {
   const [menus, setMenus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const todayIndex = (new Date().getDay() + 6) % 7; // Convert Sun=0 to Mon=0
+  const [activeDay, setActiveDay] = useState(todayIndex < 5 ? todayIndex : 0);
 
   useEffect(() => {
     api.get('/activities/menu').then(res => {
@@ -66,10 +68,6 @@ export default function ParentMenu() {
 
   const parsed = parseMenuContent(currentMenu.content || '');
   const hasParsed = DAY_NAMES.some(d => parsed[d].length > 0);
-
-  // Find which day is today (Mon=0, Tue=1, ...)
-  const todayIndex = (new Date().getDay() + 6) % 7; // Convert Sun=0 to Mon=0
-  const [activeDay, setActiveDay] = useState(todayIndex < 5 ? todayIndex : 0);
 
   return (
     <PageLayout title="Меню питания">

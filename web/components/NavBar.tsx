@@ -22,6 +22,7 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
   ],
   teacher: [
     { label: 'Матрица', href: '/teacher' },
+    { label: 'Тепловая карта', href: '/teacher/heatmap' },
     { label: 'Дневник', href: '/teacher/diary' },
     { label: 'Лента', href: '/teacher/feed' },
     { label: 'Чаты', href: '/teacher/chats' },

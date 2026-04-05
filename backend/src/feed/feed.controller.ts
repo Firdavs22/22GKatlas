@@ -22,6 +22,11 @@ export class FeedController {
     return this.feedService.downloadChildPhotos(childId, res);
   }
 
+  @Post(':id/like')
+  toggleLike(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.feedService.toggleLike(id, user.id);
+  }
+
   @Delete(':id')
   delete(@Param('id') id: string, @CurrentUser() user: any) { return this.feedService.deleteFeedItem(id, user); }
 }

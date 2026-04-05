@@ -14,7 +14,7 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 export default function ParentFeed() {
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [feed, setFeed] = useState<any[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
 
   useEffect(() => {
@@ -46,6 +46,27 @@ export default function ParentFeed() {
             </div>
             {item.title && <div className="font-medium mb-1">{item.title}</div>}
             {item.text && <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.text}</p>}
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <button
+                onClick={async () => {
+                  await api.post(`/feed/${item.id}/like`);
+                  setFeed(prev => prev.map(f => {
+                    if (f.id !== item.id) return f;
+                    const isLiked = f.likes?.length > 0;
+                    return {
+                      ...f,
+                      _count: { ...f._count, likes: (f._count?.likes || 0) + (isLiked ? -1 : 1) },
+                      likes: isLiked ? [] : [{ userId: 'me' }],
+                    };
+                  }));
+                }}
+                className={`flex items-center gap-1 text-sm transition-colors ${
+                  item.likes?.length > 0 ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                }`}
+              >
+                {item.likes?.length > 0 ? '♥' : '♡'} {item._count?.likes || 0}
+              </button>
+            </div>
           </div>
         ))}
       </div>

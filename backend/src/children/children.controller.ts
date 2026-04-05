@@ -1,21 +1,40 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Res } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChildrenService } from './children.service';
+import { ReportService } from './report.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { Response } from 'express';
 
 @Controller('children')
 @UseGuards(JwtAuthGuard)
 export class ChildrenController {
-  constructor(private childrenService: ChildrenService) {}
+  constructor(
+    private childrenService: ChildrenService,
+    private reportService: ReportService,
+  ) {}
 
   @Get()
   getChildren(@CurrentUser() user: any) { return this.childrenService.getChildrenForUser(user); }
+
+  @Get('group-progress')
+  getGroupProgress(@CurrentUser() user: any) { return this.childrenService.getGroupProgress(user); }
+
+  @Get('group-heatmap')
+  getGroupHeatmap(@CurrentUser() user: any) { return this.childrenService.getGroupHeatmap(user); }
 
   @Get(':id')
   getChild(@Param('id') id: string, @CurrentUser() user: any) { return this.childrenService.getChildProfile(id, user); }
 
   @Get(':id/progress')
   getProgress(@Param('id') id: string) { return this.childrenService.getProgress(id); }
+
+  @Get(':id/report')
+  async getReport(@Param('id') id: string, @Res() res: Response) {
+    const buffer = await this.reportService.generateChildReport(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="report-${id}.pdf"`);
+    res.send(buffer);
+  }
 
   @Get(':id/progress-history')
   getProgressHistory(@Param('id') id: string) { return this.childrenService.getProgressHistory(id); }

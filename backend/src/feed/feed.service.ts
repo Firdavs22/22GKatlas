@@ -8,6 +8,7 @@ export class FeedService {
   constructor(private prisma: PrismaService) {}
 
   async getFeedForUser(user: any, childId?: string) {
+    const userId = user.id;
     const where: any = {};
 
     if (childId) {
@@ -36,6 +37,8 @@ export class FeedService {
         author: { select: { id: true, name: true } },
         child: { select: { id: true, name: true } },
         group: { select: { id: true, name: true } },
+        _count: { select: { likes: true } },
+        likes: { where: { userId }, select: { userId: true } },
       },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
@@ -75,5 +78,19 @@ export class FeedService {
     if (!item) return { ok: true };
     if (user.role !== 'admin' && item.authorId !== user.id) throw new ForbiddenException();
     return this.prisma.feedItem.delete({ where: { id } });
+  }
+
+  async toggleLike(feedItemId: string, userId: string) {
+    const existing = await this.prisma.feedLike.findUnique({
+      where: { feedItemId_userId: { feedItemId, userId } },
+    });
+    if (existing) {
+      await this.prisma.feedLike.delete({
+        where: { feedItemId_userId: { feedItemId, userId } },
+      });
+      return { liked: false };
+    }
+    await this.prisma.feedLike.create({ data: { feedItemId, userId } });
+    return { liked: true };
   }
 }

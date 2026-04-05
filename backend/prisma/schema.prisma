@@ -30,6 +30,7 @@ model User {
   menus              Menu[]
   events             Event[]
   broadcasts         Broadcast[]
+  feedLikes          FeedLike[]
 }
 
 enum Role {
@@ -263,6 +264,17 @@ model FeedItem {
   pinned    Boolean      @default(false)
 
   createdAt DateTime     @default(now())
+  likes     FeedLike[]
+}
+
+model FeedLike {
+  feedItem   FeedItem @relation(fields: [feedItemId], references: [id], onDelete: Cascade)
+  feedItemId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  createdAt  DateTime @default(now())
+
+  @@id([feedItemId, userId])
 }
 
 enum FeedItemType {

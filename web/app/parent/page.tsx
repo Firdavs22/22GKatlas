@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import PageLayout from '@/components/PageLayout';
+import Onboarding from '@/components/Onboarding';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
 import Link from 'next/link';
@@ -17,6 +18,7 @@ const SECTIONS = [
   { href: '/parent/schedule', icon: '🕐', label: 'Расписание', desc: 'Расписание группы', color: 'from-purple-500 to-fuchsia-600' },
   { href: '/parent/menu', icon: '🍎', label: 'Меню', desc: 'Питание на неделю', color: 'from-amber-500 to-orange-600' },
   { href: '/parent/payments', icon: '💰', label: 'Оплата', desc: 'Счета и история', color: 'from-rose-500 to-red-600' },
+  { href: '/parent/about', icon: '📚', label: 'О методе', desc: 'Что такое зоны Монтессори', color: 'from-slate-400 to-gray-500' },
 ];
 
 export default function ParentDashboard() {
@@ -49,8 +51,13 @@ export default function ParentDashboard() {
   const childName = children[0]?.name || '';
   const groupName = (children[0] as any)?.group?.name || '';
 
+  const [showOnboarding, setShowOnboarding] = useState(
+    typeof window !== 'undefined' && !localStorage.getItem('onboarding_done')
+  );
+
   return (
     <PageLayout title="Главная">
+      {showOnboarding && <Onboarding onDone={() => setShowOnboarding(false)} />}
       {/* Welcome */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl p-6 mb-6 shadow-lg">
         <div className="text-indigo-200 text-sm">Добро пожаловать!</div>
