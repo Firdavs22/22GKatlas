@@ -24,7 +24,7 @@ export class AdminService {
       where: { id },
       include: {
         teacher: { select: { id: true, name: true, email: true, avatar: true } },
-        children: { orderBy: { name: 'asc' }, include: { parents: { include: { parent: { select: { name: true, email: true } } } } } },
+        children: { orderBy: { name: 'asc' }, include: { parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } } } },
         schedules: { orderBy: [{ dayOfWeek: 'asc' }, { timeStart: 'asc' }] },
       },
     });
@@ -51,13 +51,15 @@ export class AdminService {
   }
 
   async deleteGroup(id: string) {
-    // Unlink children from this group
-    await this.prisma.child.updateMany({ where: { groupId: id }, data: { groupId: null } });
-    // Delete schedules
-    await this.prisma.schedule.deleteMany({ where: { groupId: id } });
-    // Delete feed items linked to this group
-    await this.prisma.feedItem.deleteMany({ where: { groupId: id } });
-    return this.prisma.group.delete({ where: { id } });
+    return this.prisma.$transaction(async (tx) => {
+      // Unlink children from this group
+      await tx.child.updateMany({ where: { groupId: id }, data: { groupId: null } });
+      // Delete schedules
+      await tx.schedule.deleteMany({ where: { groupId: id } });
+      // Delete feed items linked to this group
+      await tx.feedItem.deleteMany({ where: { groupId: id } });
+      return tx.group.delete({ where: { id } });
+    });
   }
 
   // ── CHILDREN ─────────────────────────────────────────────
@@ -65,7 +67,7 @@ export class AdminService {
     return this.prisma.child.findMany({
       include: {
         group: { select: { id: true, name: true } },
-        parents: { include: { parent: { select: { id: true, name: true, email: true } } } },
+        parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } },
         specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
       },
       orderBy: { name: 'asc' },
@@ -77,33 +79,49 @@ export class AdminService {
       where: { id },
       include: {
         group: { select: { id: true, name: true, teacher: { select: { name: true } } } },
-        parents: { include: { parent: { select: { id: true, name: true, email: true, avatar: true } } } },
+        parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true, avatar: true } } } },
         specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
         attendance: { orderBy: { date: 'desc' }, take: 14 },
       },
     });
   }
 
-  createChild(dto: any) {
-    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo } = dto;
-    return this.prisma.child.create({
-      data: {
-        name,
-        birthDate: new Date(birthDate),
-        ...(groupId ? { groupId } : {}),
-        ...(photo ? { photo } : {}),
-        ...(contacts ? { contacts } : {}),
-        ...(representatives ? { representatives } : {}),
-        ...(extraServices ? { extraServices } : {}),
-        ...(allergies ? { allergies } : {}),
-        ...(documents ? { documents } : {}),
-        ...(notes ? { notes } : {}),
-      },
+  async createChild(dto: any) {
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
+    const parents = this.normalizeParentLinks(parentLinks);
+    if (!parents?.length) {
+      throw new BadRequestException('Укажите хотя бы одного родителя ребёнка');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const child = await tx.child.create({
+        data: {
+          name,
+          birthDate: new Date(birthDate),
+          ...(groupId ? { groupId } : {}),
+          ...(photo ? { photo } : {}),
+          ...(contacts ? { contacts } : {}),
+          ...(representatives ? { representatives } : {}),
+          ...(extraServices ? { extraServices } : {}),
+          ...(allergies ? { allergies } : {}),
+          ...(documents ? { documents } : {}),
+          ...(notes ? { notes } : {}),
+        },
+      });
+      await this.syncChildParents(tx, child.id, parents);
+      return tx.child.findUnique({
+        where: { id: child.id },
+        include: {
+          group: { select: { id: true, name: true } },
+          parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } },
+          specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
+        },
+      });
     });
   }
 
-  updateChild(id: string, dto: any) {
-    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo } = dto;
+  async updateChild(id: string, dto: any) {
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
     const data: any = {};
     if (name !== undefined) data.name = name;
     if (birthDate !== undefined) data.birthDate = new Date(birthDate);
@@ -115,7 +133,23 @@ export class AdminService {
     if (allergies !== undefined) data.allergies = allergies;
     if (documents !== undefined) data.documents = documents;
     if (notes !== undefined) data.notes = notes;
-    return this.prisma.child.update({ where: { id }, data });
+    const parents = parentLinks === undefined ? undefined : this.normalizeParentLinks(parentLinks);
+    if (parentLinks !== undefined && !parents?.length) {
+      throw new BadRequestException('У ребёнка должен быть хотя бы один родитель');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.child.update({ where: { id }, data });
+      if (parents) await this.syncChildParents(tx, id, parents);
+      return tx.child.findUnique({
+        where: { id },
+        include: {
+          group: { select: { id: true, name: true } },
+          parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } },
+          specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
+        },
+      });
+    });
   }
   archiveChild(id: string) { return this.prisma.child.update({ where: { id }, data: { status: 'left' } }); }
   enrollChild(childId: string, groupId: string) {
@@ -145,6 +179,76 @@ export class AdminService {
     });
     const inviteToken = authService.generateInviteToken(user.id);
     return { inviteToken, userId: user.id };
+  }
+
+  private normalizeParentLinks(parentLinks: any[] | undefined) {
+    if (parentLinks === undefined) return undefined;
+    return parentLinks
+      .map((parent) => ({
+        id: parent.id || undefined,
+        name: String(parent.name || '').trim(),
+        email: String(parent.email || '').trim().toLowerCase(),
+        phone: String(parent.phone || '').trim(),
+      }))
+      .filter((parent) => parent.id || parent.name || parent.email || parent.phone)
+      .map((parent) => {
+        if (!parent.id && !parent.email) {
+          throw new BadRequestException('Для родителя нужен email, чтобы создать доступ в систему');
+        }
+        if (!parent.name) {
+          throw new BadRequestException('Укажите ФИО родителя');
+        }
+        return parent;
+      });
+  }
+
+  private async syncChildParents(tx: any, childId: string, parents: { id?: string; name: string; email: string; phone?: string }[]) {
+    const parentIds: string[] = [];
+
+    for (const parent of parents) {
+      let user = parent.id
+        ? await tx.user.findUnique({ where: { id: parent.id } })
+        : await tx.user.findUnique({ where: { email: parent.email } });
+
+      if (user && user.role !== 'parent') {
+        throw new BadRequestException(`Пользователь ${user.email} уже существует, но это не родитель`);
+      }
+
+      if (user) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            name: parent.name,
+            ...(parent.phone !== undefined ? { phone: parent.phone || null } : {}),
+          },
+        });
+      } else {
+        const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+        user = await tx.user.create({
+          data: {
+            email: parent.email,
+            password: tempPassword,
+            name: parent.name,
+            phone: parent.phone || null,
+            role: 'parent',
+          },
+        });
+      }
+
+      parentIds.push(user.id);
+      await tx.childParent.upsert({
+        where: { childId_parentId: { childId, parentId: user.id } },
+        update: {},
+        create: { childId, parentId: user.id },
+      });
+    }
+
+    await tx.childParent.deleteMany({
+      where: {
+        childId,
+        parentId: { notIn: parentIds },
+      },
+    });
   }
 
   // ── STAFF ─────────────────────────────────────────────────
@@ -182,6 +286,80 @@ export class AdminService {
       where: { id },
       data: rest,
       select: { id: true, name: true, email: true, role: true, avatar: true },
+    });
+  }
+
+  getParents() {
+    return this.prisma.user.findMany({
+      where: { role: 'parent' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        createdAt: true,
+        parentChildren: {
+          include: {
+            child: { select: { id: true, name: true, status: true, group: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async inviteParentAccount(dto: { email: string; name: string; phone?: string; childIds?: string[] }, authService: any) {
+    const email = String(dto.email || '').trim().toLowerCase();
+    const name = String(dto.name || '').trim();
+    const phone = String(dto.phone || '').trim();
+    if (!email || !name) throw new BadRequestException('Укажите ФИО и email родителя');
+
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    if (user && user.role !== 'parent') {
+      throw new ConflictException('Пользователь с таким email уже существует, но это не родитель');
+    }
+
+    if (!user) {
+      const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+      user = await this.prisma.user.create({
+        data: { email, password: tempPassword, name, phone: phone || null, role: 'parent' },
+      });
+    } else {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { name, phone: phone || null },
+      });
+    }
+
+    const childIds = Array.isArray(dto.childIds) ? dto.childIds.filter(Boolean) : [];
+    if (childIds.length) {
+      await Promise.all(childIds.map((childId) =>
+        this.prisma.childParent.upsert({
+          where: { childId_parentId: { childId, parentId: user!.id } },
+          update: {},
+          create: { childId, parentId: user!.id },
+        }),
+      ));
+    }
+
+    const inviteToken = authService.generateInviteToken(user.id);
+    return { inviteToken, userId: user.id };
+  }
+
+  updateParent(id: string, dto: any) {
+    const data: any = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.phone !== undefined) data.phone = dto.phone || null;
+    if (dto.email !== undefined) data.email = String(dto.email).trim().toLowerCase();
+    return this.prisma.$transaction(async (tx) => {
+      const parent = await tx.user.findFirst({ where: { id, role: 'parent' }, select: { id: true } });
+      if (!parent) throw new BadRequestException('Родитель не найден');
+      return tx.user.update({
+        where: { id },
+        data,
+        select: { id: true, name: true, email: true, phone: true, avatar: true, createdAt: true },
+      });
     });
   }
 
@@ -374,16 +552,15 @@ export class AdminService {
 
   async bulkUpsertAttendance(dto: { groupId: string; date: string; records: { childId: string; status: string }[] }) {
     const date = new Date(dto.date);
-    const results: any[] = [];
-    for (const r of dto.records) {
-      const record = await this.prisma.attendance.upsert({
-        where: { childId_date: { childId: r.childId, date } },
-        update: { status: r.status as any },
-        create: { childId: r.childId, date, status: r.status as any },
-      });
-      results.push(record);
-    }
-    return results;
+    return this.prisma.$transaction(
+      dto.records.map((r) =>
+        this.prisma.attendance.upsert({
+          where: { childId_date: { childId: r.childId, date } },
+          update: { status: r.status as any },
+          create: { childId: r.childId, date, status: r.status as any },
+        }),
+      ),
+    );
   }
 
   updateAttendance(id: string, dto: any) {

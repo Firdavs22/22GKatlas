@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import PageLayout from '@/components/PageLayout';
 import FileUpload from '@/components/FileUpload';
 import api from '@/lib/api';
+import AuthMedia from '@/components/AuthMedia';
 
 export default function AdminEvents() {
   const [events, setEvents] = useState<any[]>([]);
@@ -72,7 +73,7 @@ export default function AdminEvents() {
               {mediaUrls.length > 0 && (
                 <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
                   {mediaUrls.map((url, i) => (
-                    <img key={i} src={url} alt="Uploaded" className="h-16 w-16 object-cover rounded shadow-sm border" />
+                    <AuthMedia key={i} src={url} alt="Uploaded" className="h-16 w-16 object-cover rounded shadow-sm border" />
                   ))}
                 </div>
               )}
@@ -109,7 +110,7 @@ export default function AdminEvents() {
               {evt.mediaUrls && evt.mediaUrls.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-4">
                   {evt.mediaUrls.map((url: string, i: number) => (
-                    <img key={i} src={url} alt="Media" className="w-full h-24 object-cover rounded border" />
+                    <AuthMedia key={i} src={url} alt="Media" className="w-full h-24 object-cover rounded border" />
                   ))}
                 </div>
               )}

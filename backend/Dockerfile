@@ -19,4 +19,6 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
+# Use migrate deploy for production (safe, won't drop data)
+# Falls back to db push only if no migrations exist yet (first deploy)
+CMD ["sh", "-c", "if [ -d prisma/migrations ] && [ \"$(ls -A prisma/migrations 2>/dev/null)\" ]; then npx prisma migrate deploy; else npx prisma db push; fi && (node -e 'const { PrismaClient } = require(\"@prisma/client\"); const prisma = new PrismaClient(); prisma.user.count().then((count) => process.exit(count > 0 ? 0 : 1)).finally(() => prisma.$disconnect());' || node prisma/seed.js) && node dist/src/main"]

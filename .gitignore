@@ -36,9 +36,21 @@ yarn-error.log*
 /backend/.env
 /web/.env
 
-# Prisma
-/backend/prisma/migrations/
+# Prisma — migrations should be tracked in Git for production!
+# /backend/prisma/migrations/
 
 # IDE files
 .vscode/
 .idea/
+
+# Internal files
+MAKE_NO_MISTAKES_CLAUDE.md
+
+# Log files
+*.err.log
+*.out.log
+/backend/backend-local.*
+
+# Expo
+/mobile/dist/
+/mobile/.expo/

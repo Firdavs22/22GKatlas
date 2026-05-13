@@ -1,9 +1,13 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccessControlService } from '../common/access-control.service';
 
 @Injectable()
 export class ChildrenService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private accessControl: AccessControlService,
+  ) {}
 
   async getChildrenForUser(user: any) {
     switch (user.role) {
@@ -107,7 +111,7 @@ export class ChildrenService {
       where: { id: childId },
       include: {
         group: { include: { teacher: { select: { id: true, name: true } } } },
-        parents: { include: { parent: { select: { id: true, name: true, email: true } } } },
+        parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } },
         specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
       },
     });
@@ -153,15 +157,17 @@ export class ChildrenService {
 
     if (dto.stage === 'mastered') {
       const skill = await this.prisma.skill.findUnique({ where: { id: dto.skillId } });
+      if (!skill) throw new NotFoundException('Skill not found');
       const child = await this.prisma.child.findUnique({ where: { id: childId } });
+      if (!child) throw new NotFoundException('Child not found');
       await this.prisma.feedItem.create({
         data: {
           type: 'child_achievement',
           scope: 'child',
           authorId: user.id,
           childId,
-          groupId: child?.groupId,
-          title: `Освоен навык: ${skill?.title}`,
+          groupId: child.groupId,
+          title: `Освоен навык: ${skill.title}`,
           text: 'Поздравляем! Освоен новый навык.',
         },
       });
@@ -246,9 +252,9 @@ export class ChildrenService {
     });
   }
 
-  updateHomeTask(taskId: string, dto: any) {
+  updateHomeTask(childId: string, taskId: string, dto: any) {
     return this.prisma.homeTask.update({
-      where: { id: taskId },
+      where: { id: taskId, childId },
       data: { status: dto.completed ? 'done' : 'pending' },
     });
   }
@@ -265,31 +271,13 @@ export class ChildrenService {
     });
   }
 
-  deleteHomeTask(taskId: string) {
+  deleteHomeTask(childId: string, taskId: string) {
     return this.prisma.homeTask.delete({
-      where: { id: taskId },
+      where: { id: taskId, childId },
     });
   }
 
-  private async checkChildAccess(childId: string, user: any) {
-    if (user.role === 'admin') return;
-    if (user.role === 'teacher') {
-      const group = await this.prisma.group.findFirst({ where: { teacherId: user.id } });
-      if (!group) throw new ForbiddenException();
-      const child = await this.prisma.child.findFirst({ where: { id: childId, groupId: group.id } });
-      if (!child) throw new ForbiddenException();
-      return;
-    }
-    if (user.role === 'parent') {
-      const rel = await this.prisma.childParent.findFirst({ where: { childId, parentId: user.id } });
-      if (!rel) throw new ForbiddenException();
-      return;
-    }
-    if (user.role === 'psychologist' || user.role === 'pediatrician') {
-      const rel = await this.prisma.childSpecialist.findFirst({ where: { childId, specialistId: user.id } });
-      if (!rel) throw new ForbiddenException();
-      return;
-    }
-    throw new ForbiddenException();
+  private checkChildAccess(childId: string, user: any) {
+    return this.accessControl.checkChildAccess(childId, user);
   }
 }

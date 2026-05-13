@@ -11,36 +11,36 @@ async function main() {
   const teacherPass = await bcrypt.hash('teacher123', 10);
   const parentPass = await bcrypt.hash('parent123', 10);
   const psychPass = await bcrypt.hash('psych123', 10);
-  const pedPass = await bcrypt.hash('ped123', 10);
+  const pedPass = await bcrypt.hash('peds123', 10);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@test.com' },
-    update: {},
+    update: { password: adminPass, name: 'Администратор', role: 'admin' },
     create: { email: 'admin@test.com', password: adminPass, name: 'Администратор', role: 'admin' },
   });
 
   const teacher = await prisma.user.upsert({
     where: { email: 'teacher@test.com' },
-    update: {},
+    update: { password: teacherPass, name: 'Мария Ивановна', role: 'teacher' },
     create: { email: 'teacher@test.com', password: teacherPass, name: 'Мария Ивановна', role: 'teacher' },
   });
 
   const parent = await prisma.user.upsert({
     where: { email: 'parent@test.com' },
-    update: {},
+    update: { password: parentPass, name: 'Анна Петрова', role: 'parent' },
     create: { email: 'parent@test.com', password: parentPass, name: 'Анна Петрова', role: 'parent' },
   });
 
   const psychologist = await prisma.user.upsert({
-    where: { email: 'psych@test.com' },
-    update: {},
-    create: { email: 'psych@test.com', password: psychPass, name: 'Елена Сидорова', role: 'psychologist' },
+    where: { email: 'psychologist@test.com' },
+    update: { password: psychPass, name: 'Елена Сидорова', role: 'psychologist' },
+    create: { email: 'psychologist@test.com', password: psychPass, name: 'Елена Сидорова', role: 'psychologist' },
   });
 
   const pediatrician = await prisma.user.upsert({
-    where: { email: 'ped@test.com' },
-    update: {},
-    create: { email: 'ped@test.com', password: pedPass, name: 'Ольга Козлова', role: 'pediatrician' },
+    where: { email: 'pediatrician@test.com' },
+    update: { password: pedPass, name: 'Ольга Козлова', role: 'pediatrician' },
+    create: { email: 'pediatrician@test.com', password: pedPass, name: 'Ольга Козлова', role: 'pediatrician' },
   });
 
   console.log('✅ Users created');
@@ -280,8 +280,8 @@ async function main() {
   console.log('  admin@test.com    / admin123');
   console.log('  teacher@test.com  / teacher123');
   console.log('  parent@test.com   / parent123');
-  console.log('  psych@test.com    / psych123');
-  console.log('  ped@test.com      / ped123');
+  console.log('  psychologist@test.com / psych123');
+  console.log('  pediatrician@test.com / peds123');
   console.log('══════════════════════════════════════');
 }
 

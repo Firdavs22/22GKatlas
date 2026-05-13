@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
 import { Group, User } from '@/lib/types';
+import Link from 'next/link';
 
 export default function AdminGroups() {
   const [groups, setGroups] = useState<any[]>([]);
@@ -166,13 +167,13 @@ export default function AdminGroups() {
               ) : (
                 <div className="space-y-2">
                   {groupDetail.children?.filter((c: any) => c.status === 'active').map((child: any) => (
-                    <div key={child.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <Link key={child.id} href={`/admin/children/${child.id}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-sm font-bold">
                           {child.name.charAt(0)}
                         </div>
                         <div>
-                          <a href={`/admin/children/${child.id}`} className="font-medium text-sm text-indigo-600 hover:underline">{child.name}</a>
+                          <div className="font-medium text-sm text-indigo-600">{child.name}</div>
                           <div className="text-xs text-gray-500">{getAge(child.birthDate)} лет</div>
                         </div>
                       </div>
@@ -184,7 +185,7 @@ export default function AdminGroups() {
                           <span key={p.parent.email} className="text-xs text-gray-400">{p.parent.name}</span>
                         ))}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

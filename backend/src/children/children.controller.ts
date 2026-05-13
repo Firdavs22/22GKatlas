@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Res } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { ChildAccessGuard } from '../common/guards/child-access.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { SkipChildAccess } from '../common/decorators/skip-child-access.decorator';
 import { ChildrenService } from './children.service';
 import { ReportService } from './report.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { Response } from 'express';
 
 @Controller('children')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ChildAccessGuard)
 export class ChildrenController {
   constructor(
     private childrenService: ChildrenService,
@@ -14,12 +18,15 @@ export class ChildrenController {
   ) {}
 
   @Get()
+  @SkipChildAccess()
   getChildren(@CurrentUser() user: any) { return this.childrenService.getChildrenForUser(user); }
 
   @Get('group-progress')
+  @SkipChildAccess()
   getGroupProgress(@CurrentUser() user: any) { return this.childrenService.getGroupProgress(user); }
 
   @Get('group-heatmap')
+  @SkipChildAccess()
   getGroupHeatmap(@CurrentUser() user: any) { return this.childrenService.getGroupHeatmap(user); }
 
   @Get(':id')
@@ -40,6 +47,7 @@ export class ChildrenController {
   getProgressHistory(@Param('id') id: string) { return this.childrenService.getProgressHistory(id); }
 
   @Put(':id/progress')
+  @Roles('admin', 'teacher')
   updateProgress(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
     return this.childrenService.updateProgress(id, dto, user);
   }
@@ -50,6 +58,7 @@ export class ChildrenController {
   }
 
   @Post(':id/observations')
+  @Roles('admin', 'teacher')
   createObservation(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
     return this.childrenService.createObservation(id, dto, user);
   }
@@ -58,6 +67,7 @@ export class ChildrenController {
   getPortfolio(@Param('id') id: string) { return this.childrenService.getPortfolio(id); }
 
   @Post(':id/portfolio')
+  @Roles('admin', 'teacher')
   createPortfolioItem(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
     return this.childrenService.createPortfolioItem(id, dto, user);
   }
@@ -72,6 +82,7 @@ export class ChildrenController {
   getNotes(@Param('id') id: string, @CurrentUser() user: any) { return this.childrenService.getNotes(id, user); }
 
   @Post(':id/notes')
+  @Roles('psychologist', 'pediatrician')
   createNote(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
     return this.childrenService.createNote(id, dto, user);
   }
@@ -83,17 +94,20 @@ export class ChildrenController {
   getHomeTasks(@Param('id') id: string) { return this.childrenService.getHomeTasks(id); }
 
   @Post(':id/home-tasks')
+  @Roles('admin', 'teacher')
   createHomeTask(@Param('id') id: string, @Body() dto: any) {
     return this.childrenService.createHomeTask(id, dto);
   }
 
   @Put(':id/home-tasks/:taskId')
-  updateHomeTask(@Param('taskId') taskId: string, @Body() dto: any) {
-    return this.childrenService.updateHomeTask(taskId, dto);
+  @Roles('admin', 'teacher', 'parent')
+  updateHomeTask(@Param('id') id: string, @Param('taskId') taskId: string, @Body() dto: any) {
+    return this.childrenService.updateHomeTask(id, taskId, dto);
   }
 
   @Delete(':id/home-tasks/:taskId')
-  deleteHomeTask(@Param('taskId') taskId: string) {
-    return this.childrenService.deleteHomeTask(taskId);
+  @Roles('admin', 'teacher')
+  deleteHomeTask(@Param('id') id: string, @Param('taskId') taskId: string) {
+    return this.childrenService.deleteHomeTask(id, taskId);
   }
 }

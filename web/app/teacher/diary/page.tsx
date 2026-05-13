@@ -4,6 +4,7 @@ import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
 import { Child, Observation } from '@/lib/types';
 import FileUpload from '@/components/FileUpload';
+import AuthMedia from '@/components/AuthMedia';
 
 export default function TeacherDiary() {
   const [children, setChildren] = useState<Child[]>([]);
@@ -45,11 +46,11 @@ export default function TeacherDiary() {
         <form onSubmit={create} className="bg-white border rounded-xl p-4 mb-4 space-y-3">
           <textarea value={form.text} onChange={e => setForm(p => ({...p, text: e.target.value}))} placeholder="Опишите наблюдение..." className="w-full border rounded px-3 py-2 h-24 resize-none" required />
           <div className="mb-2">
-            <FileUpload onUpload={url => setForm(p => ({ ...p, photos: [...p.photos, url] }))} label="Прикрепить фото" />
+            <FileUpload onUpload={urls => setForm(p => ({ ...p, photos: [...p.photos, ...urls] }))} label="Прикрепить фото" />
             {form.photos.length > 0 && (
               <div className="flex gap-2 mt-2">
                 {form.photos.map((url, i) => (
-                  <img key={i} src={url} alt={`Photo ${i}`} className="h-16 w-16 object-cover rounded border" />
+                  <AuthMedia key={i} src={url} alt={`Photo ${i}`} className="h-16 w-16 object-cover rounded border" />
                 ))}
               </div>
             )}
@@ -76,7 +77,7 @@ export default function TeacherDiary() {
             {o.photos && o.photos.length > 0 && (
               <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
                 {o.photos.map((url, i) => (
-                  <img key={i} src={url} alt={`Наблюдение ${i}`} className="h-24 rounded border object-cover" />
+                  <AuthMedia key={i} src={url} alt={`Наблюдение ${i}`} className="h-24 rounded border object-cover" />
                 ))}
               </div>
             )}

@@ -10,6 +10,7 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
     { label: 'Дашборд', href: '/admin' },
     { label: 'Группы', href: '/admin/groups' },
     { label: 'Дети', href: '/admin/children' },
+    { label: 'Родители', href: '/admin/parents' },
     { label: 'Сотрудники', href: '/admin/staff' },
     { label: 'Навыки', href: '/admin/skills' },
     { label: 'Расписание', href: '/admin/schedule' },
@@ -57,18 +58,21 @@ export default function NavBar() {
 
   if (!user) return null;
   const items = NAV_ITEMS[user.role] || [];
+  const isActive = (href: string) => (
+    pathname === href || (href !== `/${user.role}` && pathname.startsWith(href + '/'))
+  );
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-6">
-        <Link href="/" className="text-indigo-700 font-bold text-lg">ГлобоАтлас</Link>
-        <div className="flex gap-1">
+    <nav className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4">
+      <div className="flex items-center gap-6 min-w-0 flex-1">
+        <Link href="/" className="text-indigo-700 font-bold text-lg shrink-0">ГлобоАтлас</Link>
+        <div className="flex gap-1 overflow-x-auto whitespace-nowrap min-w-0 pb-1">
           {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                pathname === item.href || pathname.startsWith(item.href + '/')
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive(item.href)
                   ? 'bg-indigo-100 text-indigo-700'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
@@ -78,7 +82,7 @@ export default function NavBar() {
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <Link href="/notifications" className="text-gray-500 hover:text-indigo-600 text-sm">🔔</Link>
         <span className="text-sm text-gray-600">{user.name}</span>
         <button onClick={logout} className="text-sm text-red-500 hover:text-red-700">Выйти</button>

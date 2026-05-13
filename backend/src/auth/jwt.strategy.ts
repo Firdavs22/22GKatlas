@@ -10,14 +10,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private config: ConfigService,
     private prisma: PrismaService,
   ) {
+    const secret = config.get('JWT_SECRET');
+    if (!secret) throw new Error('JWT_SECRET environment variable is required');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: config.get('JWT_SECRET') || 'supersecretkey',
+      secretOrKey: secret,
     });
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, name: true, role: true, phone: true },
+    });
     if (!user) throw new UnauthorizedException();
     return user;
   }

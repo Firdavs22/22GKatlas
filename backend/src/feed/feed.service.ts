@@ -1,17 +1,22 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccessControlService } from '../common/access-control.service';
 import { Response } from 'express';
 import * as archiver from 'archiver';
 
 @Injectable()
 export class FeedService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private accessControl: AccessControlService,
+  ) {}
 
   async getFeedForUser(user: any, childId?: string) {
     const userId = user.id;
     const where: any = {};
 
     if (childId) {
+      await this.checkChildAccess(childId, user);
       where.childId = childId;
     } else if (user.role === 'parent') {
       const children = await this.prisma.childParent.findMany({ where: { parentId: user.id } });
@@ -58,7 +63,9 @@ export class FeedService {
     });
   }
 
-  async downloadChildPhotos(childId: string, res: Response) {
+  async downloadChildPhotos(childId: string, user: any, res: Response) {
+    await this.checkChildAccess(childId, user);
+
     const feedItems = await this.prisma.feedItem.findMany({
       where: { childId, type: 'child_photo' },
     });
@@ -71,6 +78,10 @@ export class FeedService {
     archive.pipe(res);
     archive.append(JSON.stringify({ childId, photoCount: urls.length, urls }, null, 2), { name: 'index.json' });
     await archive.finalize();
+  }
+
+  private checkChildAccess(childId: string, user: any) {
+    return this.accessControl.checkChildAccess(childId, user);
   }
 
   async deleteFeedItem(id: string, user: any) {

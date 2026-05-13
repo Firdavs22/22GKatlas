@@ -4,6 +4,7 @@ import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
 import FileUpload from '@/components/FileUpload';
+import AuthMedia from '@/components/AuthMedia';
 
 interface PortfolioItem {
   id: string;
@@ -95,7 +96,7 @@ export default function TeacherPortfolio() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Файл</label>
-              <FileUpload onUpload={url => setForm(p => ({ ...p, fileUrl: url }))} />
+              <FileUpload onUpload={urls => setForm(p => ({ ...p, fileUrl: urls[0] || '' }))} />
               {form.fileUrl && (
                 <div className="mt-2 bg-gray-50 p-2 rounded border text-xs text-green-700 truncate">
                   Файл загружен
@@ -143,8 +144,7 @@ export default function TeacherPortfolio() {
             <div className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
               {/* Fallback rendering of image if URL is provided */}
               {item.fileUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
+                <AuthMedia src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-gray-400 text-4xl">📄</span>
               )}

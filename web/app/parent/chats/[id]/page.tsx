@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
+import { WS_URL } from '@/lib/network';
 import { ChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { io, Socket } from 'socket.io-client';
@@ -18,7 +19,6 @@ export default function ParentChatPage() {
 
   useEffect(() => {
     api.get(`/chats/${id}/messages`).then(r => setMessages(r.data));
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
     const socket = io(WS_URL, { auth: { token } });
     socket.emit('joinRoom', id);
     socket.on('newMessage', (msg: ChatMessage) => setMessages(prev => [...prev, msg]));

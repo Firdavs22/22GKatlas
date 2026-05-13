@@ -18,9 +18,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(email, password);
-      // Set cookies for middleware
-      document.cookie = `token=${localStorage.getItem('token')}; path=/`;
-      document.cookie = `role=${user.role}; path=/`;
       router.push(ROLE_HOME[user.role]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -76,12 +73,16 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-xs text-gray-400 text-center">
-          <p>Тестовые аккаунты:</p>
-          <p>admin@test.com / admin123</p>
-          <p>teacher@test.com / teacher123</p>
-          <p>parent@test.com / parent123</p>
-        </div>
+        {process.env.NODE_ENV !== 'production' && (
+          <div className="mt-6 text-xs text-gray-400 text-center">
+            <p>Тестовые аккаунты (dev only):</p>
+            <p>admin@test.com / admin123</p>
+            <p>teacher@test.com / teacher123</p>
+            <p>parent@test.com / parent123</p>
+            <p>psychologist@test.com / psych123</p>
+            <p>pediatrician@test.com / peds123</p>
+          </div>
+        )}
       </div>
     </div>
   );

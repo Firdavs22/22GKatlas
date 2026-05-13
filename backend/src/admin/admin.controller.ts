@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -60,6 +61,20 @@ export class AdminController {
   @Post('children/:id/invite-parent')
   inviteParent(@Param('id') id: string, @Body() dto: { email: string; name?: string }) {
     return this.adminService.inviteParent(id, dto.email, dto.name, this.authService);
+  }
+
+  // ── PARENTS ────────────────────────────────────────────────
+  @Get('parents')
+  getParents() { return this.adminService.getParents(); }
+
+  @Post('parents/invite')
+  inviteParentAccount(@Body() dto: { email: string; name: string; phone?: string; childIds?: string[] }) {
+    return this.adminService.inviteParentAccount(dto, this.authService);
+  }
+
+  @Put('parents/:id')
+  updateParent(@Param('id') id: string, @Body() dto: any) {
+    return this.adminService.updateParent(id, dto);
   }
 
   // ── STAFF ─────────────────────────────────────────────────
@@ -132,8 +147,8 @@ export class AdminController {
 
   // ── ATTENDANCE ─────────────────────────────────────────────
   @Get('attendance')
-  getAttendance(@Param() _: any, @Body() __: any) {
-    return this.adminService.getAttendanceByQuery({});
+  getAttendance(@Query() query: { groupId?: string; date?: string }) {
+    return this.adminService.getAttendanceByQuery(query);
   }
 
   @Post('attendance')
@@ -156,5 +171,30 @@ export class AdminController {
   @Put('payments/:id')
   updatePayment(@Param('id') id: string, @Body() dto: any) {
     return this.adminService.updatePayment(id, dto);
+  }
+
+  // ── REPORTS ────────────────────────────────────────────
+  @Get('reports/attendance')
+  async downloadAttendanceReport(@Query('month') month: string | undefined, @Res() res: Response) {
+    const buffer = await this.adminService.generateAttendanceReport(month);
+    this.sendXlsx(res, buffer, `attendance_${month || 'current'}.xlsx`);
+  }
+
+  @Get('reports/progress')
+  async downloadProgressReport(@Query('groupId') groupId: string | undefined, @Res() res: Response) {
+    const buffer = await this.adminService.generateProgressReport(groupId);
+    this.sendXlsx(res, buffer, `progress_${groupId || 'all'}.xlsx`);
+  }
+
+  @Get('reports/payments')
+  async downloadPaymentsReport(@Query('month') month: string | undefined, @Res() res: Response) {
+    const buffer = await this.adminService.generatePaymentsReport(month);
+    this.sendXlsx(res, buffer, `payments_${month || 'current'}.xlsx`);
+  }
+
+  private sendXlsx(res: Response, buffer: Buffer, filename: string) {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }

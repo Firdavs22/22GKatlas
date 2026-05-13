@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, NotFoundException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -10,16 +11,59 @@ export class AuthService {
     private jwt: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, deviceId?: string, deviceName?: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Неверный email или пароль');
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException('Неверный email или пароль');
 
-    const token = this.jwt.sign({ sub: user.id, email: user.email, role: user.role });
+    const tokens = await this.generateTokenPair(user.id, user.email, user.role, deviceId, deviceName);
     const { password: _, ...userWithoutPassword } = user;
-    return { token, user: userWithoutPassword };
+    return { ...tokens, user: userWithoutPassword };
+  }
+
+  async refreshToken(refreshToken: string) {
+    // Find refresh token in DB
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true },
+    });
+
+    if (!stored) throw new UnauthorizedException('Недействительный refresh-токен');
+    if (stored.expiresAt < new Date()) {
+      // Clean up expired token
+      await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+      throw new UnauthorizedException('Refresh-токен истёк');
+    }
+
+    // Rotate: delete old refresh token and issue a new pair
+    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+
+    const tokens = await this.generateTokenPair(
+      stored.user.id,
+      stored.user.email,
+      stored.user.role,
+      stored.deviceId ?? undefined,
+      stored.deviceName ?? undefined,
+    );
+
+    const { password: _, ...userWithoutPassword } = stored.user;
+    return { ...tokens, user: userWithoutPassword };
+  }
+
+  async logout(refreshToken: string) {
+    try {
+      await this.prisma.refreshToken.delete({ where: { token: refreshToken } });
+    } catch {
+      // Token may already be deleted — that's fine
+    }
+    return { message: 'Выход выполнен' };
+  }
+
+  async logoutAll(userId: string) {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    return { message: 'Выход со всех устройств выполнен' };
   }
 
   async getMe(userId: string) {
@@ -27,6 +71,14 @@ export class AuthService {
     if (!user) throw new NotFoundException();
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  async getActiveSessions(userId: string) {
+    return this.prisma.refreshToken.findMany({
+      where: { userId, expiresAt: { gt: new Date() } },
+      select: { id: true, deviceId: true, deviceName: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async acceptInvite(token: string, password: string, name: string) {
@@ -41,7 +93,12 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw new NotFoundException();
 
-    const hashed = await bcrypt.hash(password, 10);
+    // Verify token type to prevent type confusion attacks
+    if (payload.type !== 'invite') {
+      throw new BadRequestException('Неверный тип токена');
+    }
+
+    const hashed = await bcrypt.hash(password, 12);
     const updated = await this.prisma.user.update({
       where: { id: user.id },
       data: { password: hashed, name },
@@ -53,5 +110,43 @@ export class AuthService {
 
   generateInviteToken(userId: string): string {
     return this.jwt.sign({ sub: userId, type: 'invite' }, { expiresIn: '7d' });
+  }
+
+  // ── Private helpers ────────────────────────────────────
+
+  private async generateTokenPair(
+    userId: string,
+    email: string,
+    role: string,
+    deviceId?: string,
+    deviceName?: string,
+  ) {
+    // Access token (short-lived, 15 min — set in auth.module.ts)
+    const accessToken = this.jwt.sign({ sub: userId, email, role });
+
+    // Refresh token (long-lived, 30 days, stored in DB)
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId,
+        deviceId: deviceId || null,
+        deviceName: deviceName || null,
+        expiresAt,
+      },
+    });
+
+    // Cleanup: delete expired tokens for this user (background, don't block response)
+    void this.prisma.refreshToken
+      .deleteMany({ where: { userId, expiresAt: { lt: new Date() } } })
+      .catch((err) => {
+        // Log but don't propagate — cleanup failure shouldn't break login
+        console.warn('Failed to cleanup expired refresh tokens:', err.message);
+      });
+
+    return { token: accessToken, refreshToken };
   }
 }

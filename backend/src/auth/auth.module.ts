@@ -11,10 +11,11 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET') || 'supersecretkey',
-        signOptions: { expiresIn: '30d' },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get('JWT_SECRET');
+        if (!secret) throw new Error('JWT_SECRET environment variable is required');
+        return { secret, signOptions: { expiresIn: '15m' } };
+      },
       inject: [ConfigService],
     }),
   ],

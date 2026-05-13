@@ -7,6 +7,7 @@ import { Child } from '@/lib/types';
 import Link from 'next/link';
 
 interface Payment { id: string; month: string; status: string; amount: number; paid: number; }
+interface ScheduleItem { id: string; dayOfWeek: number; timeStart: string; timeEnd: string; activity: string; description?: string; }
 
 const MONTH_NAMES_GEN = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];
 
@@ -25,22 +26,36 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<Child[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
+  const [homeTasks, setHomeTasks] = useState<any[]>([]);
+  const [feed, setFeed] = useState<any[]>([]);
+  const [menu, setMenu] = useState<any[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
   useEffect(() => {
     api.get('/children').then(r => {
       setChildren(r.data);
       if (r.data[0]) {
-        api.get(`/children/${r.data[0].id}/payments`).then(p => setPayments(p.data));
-        api.get(`/children/${r.data[0].id}/attendance`).then(a => setAttendance(a.data));
+        const firstChild = r.data[0];
+        api.get(`/children/${firstChild.id}/payments`).then(p => setPayments(p.data));
+        api.get(`/children/${firstChild.id}/attendance`).then(a => setAttendance(a.data));
+        api.get(`/children/${firstChild.id}/home-tasks`).then(t => setHomeTasks(t.data));
+        api.get('/feed').then(f => setFeed(f.data));
+        api.get('/activities/menu').then(m => setMenu(m.data));
+
+        const groupId = firstChild.group?.id || firstChild.groupId;
+        if (groupId) {
+          api.get(`/groups/${groupId}/schedule`).then(s => setSchedule(s.data));
+        }
       }
     });
   }, []);
 
   const now = new Date();
-  const currentPayment = payments.find(p => {
+  const currentMonthPayment = payments.find(p => {
     const d = new Date(p.month);
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
+  const currentPayment = currentMonthPayment || payments.find(p => p.status !== 'paid') || payments[0];
 
   // This month attendance stats
   const monthAtt = attendance.filter(a => {
@@ -50,6 +65,19 @@ export default function ParentDashboard() {
   const presentDays = monthAtt.filter(a => a.status === 'present').length;
   const childName = children[0]?.name || '';
   const groupName = (children[0] as any)?.group?.name || '';
+  const todayDay = now.getDay();
+  const nowTime = now.toTimeString().slice(0, 5);
+  const todaySchedule = schedule
+    .filter(s => s.dayOfWeek === todayDay)
+    .sort((a, b) => a.timeStart.localeCompare(b.timeStart));
+  const nextScheduleItem = todaySchedule.find(s => s.timeEnd >= nowTime) || todaySchedule[0];
+  const pendingTasks = homeTasks.filter(t => t.status !== 'done');
+  const latestFeed = feed[0];
+  const activeMenu = menu.find(m => {
+    const start = new Date(m.startDate);
+    const end = new Date(m.endDate);
+    return start <= now && end >= now;
+  }) || menu[0];
 
   const [showOnboarding, setShowOnboarding] = useState(
     typeof window !== 'undefined' && !localStorage.getItem('onboarding_done')
@@ -70,19 +98,43 @@ export default function ParentDashboard() {
             <div className="text-xs text-indigo-200">Дней посещено</div>
           </div>
           <div className="bg-white/15 rounded-xl p-3 text-center backdrop-blur-sm">
-            <div className="text-2xl font-bold">{currentPayment ? `${(currentPayment.amount / 1000).toFixed(0)}к` : '—'}</div>
+            <div className="text-2xl font-bold">{currentPayment ? `${(Number(currentPayment.amount) / 1000).toFixed(0)}к` : '—'}</div>
             <div className="text-xs text-indigo-200">К оплате</div>
           </div>
           <div className="bg-white/15 rounded-xl p-3 text-center backdrop-blur-sm">
             <div className="text-2xl font-bold">
               {currentPayment ? (
-                <span className={currentPayment.status === 'paid' ? 'text-green-300' : currentPayment.status === 'debt' ? 'text-red-300' : 'text-yellow-300'}>
-                  {currentPayment.status === 'paid' ? '✓' : currentPayment.status === 'debt' ? '!' : '⏳'}
+                <span className={currentPayment.status === 'paid' ? 'text-green-300' : currentPayment.status === 'overdue' ? 'text-red-300' : 'text-yellow-300'}>
+                  {currentPayment.status === 'paid' ? '✓' : currentPayment.status === 'overdue' ? '!' : '⏳'}
                 </span>
               ) : '—'}
             </div>
             <div className="text-xs text-indigo-200">Статус</div>
           </div>
+        </div>
+      </div>
+
+      <h2 className="text-lg font-bold text-gray-800 mb-3">Актуально сегодня</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+        <div className="bg-white border rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Расписание</div>
+          <div className="font-medium text-gray-800">
+            {nextScheduleItem ? `${nextScheduleItem.timeStart} — ${nextScheduleItem.activity}` : 'На сегодня расписания нет'}
+          </div>
+          {nextScheduleItem?.description && <div className="text-sm text-gray-500 mt-1">{nextScheduleItem.description}</div>}
+        </div>
+        <div className="bg-white border rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Домашние задания</div>
+          <div className="font-medium text-gray-800">{pendingTasks.length ? `${pendingTasks.length} в работе` : 'Всё выполнено'}</div>
+          {pendingTasks[0] && <div className="text-sm text-gray-500 mt-1">{pendingTasks[0].title}</div>}
+        </div>
+        <div className="bg-white border rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Лента</div>
+          <div className="font-medium text-gray-800">{latestFeed?.title || latestFeed?.text || 'Новых записей нет'}</div>
+        </div>
+        <div className="bg-white border rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Меню</div>
+          <div className="font-medium text-gray-800">{activeMenu?.title || 'Меню пока не опубликовано'}</div>
         </div>
       </div>
 

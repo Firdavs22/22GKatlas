@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
 import { FeedItem, Child } from '@/lib/types';
+import AuthMedia from '@/components/AuthMedia';
 
 const TYPE_ICONS: Record<string, string> = {
   child_photo: '📷 Фото',
@@ -16,22 +17,41 @@ const TYPE_ICONS: Record<string, string> = {
 export default function ParentFeed() {
   const [feed, setFeed] = useState<any[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
+  const [downloadingChildId, setDownloadingChildId] = useState<string | null>(null);
 
   useEffect(() => {
     api.get('/feed').then(r => setFeed(r.data));
     api.get('/children').then(r => setChildren(r.data));
   }, []);
 
-  const downloadAll = (childId: string) => {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/feed/download/${childId}`, '_blank');
+  const downloadAll = async (child: Child) => {
+    setDownloadingChildId(child.id);
+    try {
+      const response = await api.get(`/feed/download/${child.id}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `child-photos-${child.name}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingChildId(null);
+    }
   };
 
   return (
     <PageLayout title="Лента">
       <div className="flex gap-2 mb-4 flex-wrap">
         {children.map(c => (
-          <button key={c.id} onClick={() => downloadAll(c.id)} className="text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-            Скачать фото {c.name}
+          <button
+            key={c.id}
+            onClick={() => downloadAll(c)}
+            disabled={downloadingChildId === c.id}
+            className="text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 disabled:opacity-60"
+          >
+            {downloadingChildId === c.id ? 'Подготовка...' : `Скачать фото ${c.name}`}
           </button>
         ))}
       </div>
@@ -46,6 +66,18 @@ export default function ParentFeed() {
             </div>
             {item.title && <div className="font-medium mb-1">{item.title}</div>}
             {item.text && <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.text}</p>}
+            {item.mediaUrls && item.mediaUrls.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {item.mediaUrls.map((url: string, i: number) => (
+                  <AuthMedia
+                    key={i}
+                    src={url}
+                    alt="Медиафайл"
+                    className="max-h-64 rounded-lg border object-contain"
+                  />
+                ))}
+              </div>
+            )}
             <div className="mt-2 pt-2 border-t border-gray-100">
               <button
                 onClick={async () => {

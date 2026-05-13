@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import PageLayout from '@/components/PageLayout';
+import ChildProfileCard from '@/components/ChildProfileCard';
 import api from '@/lib/api';
 import { SpecialistNote } from '@/lib/types';
 
@@ -10,7 +11,7 @@ const NOTE_TYPES: Record<string, string> = { observation: 'Наблюдение'
 
 export default function PsychologistChild() {
   const { id } = useParams<{ id: string }>();
-  const [child, setChild] = useState<{ name?: string; group?: { name?: string } } | null>(null);
+  const [child, setChild] = useState<any>(null);
   const [notes, setNotes] = useState<SpecialistNote[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'observation', text: '', recommendations: '', visibility: 'specialist_only' });
@@ -30,10 +31,11 @@ export default function PsychologistChild() {
 
   return (
     <PageLayout title={child?.name || 'Ребёнок'}>
-      <div className="flex justify-between mb-4">
-        <div className="text-gray-500">{child?.group?.name}</div>
+      <div className="flex justify-end mb-4">
         <button onClick={() => setShowForm(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">+ Заметка</button>
       </div>
+
+      <ChildProfileCard child={child} />
 
       {showForm && (
         <form onSubmit={create} className="bg-white border rounded-xl p-4 mb-4 space-y-3">

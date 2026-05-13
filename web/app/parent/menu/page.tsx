@@ -2,31 +2,10 @@
 import { useState, useEffect } from 'react';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
+import { MENU_DAY_NAMES, MENU_DAY_SHORT, parseMenuContent } from '@/lib/menu';
 
-const DAY_NAMES = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница'];
-const DAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
-
-function parseMenuContent(content: string): Record<string, { time: string; name: string; food: string }[]> {
-  const result: Record<string, { time: string; name: string; food: string }[]> = {};
-  DAY_NAMES.forEach(d => { result[d] = []; });
-
-  let currentDay = '';
-  const lines = content.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const dayMatch = trimmed.match(/^\*\*(.+?)\*\*$/);
-    if (dayMatch) {
-      const dayName = dayMatch[1].trim();
-      if (DAY_NAMES.includes(dayName)) currentDay = dayName;
-      continue;
-    }
-    const mealMatch = trimmed.match(/^[•\-]\s*(\d{1,2}:\d{2})\s*[—–-]\s*(.+?):\s*(.+)$/);
-    if (mealMatch && currentDay) {
-      result[currentDay].push({ time: mealMatch[1], name: mealMatch[2].trim(), food: mealMatch[3].trim() });
-    }
-  }
-  return result;
-}
+const DAY_NAMES = MENU_DAY_NAMES;
+const DAY_SHORT = MENU_DAY_SHORT;
 
 const MEAL_ICONS: Record<string, string> = {
   'Завтрак': '🥞',
@@ -121,6 +100,11 @@ export default function ParentMenu() {
                       <span className="text-sm font-medium text-gray-800">{meal.name}</span>
                     </div>
                     <div className="text-sm text-gray-600 mt-0.5">{meal.food}</div>
+                    {meal.alternative && (
+                      <div className="text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-1 mt-2">
+                        Альтернатива: {meal.alternative}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -141,6 +125,7 @@ export default function ParentMenu() {
                       <div key={i} className="text-xs">
                         <div className="font-semibold text-orange-600">{meal.time} — {meal.name}</div>
                         <div className="text-gray-600">{meal.food}</div>
+                        {meal.alternative && <div className="text-emerald-700 mt-0.5">Альтернатива: {meal.alternative}</div>}
                       </div>
                     ))}
                   </div>
@@ -181,6 +166,7 @@ export default function ParentMenu() {
                                 p[day].map((meal, i) => (
                                   <div key={i} className="text-[10px]">
                                     <span className="font-bold text-orange-600">{meal.time}</span> {meal.name}: <span className="text-gray-600">{meal.food}</span>
+                                    {meal.alternative && <div className="text-emerald-700 mt-0.5">Альтернатива: {meal.alternative}</div>}
                                   </div>
                                 ))}
                             </div>

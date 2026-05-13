@@ -18,8 +18,8 @@ export class FeedController {
   create(@Body() dto: any, @CurrentUser() user: any) { return this.feedService.createFeedItem(dto, user); }
 
   @Get('download/:childId')
-  download(@Param('childId') childId: string, @Res() res: Response) {
-    return this.feedService.downloadChildPhotos(childId, res);
+  download(@Param('childId') childId: string, @CurrentUser() user: any, @Res() res: Response) {
+    return this.feedService.downloadChildPhotos(childId, user, res);
   }
 
   @Post(':id/like')

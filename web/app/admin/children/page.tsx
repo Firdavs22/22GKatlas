@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
 import { Child, Group, User } from '@/lib/types';
+import Link from 'next/link';
 
 const EXTRA_SERVICES_OPTIONS = ['Логопед', 'Хореография', 'Музыка', 'Английский', 'Рисование', 'Плавание', 'Шахматы', 'Робототехника'];
+const emptyParentLink = () => ({ id: '', name: '', email: '', phone: '' });
 
 export default function AdminChildren() {
   const [children, setChildren] = useState<any[]>([]);
@@ -12,15 +14,12 @@ export default function AdminChildren() {
   const [staff, setStaff] = useState<User[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<any>({ name: '', birthDate: '', contacts: [], representatives: [], extraServices: [], allergies: '', documents: {}, notes: '' });
+  const [form, setForm] = useState<any>({ name: '', birthDate: '', parentLinks: [emptyParentLink()], contacts: [], representatives: [], extraServices: [], allergies: '', documents: {}, notes: '' });
 
   // Filters
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
-
-  // Detail modal
-  const [detailChild, setDetailChild] = useState<any>(null);
 
   useEffect(() => {
     api.get('/admin/children').then(r => setChildren(r.data));
@@ -35,6 +34,14 @@ export default function AdminChildren() {
         name: child.name,
         birthDate: child.birthDate?.split('T')[0] || '',
         contacts: child.contacts || [],
+        parentLinks: child.parents?.length
+          ? child.parents.map((link: any) => ({
+            id: link.parent?.id || '',
+            name: link.parent?.name || '',
+            email: link.parent?.email || '',
+            phone: link.parent?.phone || '',
+          }))
+          : [emptyParentLink()],
         representatives: child.representatives || [],
         extraServices: child.extraServices || [],
         allergies: child.allergies || '',
@@ -43,10 +50,9 @@ export default function AdminChildren() {
       });
     } else {
       setEditingId(null);
-      setForm({ name: '', birthDate: '', contacts: [], representatives: [], extraServices: [], allergies: '', documents: {}, notes: '' });
+      setForm({ name: '', birthDate: '', parentLinks: [emptyParentLink()], contacts: [], representatives: [], extraServices: [], allergies: '', documents: {}, notes: '' });
     }
     setShowForm(true);
-    setDetailChild(null);
   };
 
   const saveForm = async (e: React.FormEvent) => {
@@ -74,7 +80,6 @@ export default function AdminChildren() {
     if (!confirm('Отчислить ребёнка?')) return;
     await api.delete(`/admin/children/${childId}`);
     setChildren(prev => prev.map(c => c.id === childId ? { ...c, status: 'left' } : c));
-    setDetailChild(null);
   };
 
   const toggleService = (service: string) => {
@@ -92,6 +97,12 @@ export default function AdminChildren() {
     setForm((p: any) => ({ ...p, contacts: p.contacts.map((c: any, idx: number) => idx === i ? { ...c, [field]: val } : c) }));
   };
 
+  const addParentLink = () => setForm((p: any) => ({ ...p, parentLinks: [...p.parentLinks, emptyParentLink()] }));
+  const removeParentLink = (i: number) => setForm((p: any) => ({ ...p, parentLinks: p.parentLinks.length > 1 ? p.parentLinks.filter((_: any, idx: number) => idx !== i) : p.parentLinks }));
+  const updateParentLink = (i: number, field: string, val: string) => {
+    setForm((p: any) => ({ ...p, parentLinks: p.parentLinks.map((parent: any, idx: number) => idx === i ? { ...parent, [field]: val } : parent) }));
+  };
+
   const addRep = () => setForm((p: any) => ({ ...p, representatives: [...p.representatives, { name: '', phone: '', relation: '' }] }));
   const removeRep = (i: number) => setForm((p: any) => ({ ...p, representatives: p.representatives.filter((_: any, idx: number) => idx !== i) }));
   const updateRep = (i: number, field: string, val: string) => {
@@ -105,6 +116,13 @@ export default function AdminChildren() {
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
+  };
+
+  const formatParents = (child: any) => {
+    const names = (child.parents || [])
+      .map((link: any) => link.parent?.name || link.parent?.email)
+      .filter(Boolean);
+    return names.length ? names.join(', ') : '';
   };
 
   const filtered = children.filter(c => {
@@ -176,6 +194,25 @@ export default function AdminChildren() {
                   </div>
                 </div>
 
+                {/* Parents */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-medium text-gray-600">Родители *</label>
+                    <button type="button" onClick={addParentLink} className="text-xs text-indigo-600 hover:underline">+ Добавить родителя</button>
+                  </div>
+                  <div className="space-y-2">
+                    {form.parentLinks.map((parent: any, i: number) => (
+                      <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 bg-gray-50 border rounded-lg p-3">
+                        <input value={parent.name} onChange={e => updateParentLink(i, 'name', e.target.value)} placeholder="ФИО родителя" className="border rounded px-2 py-1.5 text-xs" required />
+                        <input value={parent.email} onChange={e => updateParentLink(i, 'email', e.target.value)} placeholder="Email для входа" type="email" className="border rounded px-2 py-1.5 text-xs" required disabled={!!parent.id} />
+                        <input value={parent.phone} onChange={e => updateParentLink(i, 'phone', e.target.value)} placeholder="Телефон" className="border rounded px-2 py-1.5 text-xs" />
+                        <button type="button" onClick={() => removeParentLink(i)} className="text-red-400 hover:text-red-600 px-2" title="Убрать родителя">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Родитель создаётся как пользователь с ролью «Родитель» и привязывается к ребёнку.</p>
+                </div>
+
                 {/* Extra Services */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-2">Доп. услуги</label>
@@ -241,83 +278,6 @@ export default function AdminChildren() {
         </div>
       )}
 
-      {/* Detail Modal */}
-      {detailChild && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailChild(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-6 rounded-t-2xl">
-              <div className="flex justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{detailChild.name}</h2>
-                  <div className="text-indigo-200 text-sm mt-1">{getAge(detailChild.birthDate)} лет · {detailChild.group?.name || 'Без группы'}</div>
-                </div>
-                <button onClick={() => setDetailChild(null)} className="text-white/70 hover:text-white text-2xl">✕</button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              {detailChild.allergies && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">⚠️ Аллергии / Здоровье</h4>
-                  <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{detailChild.allergies}</div>
-                </div>
-              )}
-              {detailChild.extraServices?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Доп. услуги</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {detailChild.extraServices.map((s: string) => (
-                      <span key={s} className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-medium">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {detailChild.contacts?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Контакты</h4>
-                  {detailChild.contacts.map((c: any, i: number) => (
-                    <div key={i} className="flex gap-3 mb-1 text-sm">
-                      <span className="font-medium">{c.name}</span>
-                      <span className="text-indigo-600">{c.phone}</span>
-                      <span className="text-gray-400">{c.relation}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detailChild.representatives?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Представители</h4>
-                  {detailChild.representatives.map((c: any, i: number) => (
-                    <div key={i} className="flex gap-3 mb-1 text-sm">
-                      <span className="font-medium">{c.name}</span>
-                      <span className="text-indigo-600">{c.phone}</span>
-                      <span className="text-gray-400">{c.relation}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {detailChild.parents?.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Родители (в системе)</h4>
-                  {detailChild.parents.map((p: any) => (
-                    <div key={p.parent.id} className="text-sm mb-1"><span className="font-medium">{p.parent.name}</span> <span className="text-gray-400">{p.parent.email}</span></div>
-                  ))}
-                </div>
-              )}
-              {detailChild.notes && (
-                <div>
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">Заметки</h4>
-                  <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{detailChild.notes}</div>
-                </div>
-              )}
-              <div className="flex gap-2 pt-3 border-t">
-                <button onClick={() => { setDetailChild(null); openForm(detailChild); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">✏️ Редактировать</button>
-                <button onClick={() => archive(detailChild.id)} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-100">🚫 Отчислить</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Children Table */}
       <div className="bg-white border rounded-xl overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -338,7 +298,7 @@ export default function AdminChildren() {
             ) : filtered.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-sm">{c.name}</div>
+                  <Link href={`/admin/children/${c.id}`} className="font-medium text-sm text-indigo-600 hover:underline">{c.name}</Link>
                   <div className="text-xs text-gray-400">{new Date(c.birthDate).toLocaleDateString('ru')}</div>
                 </td>
                 <td className="px-3 py-3 text-sm text-gray-600">{getAge(c.birthDate)} лет</td>
@@ -349,10 +309,7 @@ export default function AdminChildren() {
                   </select>
                 </td>
                 <td className="px-3 py-3 text-xs text-gray-600 max-w-[120px]">
-                  {c.parents?.length > 0
-                    ? c.parents.map((p: any) => p.parent?.name).filter(Boolean).join(', ')
-                    : <span className="text-gray-300">—</span>
-                  }
+                  {formatParents(c) || <span className="text-amber-600">Нужно добавить</span>}
                 </td>
                 <td className="px-3 py-3 text-xs text-gray-500 max-w-[120px]">
                   {c.contacts?.length > 0
@@ -371,7 +328,7 @@ export default function AdminChildren() {
                   </div>
                 </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => setDetailChild(c)} title="Подробнее" className="text-indigo-500 hover:text-indigo-700 p-1">📋</button>
+                  <Link href={`/admin/children/${c.id}`} title="Карточка ребёнка" className="text-indigo-500 hover:text-indigo-700 p-1">📋</Link>
                   <button onClick={() => openForm(c)} title="Редактировать" className="text-gray-400 hover:text-gray-600 p-1">✏️</button>
                   <button onClick={() => archive(c.id)} title="Отчислить" className="text-red-400 hover:text-red-600 p-1">🚫</button>
                 </td>

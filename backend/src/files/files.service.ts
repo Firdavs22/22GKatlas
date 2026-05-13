@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import * as Minio from 'minio';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class FilesService implements OnModuleInit {
@@ -7,16 +8,16 @@ export class FilesService implements OnModuleInit {
   private readonly logger = new Logger(FilesService.name);
   private bucketName = 'globoatlas-files';
 
-  onModuleInit() {
+  async onModuleInit() {
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || 'localhost',
       port: Number(process.env.MINIO_PORT) || 9000,
-      useSSL: false,
+      useSSL: process.env.MINIO_USE_SSL === 'true',
       accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
       secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
     });
 
-    this.initBucket();
+    await this.initBucket();
   }
 
   private async initBucket() {
@@ -24,21 +25,8 @@ export class FilesService implements OnModuleInit {
       const exists = await this.minioClient.bucketExists(this.bucketName);
       if (!exists) {
         await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
-        
-        // Make the bucket public for reading
-        const policy = {
-          Version: '2012-10-17',
-          Statement: [
-            {
-              Effect: 'Allow',
-              Principal: { AWS: ['*'] },
-              Action: ['s3:GetObject'],
-              Resource: [`arn:aws:s3:::${this.bucketName}/*`],
-            },
-          ],
-        };
-        await this.minioClient.setBucketPolicy(this.bucketName, JSON.stringify(policy));
-        this.logger.log(`Created public bucket: ${this.bucketName}`);
+        // No public policy — files served only through authenticated API endpoint
+        this.logger.log(`Created private bucket: ${this.bucketName}`);
       }
     } catch (error) {
       this.logger.error(`Error initializing bucket: ${error.message}`);
@@ -49,7 +37,7 @@ export class FilesService implements OnModuleInit {
     if (!file) throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
 
     const ext = file.originalname.split('.').pop() || 'bin';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+    const filename = `${crypto.randomUUID()}.${ext}`;
 
     try {
       await this.minioClient.putObject(

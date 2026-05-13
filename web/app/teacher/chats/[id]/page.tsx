@@ -3,10 +3,12 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import PageLayout from '@/components/PageLayout';
 import api from '@/lib/api';
+import { WS_URL } from '@/lib/network';
 import { ChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { io, Socket } from 'socket.io-client';
 import FileUpload from '@/components/FileUpload';
+import AuthMedia from '@/components/AuthMedia';
 
 export default function TeacherChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +21,6 @@ export default function TeacherChatPage() {
 
   useEffect(() => {
     api.get(`/chats/${id}/messages`).then(r => setMessages(r.data));
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
     const socket = io(WS_URL, { auth: { token } });
     socket.emit('joinRoom', id);
     socket.on('newMessage', (msg: ChatMessage) => setMessages(prev => [...prev, msg]));
@@ -49,7 +50,7 @@ export default function TeacherChatPage() {
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className="mt-1 flex flex-col gap-1">
                     {msg.attachments.map((url, i) => (
-                      <img key={i} src={url} alt="Attachment" className="rounded bg-white p-0.5 object-contain max-h-48" />
+                      <AuthMedia key={i} src={url} alt="Attachment" className="rounded bg-white p-0.5 object-contain max-h-48" />
                     ))}
                   </div>
                 )}
@@ -63,14 +64,14 @@ export default function TeacherChatPage() {
             <div className="flex gap-2 mb-2 p-2 bg-gray-50 rounded-lg overflow-x-auto">
               {attachments.map((url, i) => (
                 <div key={i} className="relative h-12 w-12 flex-shrink-0">
-                  <img src={url} alt="Прикрепленный файл" className="h-full w-full object-cover rounded border" />
+                  <AuthMedia src={url} alt="Прикрепленный файл" className="h-full w-full object-cover rounded border" />
                 </div>
               ))}
             </div>
           )}
           <form onSubmit={send} className="flex gap-2">
             <div className="shrink-0 w-12 h-10 overflow-hidden rounded-lg flex items-center justify-center bg-gray-100 border hover:bg-gray-200">
-              <FileUpload onUpload={url => setAttachments(p => [...p, url])} label="📎" />
+              <FileUpload onUpload={urls => setAttachments(p => [...p, ...urls])} label="📎" />
             </div>
             <input value={text} onChange={e => setText(e.target.value)} placeholder="Сообщение..." className="flex-1 border rounded-lg px-3 py-2" />
             <button type="submit" disabled={!text.trim() && attachments.length === 0} className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50">Отправить</button>
