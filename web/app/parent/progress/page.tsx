@@ -1,62 +1,27 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { Download, Share2, ImageIcon } from 'lucide-react';
+import {
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend,
+} from 'recharts';
 import PageLayout from '@/components/PageLayout';
+import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
 import { Area, Child, Progress } from '@/lib/types';
 import AuthMedia from '@/components/AuthMedia';
 import { getAuthMediaUrl } from '@/lib/media';
 
-import {
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer,
-  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend
-} from 'recharts';
+type TabId = 'map' | 'diary' | 'portfolio' | 'feed';
+type Period = 'week' | 'month' | 'year';
 
-const colors = { bg: "#FDFAF5", card: "#FFFFFF", primary: "#5B7553", primaryLight: "#E8F0E6", accent: "#D4956A", accentLight: "#FBF0E8", text: "#2D2B28", textSecondary: "#7A756E", border: "#E8E3DC" };
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'map', label: 'Карта' },
+  { id: 'diary', label: 'Дневник' },
+  { id: 'portfolio', label: 'Портфолио' },
+  { id: 'feed', label: 'Лента' },
+];
 
-const LevelBadge = ({ level }: { level: number }) => {
-  const config: Record<number, any> = {
-    0: { label: "Пока нет", bg: "#F5F0EB", color: "#A09A93", dot: "○" },
-    1: { label: "Знакомство", bg: "#FFF8E1", color: "#C9A227", dot: "◔" },
-    2: { label: "Практикует", bg: "#FFF3E0", color: "#E88F3A", dot: "◐" },
-    3: { label: "Освоено", bg: "#E8F5E9", color: "#4CAF50", dot: "●" },
-  };
-  const c = config[level] || config[0];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 12, background: c.bg, color: c.color, fontSize: 12, fontWeight: 600 }}>
-      {c.dot} {c.label}
-    </span>
-  );
-};
-
-const TabButton = ({ active, onClick, children, icon }: any) => (
-  <button onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", border: "none", borderRadius: 12,
-      background: active ? colors.primary : "transparent", color: active ? "#fff" : colors.textSecondary,
-      fontSize: 14, fontWeight: active ? 600 : 500, cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap",
-  }}>
-    <span style={{ fontSize: 16 }}>{icon}</span>{children}
-  </button>
-);
-
-// Map area title keywords -> sensitive period age windows (Maria Montessori).
-// Returns true if the child age (in years) falls in the typical sensitive window for the area.
-function isAreaSensitive(areaTitle: string, ageYears: number): boolean {
-  const t = areaTitle.toLowerCase();
-  if (t.includes('практ')) return ageYears >= 1.5 && ageYears <= 4;       // практическая жизнь
-  if (t.includes('сенсор')) return ageYears >= 2 && ageYears <= 6;        // сенсорика
-  if (t.includes('язык') || t.includes('речь')) return ageYears >= 1.5 && ageYears <= 6;
-  if (t.includes('математ')) return ageYears >= 4 && ageYears <= 6;
-  if (t.includes('космич') || t.includes('окружа')) return ageYears >= 5 && ageYears <= 8;
-  if (t.includes('социал') || t.includes('эмоц')) return ageYears >= 2.5 && ageYears <= 6;
-  if (t.includes('физич') || t.includes('движен')) return ageYears >= 0 && ageYears <= 4;
-  return false;
-}
-
-function ageInYears(birthDate: string | Date): number {
-  const d = new Date(birthDate);
-  const now = new Date();
-  return (now.getTime() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
-}
+const PERIOD_DAYS: Record<Period, number> = { week: 7, month: 30, year: 365 };
 
 function stageToValue(stage?: string): number {
   if (stage === 'mastered') return 100;
@@ -65,410 +30,298 @@ function stageToValue(stage?: string): number {
   return 0;
 }
 
-function stageToLevel(stage?: string): number {
-  if (stage === 'mastered') return 3;
-  if (stage === 'practicing') return 2;
-  if (stage === 'presented') return 1;
-  return 0;
+function shortenAreaTitle(title: string): string {
+  return title.length > 14 ? title.slice(0, 12) + '…' : title;
 }
 
-export default function MontessoriDashboard() {
-  const [activeTab, setActiveTab] = useState("map");
-  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+export default function ProgressPage() {
+  const [activeTab, setActiveTab] = useState<TabId>('map');
+  const [period, setPeriod] = useState<Period>('month');
 
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChild, setSelectedChild] = useState('');
-
   const [areas, setAreas] = useState<Area[]>([]);
   const [progress, setProgress] = useState<Record<string, string>>({});
-  const [history, setHistory] = useState<any[]>([]);
-  const [observations, setObservations] = useState<any[]>([]);
-  const [portfolio, setPortfolio] = useState<any[]>([]);
-  const [feed, setFeed] = useState<any[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const [history, setHistory] = useState<{ progress: { skillId: string }; newStage: string; changedAt: string }[]>([]);
+  const [observations, setObservations] = useState<{ id: string; text: string; date: string; author?: { name: string } }[]>([]);
+  const [portfolio, setPortfolio] = useState<{ id: string; title: string; type: string; fileUrl: string; date: string }[]>([]);
+  const [feed, setFeed] = useState<{ id: string; title?: string; text?: string; mediaUrls: string[]; createdAt: string; author?: { name: string } }[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-    api.get('/children').then(r => {
-      setChildren(r.data);
-      if (r.data.length > 0) setSelectedChild(r.data[0].id);
-    });
-    api.get('/admin/areas').then(r => setAreas(r.data));
+    api.get('/children').then(r => setChildren(r.data));
+    api.get('/admin/areas').then(r => setAreas(r.data)).catch(() => {});
   }, []);
 
+  const child = children[0];
+
   useEffect(() => {
-    if (!selectedChild) return;
-    api.get(`/children/${selectedChild}/progress`).then(r => {
+    if (!child) return;
+    api.get(`/children/${child.id}/progress`).then(r => {
       const map: Record<string, string> = {};
       r.data.forEach((p: Progress) => { map[p.skillId] = p.stage; });
       setProgress(map);
     });
-    api.get(`/children/${selectedChild}/progress-history`).then(r => setHistory(r.data));
-    api.get(`/children/${selectedChild}/observations`).then(r => setObservations(r.data));
-    api.get(`/children/${selectedChild}/portfolio`).then(r => setPortfolio(r.data));
-    api.get(`/children/${selectedChild}/feed`).then(r => setFeed(r.data));
-  }, [selectedChild]);
+    api.get(`/children/${child.id}/progress-history`).then(r => setHistory(r.data)).catch(() => {});
+    api.get(`/children/${child.id}/observations`).then(r => setObservations(r.data)).catch(() => {});
+    api.get(`/children/${child.id}/portfolio`).then(r => setPortfolio(r.data)).catch(() => {});
+    api.get(`/children/${child.id}/feed`).then(r => setFeed(r.data)).catch(() => {});
+  }, [child]);
 
-  const child = children.find(c => c.id === selectedChild);
-
-  // Aggregate stats per area: skill counts, history dates of stage transitions ────────
+  // Per-area aggregates
   const areaStats = useMemo(() => {
     return areas.map(a => {
-      let total = 0, mastered = 0, practicing = 0, presented = 0;
+      let total = 0, valSum = 0;
       const skillIds: string[] = [];
       a.groups?.forEach(g => g.skills?.forEach(s => {
         total++;
         skillIds.push(s.id);
-        const st = progress[s.id];
-        if (st === 'mastered') mastered++;
-        else if (st === 'practicing') practicing++;
-        else if (st === 'presented') presented++;
+        valSum += stageToValue(progress[s.id]);
       }));
-      const valSum = mastered * 100 + practicing * 60 + presented * 25;
       const currentPct = total ? Math.round(valSum / total) : 0;
-      return { area: a, total, mastered, practicing, presented, currentPct, skillIds };
+      return { area: a, total, currentPct, skillIds };
     });
   }, [areas, progress]);
 
-  // Radar data: current % vs % one month ago ────────────────────────────────────────
+  // Radar data: current vs N days ago
   const radarData = useMemo(() => {
-    const monthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const cutoff = new Date(Date.now() - PERIOD_DAYS[period] * 24 * 3600 * 1000);
     return areaStats.map(({ area, total, currentPct, skillIds }) => {
       let prevSum = 0;
       for (const sid of skillIds) {
-        const events = history.filter(x => x.progress.skillId === sid && new Date(x.changedAt) <= monthAgo);
+        const events = history.filter(x => x.progress?.skillId === sid && new Date(x.changedAt) <= cutoff);
         const last = events[events.length - 1];
         prevSum += stageToValue(last?.newStage);
       }
       const prevPct = total ? Math.round(prevSum / total) : 0;
       return {
-        // Short label for radar axis (e.g. "Математика", "Соц-эмоц")
-        area: area.title.length > 14 ? area.title.slice(0, 13) + '…' : area.title,
+        area: shortenAreaTitle(area.title),
         current: currentPct,
         prev: prevPct,
+        delta: currentPct - prevPct,
       };
     });
-  }, [areaStats, history]);
+  }, [areaStats, history, period]);
 
-  // Timeline: 6 monthly snapshots ────────────────────────────────────────────────────
-  const timelineData = useMemo(() => {
-    const result: any[] = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0); // end of month i months back
-      const monthStr = d.toLocaleString('ru-RU', { month: 'short' });
-      const point: any = { period: monthStr };
-      for (const { area, skillIds, total } of areaStats) {
-        let sum = 0;
-        for (const sid of skillIds) {
-          const events = history.filter(x => x.progress.skillId === sid && new Date(x.changedAt) <= d);
-          const last = events[events.length - 1];
-          sum += stageToValue(last?.newStage);
-        }
-        point[area.id] = total ? Math.round(sum / total) : 0;
-      }
-      result.push(point);
-    }
-    return result;
-  }, [areaStats, history]);
-
-  // Top achievements: skills that reached 'mastered' in last 30 days ─────────────────
-  const topAchievements = useMemo(() => {
-    const monthAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-    const items: { skillTitle: string; areaTitle: string; date: Date }[] = [];
-    for (const ev of history) {
-      if (ev.newStage !== 'mastered') continue;
-      const d = new Date(ev.changedAt);
-      if (d < monthAgo) continue;
-      const skillId = ev.progress?.skillId;
-      let skillTitle = '', areaTitle = '';
-      for (const a of areas) {
-        for (const g of a.groups || []) {
-          const sk = g.skills?.find(s => s.id === skillId);
-          if (sk) { skillTitle = sk.title; areaTitle = a.title; break; }
-        }
-        if (skillTitle) break;
-      }
-      if (skillTitle) items.push({ skillTitle, areaTitle, date: d });
-    }
-    items.sort((a, b) => b.date.getTime() - a.date.getTime());
-    return items.slice(0, 5);
-  }, [history, areas]);
-
-  if (!mounted || !child) return <div className="p-10 text-center">Загрузка...</div>;
-
-  const childAge = ageInYears(child.birthDate);
-  const childAgeText = `${Math.floor(childAge)} ${childAge < 2 ? 'год' : childAge < 5 ? 'года' : 'лет'}`;
-
-  // Overall mastery
-  const totalSkills = areaStats.reduce((s, a) => s + a.total, 0);
-  const totalMastered = areaStats.reduce((s, a) => s + a.mastered, 0);
-  const totalPracticing = areaStats.reduce((s, a) => s + a.practicing, 0);
-  const overallPct = totalSkills ? Math.round((totalMastered * 100 + totalPracticing * 60) / totalSkills) : 0;
+  const handleDownloadReport = () => {
+    if (!child) return;
+    window.open(`${api.defaults.baseURL}/children/${child.id}/report`, '_blank');
+  };
 
   return (
-    <PageLayout title="Карта развития">
-      <div style={{ fontFamily: "'Nunito', sans-serif" }}>
-        {/* Child Selector */}
-        <div className="mb-6 flex items-center justify-between flex-wrap gap-2">
-          <select
-            value={selectedChild}
-            onChange={e => setSelectedChild(e.target.value)}
-            className="border-gray-300 rounded-lg shadow-sm px-4 py-2 focus:ring-indigo-500 focus:border-indigo-500 font-semibold"
+    <PageLayout
+      eyebrow={
+        child
+          ? `${child.name.toUpperCase()}${child.group?.name ? ` · ${child.group.name.toUpperCase()}` : ''}${child.group?.ageRange ? ` · ${child.group.ageRange.toUpperCase()}` : ''}`
+          : 'Профиль ребёнка'
+      }
+      title="Карта развития"
+      actions={
+        <>
+          <Button variant="outline" size="sm" onClick={handleDownloadReport}>
+            <Download size={16} />
+            Отчёт PDF
+          </Button>
+          <Button variant="primary" size="sm">
+            <Share2 size={16} />
+            Поделиться
+          </Button>
+        </>
+      }
+    >
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === t.id
+                ? 'border-brand text-brand'
+                : 'border-transparent text-slate-500 hover:text-foreground'
+            }`}
           >
-            {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <div className="text-sm text-gray-500">
-            Возраст: {childAgeText} • Род. {new Date(child.birthDate).toLocaleDateString('ru-RU')}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 16 }}>
-          {[
-            { id: "map", label: "Карта развития", icon: "🌳" },
-            { id: "diary", label: "Дневник", icon: "📖" },
-            { id: "portfolio", label: "Портфолио", icon: "🎒" },
-            { id: "events", label: "Лента", icon: "📰" },
-          ].map(t => (
-            <TabButton key={t.id} active={activeTab === t.id} onClick={() => { setActiveTab(t.id); setSelectedArea(null); }} icon={t.icon}>{t.label}</TabButton>
-          ))}
-        </div>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "16px" }}>
-
-        {/* === КАРТА РАЗВИТИЯ === */}
-        {activeTab === "map" && !selectedArea && (
-          <div>
-            {/* Summary card */}
-            <div style={{ background: `linear-gradient(135deg, ${colors.primary}, #6F8C66)`, color: '#fff', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-              <div style={{ fontSize: 13, opacity: 0.85 }}>Общий прогресс</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 4 }}>
-                <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1 }}>{overallPct}%</div>
-                <div style={{ fontSize: 14, opacity: 0.9 }}>{totalMastered} из {totalSkills} навыков освоено</div>
+      {activeTab === 'map' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Radar */}
+          <Card padding="md">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <SectionLabel>Общая карта</SectionLabel>
+                <h3 className="font-serif text-2xl mt-1">
+                  Сейчас vs <span className="italic">{period === 'week' ? 'неделя' : period === 'month' ? 'месяц' : 'год'} назад</span>
+                </h3>
               </div>
-              <div style={{ height: 8, background: 'rgba(255,255,255,0.25)', borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${overallPct}%`, background: '#fff', borderRadius: 4, transition: 'width 0.8s ease' }} />
-              </div>
-            </div>
-
-            {/* Top achievements card */}
-            {topAchievements.length > 0 && (
-              <div style={{ background: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  ✨ Достижения за месяц
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {topAchievements.map((a, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < topAchievements.length - 1 ? `1px dashed ${colors.border}` : 'none' }}>
-                      <span style={{ fontSize: 18 }}>🌟</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: colors.text, fontWeight: 600 }}>{a.skillTitle}</div>
-                        <div style={{ fontSize: 11, color: colors.textSecondary }}>{a.areaTitle}</div>
-                      </div>
-                      <div style={{ fontSize: 11, color: colors.textSecondary }}>{a.date.toLocaleDateString('ru-RU')}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Radar */}
-            <div style={{ background: colors.card, borderRadius: 16, padding: "20px 16px", marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Общая картина развития</div>
-              <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Зелёная — сейчас, серая пунктирная — месяц назад</div>
-              {radarData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
-                    <PolarGrid stroke={colors.border} />
-                    <PolarAngleAxis dataKey="area" tick={{ fontSize: 10, fill: colors.text }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar name="Месяц назад" dataKey="prev" stroke="#bbb" fill="#ddd" fillOpacity={0.3} strokeDasharray="4 4" />
-                    <Radar name="Сейчас" dataKey="current" stroke={colors.primary} fill={colors.primary} fillOpacity={0.25} strokeWidth={2} />
-                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary, fontSize: 13 }}>
-                  Недостаточно данных для диаграммы
-                </div>
-              )}
-            </div>
-
-            {/* Areas list with sensitive period badge */}
-            <div style={{ fontSize: 14, fontWeight: 600, color: colors.text, marginBottom: 10 }}>Области развития</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {areaStats.map(({ area, total, mastered, currentPct }, i) => {
-                const prev = radarData[i]?.prev ?? 0;
-                const growth = currentPct - prev;
-                const sensitive = isAreaSensitive(area.title, childAge);
-                return (
-                  <button key={area.id} onClick={() => setSelectedArea(area.id)} style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "14px 16px",
-                    background: colors.card,
-                    border: `1px solid ${sensitive ? area.color || colors.primary : colors.border}`,
-                    borderRadius: 12,
-                    cursor: "pointer", textAlign: "left", width: "100%", transition: "all 0.15s",
-                    boxShadow: sensitive ? `0 0 0 2px ${(area.color || colors.primary)}20` : 'none',
-                  }}>
-                    <span style={{ fontSize: 24 }}>{area.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{area.title}</div>
-                        {sensitive && (
-                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: `${area.color || colors.primary}20`, color: area.color || colors.primary, fontWeight: 700 }}>
-                            🌱 сензитивный период
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>{mastered} из {total} освоено</div>
-                      <div style={{ height: 6, background: "#F0EBE5", borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${currentPct}%`, background: area.color || colors.primary, borderRadius: 3, transition: "width 0.8s ease" }} />
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: colors.text }}>{currentPct}%</div>
-                      {growth > 0 && <div style={{ fontSize: 11, color: "#4CAF50", fontWeight: 600 }}>+{growth}%</div>}
-                    </div>
-                    <span style={{ color: colors.textSecondary, fontSize: 18 }}>›</span>
+              <div className="inline-flex rounded-full bg-slate-100 p-0.5">
+                {(['week', 'month', 'year'] as Period[]).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                      period === p ? 'bg-white shadow-sm text-foreground font-medium' : 'text-slate-500'
+                    }`}
+                  >
+                    {p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Год'}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#E2E8F0" />
+                  <PolarAngleAxis dataKey="area" tick={{ fontSize: 11, fill: '#64748B' }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar
+                    name={period === 'week' ? 'Неделя назад' : period === 'month' ? 'Месяц назад' : 'Год назад'}
+                    dataKey="prev"
+                    stroke="#7EB3E4"
+                    fill="#7EB3E4"
+                    fillOpacity={0.1}
+                    strokeDasharray="4 4"
+                  />
+                  <Radar
+                    name="Сейчас"
+                    dataKey="current"
+                    stroke="#0F5192"
+                    fill="#0F5192"
+                    fillOpacity={0.25}
+                    strokeWidth={2}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="line"
+                    wrapperStyle={{ fontSize: 12, color: '#64748B' }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
 
-            {/* Timeline */}
-            <div style={{ background: colors.card, borderRadius: 16, padding: "20px 16px", marginTop: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Динамика за 6 месяцев</div>
-              <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Прогресс по областям, %</div>
-              {timelineData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={timelineData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
-                    <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke={colors.border} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke={colors.border} />
-                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                    {areas.map(a => <Line key={a.id} type="monotone" dataKey={a.id} stroke={a.color || colors.primary} strokeWidth={2} dot={{ r: 2 }} name={a.title.length > 12 ? a.title.slice(0,11)+'…' : a.title} />)}
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary, fontSize: 13 }}>
-                  Накопим данные за несколько месяцев работы
+          {/* Skill list */}
+          <Card padding="md">
+            <div className="mb-5">
+              <SectionLabel>Области Монтессори</SectionLabel>
+              <h3 className="font-serif text-2xl mt-1">Прогресс по навыкам</h3>
+            </div>
+            {areaStats.length === 0 ? (
+              <div className="text-sm text-slate-400 py-8 text-center">Загрузка...</div>
+            ) : (
+              <ul className="space-y-5">
+                {radarData.map((row, i) => {
+                  const stat = areaStats[i];
+                  return (
+                    <li key={stat.area.id}>
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="font-medium text-sm">{stat.area.title}</span>
+                        <span className="flex items-baseline gap-2">
+                          <span className="font-serif text-lg">{stat.currentPct}%</span>
+                          {row.delta > 0 && (
+                            <span className="text-xs text-emerald-700">+{row.delta}</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-brand rounded-full transition-all"
+                          style={{ width: `${stat.currentPct}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'diary' && (
+        <div className="space-y-3">
+          {observations.length === 0 ? (
+            <Card padding="md">
+              <div className="text-sm text-slate-400 py-6 text-center">Записей пока нет</div>
+            </Card>
+          ) : (
+            observations.map(o => (
+              <Card key={o.id} padding="md">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="font-medium text-sm">{o.author?.name || 'Педагог'}</span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(o.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
+                <p className="text-sm text-slate-700 leading-relaxed">{o.text}</p>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
-        {/* === ДЕТАЛИ ОБЛАСТИ === */}
-        {activeTab === "map" && selectedArea && (
-          <div>
-            <button onClick={() => setSelectedArea(null)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: colors.primary, fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "0 0 12px" }}>
-              ‹ Назад к карте
-            </button>
-            <div style={{ background: colors.card, borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              {(() => {
-                const stat = areaStats.find(a => a.area.id === selectedArea);
-                if (!stat) return null;
-                const { area, total, mastered, practicing, presented } = stat;
-                return (
-                  <>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{area.icon} {area.title}</div>
-                    <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
-                      Освоено {mastered} • Практикует {practicing} • Знакомство {presented} • Всего {total}
-                    </div>
-                    <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 20 }}>
-                      Шкала: <LevelBadge level={0} /> <LevelBadge level={1} /> <LevelBadge level={2} /> <LevelBadge level={3} />
-                    </div>
-                    {area.groups?.map((group) => (
-                      <div key={group.id} style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, paddingBottom: 6, borderBottom: `1px solid ${colors.border}` }}>{group.title}</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {group.skills?.map(skill => (
-                            <div key={skill.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <span style={{ fontSize: 13, color: colors.text, flex: 1 }}>{skill.title}</span>
-                              <LevelBadge level={stageToLevel(progress[skill.id])} />
-                            </div>
-                          ))}
-                        </div>
+      {activeTab === 'portfolio' && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {portfolio.length === 0 ? (
+            <div className="col-span-full">
+              <Card padding="md">
+                <div className="text-sm text-slate-400 py-6 text-center">В портфолио пока пусто</div>
+              </Card>
+            </div>
+          ) : (
+            portfolio.map(item => (
+              <Card key={item.id} padding="none" className="overflow-hidden">
+                <div className="aspect-square bg-brand-pale/40 flex items-center justify-center">
+                  {item.type === 'photo' ? (
+                    <AuthMedia src={getAuthMediaUrl(item.fileUrl)} alt={item.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon size={28} className="text-brand/50" strokeWidth={1.5} />
+                  )}
+                </div>
+                <div className="p-3">
+                  <div className="text-sm font-medium truncate">{item.title}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {new Date(item.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab === 'feed' && (
+        <div className="space-y-4">
+          {feed.length === 0 ? (
+            <Card padding="md">
+              <div className="text-sm text-slate-400 py-6 text-center">Публикаций про ребёнка пока нет</div>
+            </Card>
+          ) : (
+            feed.map(item => (
+              <Card key={item.id} padding="md">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="font-medium text-sm">{item.author?.name || 'Педагог'}</span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(item.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                  </span>
+                </div>
+                {item.title && <h4 className="font-serif text-lg mb-1">{item.title}</h4>}
+                {item.text && <p className="text-sm text-slate-700 leading-relaxed">{item.text}</p>}
+                {item.mediaUrls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {item.mediaUrls.slice(0, 3).map((url, idx) => (
+                      <div key={idx} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
+                        <AuthMedia src={getAuthMediaUrl(url)} alt="" className="w-full h-full object-cover" />
                       </div>
                     ))}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        )}
-
-        {/* === ДНЕВНИК === */}
-        {activeTab === "diary" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {observations.length === 0 && <div className="text-gray-500 text-center py-10">Нет записей в дневнике</div>}
-            {observations.map((obs) => (
-              <div key={obs.id} style={{ background: colors.card, borderRadius: 14, padding: 16, borderLeft: `4px solid ${colors.primary}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 16 }}>📖</span>
-                  <span style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 600 }}>{new Date(obs.createdAt).toLocaleDateString('ru-RU')}</span>
-                </div>
-                <div style={{ fontSize: 14, color: colors.text, lineHeight: 1.55 }}>{obs.text}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* === ПОРТФОЛИО === */}
-        {activeTab === "portfolio" && (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {portfolio.length === 0 && <div className="col-span-2 text-gray-500 text-center py-10">Портфолио пусто</div>}
-              {portfolio.map((item) => {
-                const isImage = item.fileUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(item.fileUrl);
-                const isVideo = item.fileUrl && /\.(mp4|mov|webm)$/i.test(item.fileUrl);
-                return (
-                  <div key={item.id} style={{ background: colors.card, borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                    {isImage ? (
-                      <AuthMedia src={item.fileUrl} alt={item.title} style={{ width: "100%", height: 160, objectFit: "cover" }} />
-                    ) : isVideo ? (
-                      <AuthMedia src={item.fileUrl} alt={item.title} type="video" style={{ width: "100%", height: 160, objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ height: 100, background: `linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>
-                        🎒
-                      </div>
-                    )}
-                    <div style={{ padding: 12 }}>
-                      <div style={{ fontSize: 10, color: colors.textSecondary, marginBottom: 2 }}>{new Date(item.date).toLocaleDateString('ru-RU')}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginBottom: 4 }}>{item.title}</div>
-                      <div style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 1.4 }}>{item.description}</div>
-                      {item.fileUrl && !isImage && !isVideo && <a href={getAuthMediaUrl(item.fileUrl)} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 mt-2 block hover:underline">Открыть / Скачать</a>}
-                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* === ЛЕНТА === */}
-        {activeTab === "events" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {feed.length === 0 && <div className="text-gray-500 text-center py-10">Лента пуста</div>}
-            {feed.map((f) => (
-              <div key={f.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", background: colors.card, borderRadius: 12, padding: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: colors.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                  📰
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: colors.textSecondary, fontWeight: 600 }}>{new Date(f.createdAt).toLocaleDateString()}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: colors.text }}>{f.title}</div>
-                  <div style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{f.text}</div>
-                  {f.mediaUrls && f.mediaUrls.length > 0 && <AuthMedia src={f.mediaUrls[0]} alt="Вложение" style={{ marginTop: 8, borderRadius: 8, maxWidth: "100%", maxHeight: 200 }} />}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </PageLayout>
   );
 }

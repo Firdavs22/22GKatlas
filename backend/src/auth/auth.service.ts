@@ -81,8 +81,31 @@ export class AuthService {
     });
   }
 
-  async acceptInvite(token: string, password: string, name: string) {
-    // Decode invite token (simple JWT)
+  async checkInvite(token: string) {
+    if (!token) throw new BadRequestException('Токен не указан');
+    let payload: any;
+    try {
+      payload = this.jwt.verify(token);
+    } catch {
+      throw new BadRequestException('Неверный или просроченный токен');
+    }
+    if (payload.type !== 'invite') {
+      throw new BadRequestException('Неверный тип токена');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, name: true, email: true, role: true, password: true },
+    });
+    if (!user) throw new NotFoundException();
+    return {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      alreadyActivated: !!user.password,
+    };
+  }
+
+  async acceptInvite(token: string, password: string, name?: string) {
     let payload: any;
     try {
       payload = this.jwt.verify(token);
@@ -93,7 +116,6 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw new NotFoundException();
 
-    // Verify token type to prevent type confusion attacks
     if (payload.type !== 'invite') {
       throw new BadRequestException('Неверный тип токена');
     }
@@ -101,7 +123,10 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 12);
     const updated = await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hashed, name },
+      data: {
+        password: hashed,
+        ...(name && name.trim() ? { name: name.trim() } : {}),
+      },
     });
 
     const { password: _, ...userWithoutPassword } = updated;
@@ -109,7 +134,7 @@ export class AuthService {
   }
 
   generateInviteToken(userId: string): string {
-    return this.jwt.sign({ sub: userId, type: 'invite' }, { expiresIn: '7d' });
+    return this.jwt.sign({ sub: userId, type: 'invite' }, { expiresIn: '30d' });
   }
 
   // ── Private helpers ────────────────────────────────────

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/invite'];
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   admin: ['/admin'],

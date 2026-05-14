@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import PageLayout from '@/components/PageLayout';
+import { Card, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
 
@@ -8,53 +9,103 @@ interface HomeTask {
   id: string;
   title: string;
   description?: string;
-  dueDate?: string;
-  completed: boolean;
+  status: 'pending' | 'done';
   createdAt: string;
+  updatedAt: string;
+  skill?: { id: string; title: string };
+  dueDate?: string;
   author?: { name: string };
 }
 
-export default function ParentHomeTasks() {
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+}
+
+export default function HomeTasksPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [childId, setChildId] = useState('');
   const [tasks, setTasks] = useState<HomeTask[]>([]);
 
-  useEffect(() => { api.get('/children').then(r => { setChildren(r.data); if (r.data[0]) setChildId(r.data[0].id); }); }, []);
-  useEffect(() => { if (childId) api.get(`/children/${childId}/home-tasks`).then(r => setTasks(r.data)); }, [childId]);
+  useEffect(() => {
+    api.get('/children').then(r => {
+      setChildren(r.data);
+      if (r.data[0]) setChildId(r.data[0].id);
+    });
+  }, []);
 
-  const toggle = async (taskId: string, completed: boolean) => {
-    await api.put(`/children/${childId}/home-tasks/${taskId}`, { completed: !completed });
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !completed } : t));
+  useEffect(() => {
+    if (!childId) return;
+    api.get(`/children/${childId}/home-tasks`).then(r => setTasks(r.data));
+  }, [childId]);
+
+  const toggle = async (task: HomeTask) => {
+    const next: HomeTask['status'] = task.status === 'done' ? 'pending' : 'done';
+    await api.put(`/children/${childId}/home-tasks/${task.id}`, {
+      completed: next === 'done',
+    });
+    setTasks(prev => prev.map(t => (t.id === task.id ? { ...t, status: next } : t)));
   };
 
   return (
-    <PageLayout title="Рекомендации">
+    <PageLayout eyebrow="От педагога" title="Домашние рекомендации">
       {children.length > 1 && (
-        <select value={childId} onChange={e => setChildId(e.target.value)} className="border rounded-lg px-3 py-2 mb-4">
-          {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <div className="mb-4">
+          <select
+            value={childId}
+            onChange={e => setChildId(e.target.value)}
+            className="px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          >
+            {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
       )}
-      <div className="space-y-2">
-        {tasks.length === 0 && <p className="text-gray-400 text-center py-8">Нет рекомендаций</p>}
-        {tasks.map(task => (
-          <div key={task.id} className={`bg-white border rounded-xl p-4 flex gap-3 ${task.completed ? 'opacity-60' : ''}`}>
-            <input
-              type="checkbox"
-              checked={task.completed}
-              onChange={() => toggle(task.id, task.completed)}
-              className="mt-1 w-4 h-4 accent-indigo-600"
-            />
-            <div className="flex-1">
-              <div className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</div>
-              {task.description && <p className="text-sm text-gray-500 mt-1">{task.description}</p>}
-              <div className="flex gap-4 mt-1 text-xs text-gray-400">
-                {task.dueDate && <span>До: {new Date(task.dueDate).toLocaleDateString('ru')}</span>}
-                {task.author && <span>Педагог: {task.author.name}</span>}
-              </div>
-            </div>
+
+      {tasks.length === 0 ? (
+        <Card padding="md">
+          <div className="text-sm text-slate-400 py-12 text-center">
+            Рекомендаций пока нет
           </div>
-        ))}
-      </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {tasks.map(t => {
+            const done = t.status === 'done';
+            return (
+              <button key={t.id} onClick={() => toggle(t)} className="text-left">
+                <Card
+                  padding="md"
+                  className={`hover:border-brand transition-colors w-full ${done ? 'opacity-70' : ''}`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    {t.skill?.title ? (
+                      <Badge tone="brand">{t.skill.title}</Badge>
+                    ) : (
+                      <span />
+                    )}
+                    <Badge tone={done ? 'success' : 'warn'} dot>
+                      {done ? 'выполнено' : 'в работе'}
+                    </Badge>
+                  </div>
+                  <h3 className={`font-serif text-xl mb-2 ${done ? 'line-through text-slate-500' : ''}`}>
+                    {t.title}
+                  </h3>
+                  {t.description && (
+                    <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                      {t.description}
+                    </p>
+                  )}
+                  <div className="flex items-baseline justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
+                    <span>{t.author?.name || 'Педагог'}</span>
+                    <span>
+                      {t.dueDate ? `до ${formatDate(t.dueDate)}` : formatDate(t.updatedAt)}
+                    </span>
+                  </div>
+                </Card>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </PageLayout>
   );
 }

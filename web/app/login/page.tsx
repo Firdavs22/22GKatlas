@@ -1,8 +1,12 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_HOME } from '@/lib/types';
+
+const inputCls =
+  'w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -28,59 +32,74 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-700">ГлобоАтлас</h1>
-          <p className="text-gray-500 mt-1">Монтессори-портал</p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-3">
+            Метод Марии Монтессори
+          </div>
+          <h1 className="font-serif text-5xl text-foreground leading-tight">
+            Глобо<span className="italic">Атлас</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-3">
+            Среда, в которой ребёнок ведёт сам.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="admin@test.com"
-              required
-            />
-          </div>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="вы@почта.com"
+                required
+                className={inputCls}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
+                Пароль
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className={inputCls}
+              />
+            </div>
 
-          {error && (
-            <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">{error}</p>
-          )}
+            {error && (
+              <div className="rounded-xl border border-danger/30 bg-danger/10 text-red-900 px-3 py-2 text-sm">
+                {error}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors"
-          >
-            {loading ? 'Вход...' : 'Войти'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand-soft transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Вход…' : (<>Войти <ArrowRight size={16} /></>)}
+            </button>
+          </form>
+        </div>
 
         {process.env.NODE_ENV !== 'production' && (
-          <div className="mt-6 text-xs text-gray-400 text-center">
-            <p>Тестовые аккаунты (dev only):</p>
-            <p>admin@test.com / admin123</p>
-            <p>teacher@test.com / teacher123</p>
-            <p>parent@test.com / parent123</p>
-            <p>psychologist@test.com / psych123</p>
-            <p>pediatrician@test.com / peds123</p>
+          <div className="mt-6 text-xs text-slate-400 text-center space-y-0.5">
+            <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">Тестовые аккаунты</p>
+            <p className="font-mono">admin@test.com · admin123</p>
+            <p className="font-mono">teacher@test.com · teacher123</p>
+            <p className="font-mono">parent@test.com · parent123</p>
+            <p className="font-mono">psychologist@test.com · psych123</p>
+            <p className="font-mono">pediatrician@test.com · peds123</p>
           </div>
         )}
       </div>

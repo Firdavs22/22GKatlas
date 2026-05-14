@@ -1,184 +1,142 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
+import { Card, Button } from '@/components/ui';
 import api from '@/lib/api';
-import { MENU_DAY_NAMES, MENU_DAY_SHORT, parseMenuContent } from '@/lib/menu';
+import {
+  MENU_DAY_NAMES,
+  MENU_DAY_SHORT,
+  parseMenuContent,
+  type ParsedMenuMeal,
+} from '@/lib/menu';
 
-const DAY_NAMES = MENU_DAY_NAMES;
-const DAY_SHORT = MENU_DAY_SHORT;
+interface MenuItem {
+  id: string;
+  title: string;
+  content: string;
+  startDate: string;
+  endDate: string;
+}
 
-const MEAL_ICONS: Record<string, string> = {
-  'Завтрак': '🥞',
-  'Обед': '🍲',
-  'Полдник': '🍎',
-  'Ужин': '🍽️',
-  'Перекус': '🥛',
-};
+/** Common meal name -> normalized label & display order. */
+const MEAL_ORDER = ['Завтрак', 'Обед', 'Полдник', 'Ужин', 'Перекус'];
 
-export default function ParentMenu() {
-  const [menus, setMenus] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const todayIndex = (new Date().getDay() + 6) % 7; // Convert Sun=0 to Mon=0
-  const [activeDay, setActiveDay] = useState(todayIndex < 5 ? todayIndex : 0);
+/** Build a map: meal name -> day name -> joined dishes. */
+function pivotByMeal(parsed: Record<string, ParsedMenuMeal[]>): { mealNames: string[]; grid: Map<string, Map<string, string>> } {
+  const grid = new Map<string, Map<string, string>>();
+  const mealsSet = new Set<string>();
+  for (const day of MENU_DAY_NAMES) {
+    for (const meal of parsed[day] || []) {
+      if (!grid.has(meal.name)) grid.set(meal.name, new Map());
+      mealsSet.add(meal.name);
+      const dishes = [meal.food, meal.alternative].filter(Boolean).join(' / ');
+      grid.get(meal.name)!.set(day, dishes);
+    }
+  }
+  const mealNames = Array.from(mealsSet).sort((a, b) => {
+    const ai = MEAL_ORDER.indexOf(a);
+    const bi = MEAL_ORDER.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  return { mealNames, grid };
+}
+
+export default function MenuPage() {
+  const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [showArchive, setShowArchive] = useState(false);
 
   useEffect(() => {
-    api.get('/activities/menu').then(res => {
-      setMenus(res.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    api.get('/activities/menu').then(r => setMenus(r.data)).catch(() => {});
   }, []);
 
-  // Get the most recent (current) menu
   const currentMenu = menus[0];
+  const archive = menus.slice(1);
 
-  if (loading) return <PageLayout title="Меню питания"><div className="text-center py-10 text-gray-400">Загрузка...</div></PageLayout>;
-
-  if (!currentMenu) {
-    return (
-      <PageLayout title="Меню питания">
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">🍽️</div>
-          <div className="text-gray-500 text-lg font-medium">Меню ещё не опубликовано</div>
-          <div className="text-gray-400 text-sm mt-1">Администратор скоро добавит меню на неделю</div>
-        </div>
-      </PageLayout>
-    );
-  }
-
-  const parsed = parseMenuContent(currentMenu.content || '');
-  const hasParsed = DAY_NAMES.some(d => parsed[d].length > 0);
+  const parsed = useMemo(() => parseMenuContent(currentMenu?.content || ''), [currentMenu]);
+  const { mealNames, grid } = useMemo(() => pivotByMeal(parsed), [parsed]);
+  const hasParsedData = mealNames.length > 0;
 
   return (
-    <PageLayout title="Меню питания">
-      {/* Header card */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl p-5 mb-6 shadow-lg">
-        <div className="text-orange-100 text-sm">Текущее меню</div>
-        <div className="text-xl font-bold mt-1">{currentMenu.title}</div>
-        <div className="text-orange-200 text-xs mt-1">
-          С {new Date(currentMenu.startDate).toLocaleDateString('ru')} по {new Date(currentMenu.endDate).toLocaleDateString('ru')}
-        </div>
-      </div>
-
-      {hasParsed ? (
-        <>
-          {/* Day tabs */}
-          <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
-            {DAY_NAMES.map((day, i) => (
-              <button
-                key={day}
-                onClick={() => setActiveDay(i)}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                  activeDay === i
-                    ? 'bg-white shadow-sm text-orange-600 font-bold'
-                    : i === todayIndex
-                    ? 'text-orange-500 hover:bg-white/50'
-                    : 'text-gray-500 hover:bg-white/50'
-                }`}
-              >
-                <div>{DAY_SHORT[i]}</div>
-                {i === todayIndex && <div className="text-[9px] mt-0.5">Сегодня</div>}
-              </button>
-            ))}
+    <PageLayout
+      eyebrow="Питание на неделю"
+      title="Меню"
+      actions={
+        <Button variant="outline" size="sm" onClick={() => setShowArchive(v => !v)}>
+          Архив {archive.length > 0 && <span className="text-slate-400">· {archive.length}</span>}
+        </Button>
+      }
+    >
+      {!currentMenu ? (
+        <Card padding="md">
+          <div className="text-sm text-slate-400 py-12 text-center">
+            Меню ещё не опубликовано
           </div>
-
-          {/* Meal card for selected day */}
-          <div className="bg-white border rounded-xl overflow-hidden">
-            <div className="bg-orange-50 px-4 py-3 border-b">
-              <h3 className="font-medium text-sm text-orange-700">{DAY_NAMES[activeDay]}</h3>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {parsed[DAY_NAMES[activeDay]].length === 0 ? (
-                <div className="px-4 py-8 text-center text-gray-400 text-sm">Нет данных на этот день</div>
-              ) : parsed[DAY_NAMES[activeDay]].map((meal, i) => (
-                <div key={i} className="flex items-start gap-3 px-4 py-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center text-lg shrink-0 mt-0.5">
-                    {MEAL_ICONS[meal.name] || '🍴'}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-orange-600">{meal.time}</span>
-                      <span className="text-sm font-medium text-gray-800">{meal.name}</span>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-0.5">{meal.food}</div>
-                    {meal.alternative && (
-                      <div className="text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-1 mt-2">
-                        Альтернатива: {meal.alternative}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Full week overview (collapsed) */}
-          <details className="mt-4">
-            <summary className="text-sm text-indigo-600 font-medium cursor-pointer hover:underline">Показать всю неделю</summary>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mt-3">
-              {DAY_NAMES.map(day => (
-                <div key={day} className="border rounded-xl overflow-hidden">
-                  <div className="bg-orange-50 text-orange-700 font-medium text-center py-1.5 text-xs border-b">{day}</div>
-                  <div className="p-2 space-y-1.5 min-h-[60px]">
-                    {parsed[day].length === 0 ? (
-                      <p className="text-xs text-gray-300 text-center mt-2">—</p>
-                    ) : parsed[day].map((meal, i) => (
-                      <div key={i} className="text-xs">
-                        <div className="font-semibold text-orange-600">{meal.time} — {meal.name}</div>
-                        <div className="text-gray-600">{meal.food}</div>
-                        {meal.alternative && <div className="text-emerald-700 mt-0.5">Альтернатива: {meal.alternative}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        </>
+        </Card>
+      ) : !hasParsedData ? (
+        <Card padding="md">
+          <h3 className="font-serif text-xl mb-3">{currentMenu.title}</h3>
+          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{currentMenu.content}</p>
+        </Card>
       ) : (
-        /* Raw text fallback */
-        <div className="bg-white border rounded-xl p-5">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{currentMenu.content}</div>
-        </div>
+        <Card padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50">
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3 w-28">
+                    Приём
+                  </th>
+                  {MENU_DAY_NAMES.map((d, i) => (
+                    <th
+                      key={d}
+                      className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3"
+                    >
+                      {MENU_DAY_SHORT[i]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {mealNames.map(meal => (
+                  <tr key={meal}>
+                    <td className="px-5 py-4 font-serif text-base align-top">{meal}</td>
+                    {MENU_DAY_NAMES.map(day => (
+                      <td key={day} className="px-5 py-4 text-sm text-slate-700 align-top">
+                        {grid.get(meal)?.get(day) || <span className="text-slate-300">—</span>}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
-      {/* Older menus */}
-      {menus.length > 1 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Предыдущие меню</h3>
-          <div className="space-y-2">
-            {menus.slice(1).map(m => (
-              <details key={m.id} className="bg-white border rounded-xl overflow-hidden">
-                <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 text-sm font-medium text-gray-700">
-                  {m.title} ({new Date(m.startDate).toLocaleDateString('ru')} — {new Date(m.endDate).toLocaleDateString('ru')})
-                </summary>
-                <div className="px-4 pb-3">
-                  {(() => {
-                    const p = parseMenuContent(m.content || '');
-                    const has = DAY_NAMES.some(d => p[d].length > 0);
-                    if (!has) return <div className="text-sm text-gray-600 whitespace-pre-wrap">{m.content}</div>;
-                    return (
-                      <div className="grid grid-cols-5 gap-2 mt-2">
-                        {DAY_NAMES.map(day => (
-                          <div key={day} className="border rounded-lg overflow-hidden">
-                            <div className="bg-orange-50 text-orange-700 font-medium text-center py-1 text-[10px]">{day}</div>
-                            <div className="p-1.5 space-y-1">
-                              {p[day].length === 0 ? <p className="text-[10px] text-gray-300 text-center">—</p> :
-                                p[day].map((meal, i) => (
-                                  <div key={i} className="text-[10px]">
-                                    <span className="font-bold text-orange-600">{meal.time}</span> {meal.name}: <span className="text-gray-600">{meal.food}</span>
-                                    {meal.alternative && <div className="text-emerald-700 mt-0.5">Альтернатива: {meal.alternative}</div>}
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </details>
-            ))}
+      {showArchive && archive.length > 0 && (
+        <div className="mt-6 space-y-2">
+          <div className="text-xs font-medium uppercase tracking-wider text-slate-500 px-1">
+            Предыдущие меню
           </div>
+          {archive.map(m => (
+            <details key={m.id} className="group">
+              <summary className="cursor-pointer list-none">
+                <Card padding="sm" className="hover:border-brand transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-sm">{m.title}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {new Date(m.startDate).toLocaleDateString('ru-RU')} — {new Date(m.endDate).toLocaleDateString('ru-RU')}
+                      </div>
+                    </div>
+                    <ChevronDown size={16} className="text-slate-400 transition-transform group-open:rotate-180" />
+                  </div>
+                </Card>
+              </summary>
+              <div className="px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">{m.content}</div>
+            </details>
+          ))}
         </div>
       )}
     </PageLayout>

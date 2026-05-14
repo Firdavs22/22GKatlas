@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -36,8 +36,13 @@ export class AuthController {
     return this.authService.getActiveSessions(user.id);
   }
 
+  @Get('invite/check')
+  checkInvite(@Query('token') token: string) {
+    return this.authService.checkInvite(token);
+  }
+
   @Post('invite/accept')
-  acceptInvite(@Body() body: { token: string; password: string; name: string }) {
+  acceptInvite(@Body() body: { token: string; password: string; name?: string }) {
     return this.authService.acceptInvite(body.token, body.password, body.name);
   }
 

@@ -77,6 +77,11 @@ export class AdminController {
     return this.adminService.updateParent(id, dto);
   }
 
+  @Post('parents/:id/invite-link')
+  reissueParentInvite(@Param('id') id: string) {
+    return this.adminService.reissueParentInvite(id, this.authService);
+  }
+
   // ── STAFF ─────────────────────────────────────────────────
   @Get('staff')
   getStaff() { return this.adminService.getStaff(); }

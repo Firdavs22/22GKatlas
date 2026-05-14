@@ -33,7 +33,7 @@ export interface Group {
 
 export interface FeedItem {
   id: string;
-  type: 'child_photo' | 'child_achievement' | 'group_news' | 'school_news';
+  type: 'child_photo' | 'child_achievement' | 'group_news' | 'school_news' | 'menu' | 'event';
   scope: 'child' | 'group' | 'school';
   authorId: string;
   author?: { id: string; name: string };
@@ -46,6 +46,8 @@ export interface FeedItem {
   mediaUrls: string[];
   pinned: boolean;
   createdAt: string;
+  likes?: { userId: string }[];
+  _count?: { likes?: number; comments?: number };
 }
 
 export interface Observation {

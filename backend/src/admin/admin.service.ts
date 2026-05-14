@@ -347,6 +347,16 @@ export class AdminService {
     return { inviteToken, userId: user.id };
   }
 
+  async reissueParentInvite(id: string, authService: any) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, role: 'parent' },
+      select: { id: true, name: true, email: true },
+    });
+    if (!user) throw new BadRequestException('Родитель не найден');
+    const inviteToken = authService.generateInviteToken(user.id);
+    return { inviteToken, userId: user.id, name: user.name, email: user.email };
+  }
+
   updateParent(id: string, dto: any) {
     const data: any = {};
     if (dto.name !== undefined) data.name = dto.name;

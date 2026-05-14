@@ -1,15 +1,21 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, ReactNode } from 'react';
+import { Upload, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface FileUploadProps {
   onUpload: (urls: string[]) => void;
   accept?: string;
-  label?: string;
+  label?: ReactNode;
   multiple?: boolean;
 }
 
-export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.doc,.docx', label = 'Загрузить файл', multiple = false }: FileUploadProps) {
+export default function FileUpload({
+  onUpload,
+  accept = 'image/*,video/*,.pdf,.doc,.docx',
+  label = 'Загрузить файл',
+  multiple = false,
+}: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,11 +40,10 @@ export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.d
       }
       onUpload(uploadedUrls);
 
-      // Clear input so same file can be uploaded again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       console.error('Upload Error:', err);
-      setError('Ошибка загрузки файла. Попробуйте еще раз.');
+      setError('Ошибка загрузки файла. Попробуйте ещё раз.');
     } finally {
       setUploading(false);
     }
@@ -47,7 +52,7 @@ export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.d
   const inputId = `file-upload-${Math.random().toString(36).slice(2, 9)}`;
 
   return (
-    <div className="relative inline-block w-full">
+    <div className="inline-block">
       <input
         type="file"
         ref={fileInputRef}
@@ -60,27 +65,27 @@ export default function FileUpload({ onUpload, accept = 'image/*,video/*,.pdf,.d
       />
       <label
         htmlFor={inputId}
-        className={`flex items-center justify-center px-4 py-2 border border-dashed rounded-lg text-sm font-medium transition-colors ${
+        className={`inline-flex items-center justify-center gap-2 px-3 h-9 rounded-full text-sm font-medium transition-colors ${
           uploading
-            ? 'border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50'
-            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50 cursor-pointer bg-white'
+            ? 'text-slate-400 cursor-not-allowed'
+            : 'text-slate-600 hover:text-brand hover:bg-brand-pale/40 cursor-pointer'
         }`}
       >
         {uploading ? (
-          <span className="flex items-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            Загрузка...
-          </span>
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            Загрузка…
+          </>
+        ) : typeof label === 'string' ? (
+          <>
+            <Upload size={16} />
+            {label}
+          </>
         ) : (
-          <span className="flex items-center gap-2">
-            📄 {label}
-          </span>
+          label
         )}
       </label>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-danger text-xs mt-1">{error}</p>}
     </div>
   );
 }

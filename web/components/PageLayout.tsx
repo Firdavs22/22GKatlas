@@ -1,28 +1,60 @@
 'use client';
-import NavBar from './NavBar';
+import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import AppSidebar from './AppSidebar';
+import { SectionLabel, PageTitle } from './ui';
 
 interface PageLayoutProps {
-  children: React.ReactNode;
-  title?: string;
+  children: ReactNode;
+  title?: ReactNode;
+  eyebrow?: ReactNode;
+  actions?: ReactNode;
   showBackButton?: boolean;
+  /** Use wider max-width for table-heavy pages. */
+  wide?: boolean;
 }
 
-export default function PageLayout({ children, title, showBackButton }: PageLayoutProps) {
+export default function PageLayout({
+  children,
+  title,
+  eyebrow,
+  actions,
+  showBackButton,
+  wide,
+}: PageLayoutProps) {
   const router = useRouter();
+  const maxW = wide ? 'max-w-[1400px]' : 'max-w-6xl';
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <NavBar />
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-4 mb-6">
-          {showBackButton && (
-            <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-900 border bg-white p-1 rounded-lg">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            </button>
+    <div className="flex min-h-screen bg-background">
+      <AppSidebar />
+      <main className="flex-1 min-w-0">
+        <div className={`${maxW} mx-auto px-6 lg:px-10 py-8`}>
+          {(title || actions || showBackButton) && (
+            <header className="mb-8 flex items-start justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                {showBackButton && (
+                  <button
+                    onClick={() => router.back()}
+                    className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-foreground"
+                  >
+                    <ArrowLeft size={16} />
+                    Назад
+                  </button>
+                )}
+                {eyebrow && (
+                  <div className="mb-2">
+                    <SectionLabel>{eyebrow}</SectionLabel>
+                  </div>
+                )}
+                {title && <PageTitle>{title}</PageTitle>}
+              </div>
+              {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+            </header>
           )}
-          {title && <h1 className="text-2xl font-bold text-gray-900">{title}</h1>}
+          {children}
         </div>
-        {children}
       </main>
     </div>
   );

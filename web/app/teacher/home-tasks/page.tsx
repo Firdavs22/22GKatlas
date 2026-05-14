@@ -1,6 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
+import { Card, Button, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { Child, SkillGroup } from '@/lib/types';
 
@@ -11,173 +13,259 @@ interface HomeTask {
   title: string;
   description: string | null;
   status: 'pending' | 'done';
-  skill: { id: string; title: string };
+  createdAt: string;
+  updatedAt: string;
+  skill?: { id: string; title: string };
+}
+
+function shortName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return parts[0] || '';
+  return `${parts[0]} ${parts[1].charAt(0)}.`;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 }
 
 export default function TeacherHomeTasks() {
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChild, setSelectedChild] = useState<string>('');
-  
-  const [tasks, setTasks] = useState<HomeTask[]>([]);
-  const [groups, setGroups] = useState<SkillGroup[]>([]);
-  
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ skillId: '', title: '', description: '' });
+  const [skillGroups, setSkillGroups] = useState<SkillGroup[]>([]);
+  const [tasks, setTasks] = useState<(HomeTask & { childName?: string })[]>([]);
+
+  // Form
+  const [formOpen, setFormOpen] = useState(false);
+  const [formChildId, setFormChildId] = useState('');
+  const [formSkillId, setFormSkillId] = useState('');
+  const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.get('/children').then(r => {
       setChildren(r.data);
-      if (r.data[0]) setSelectedChild(r.data[0].id);
+      if (r.data[0]) setFormChildId(r.data[0].id);
     });
-    // Fetch skill groups with skills for the select dropdown
-    api.get('/admin/skill-groups').then(r => setGroups(r.data));
+    api.get('/admin/skill-groups').then(r => setSkillGroups(r.data)).catch(() => {});
   }, []);
 
-  const reloadTasks = () => {
-    if (!selectedChild) return;
-    api.get(`/children/${selectedChild}/home-tasks`).then(r => setTasks(r.data));
-  };
+  useEffect(() => {
+    if (children.length === 0) return;
+    Promise.all(
+      children.map(c =>
+        api
+          .get(`/children/${c.id}/home-tasks`)
+          .then(r => (r.data as HomeTask[]).map(t => ({ ...t, childName: c.name })))
+          .catch(() => []),
+      ),
+    ).then(lists => {
+      const merged = lists
+        .flat()
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      setTasks(merged);
+    });
+  }, [children]);
 
-  useEffect(() => { reloadTasks(); }, [selectedChild]);
+  const skillIndex = useMemo(() => {
+    const m = new Map<string, { title: string; group: string }>();
+    for (const g of skillGroups) {
+      for (const s of g.skills || []) {
+        m.set(s.id, { title: s.title, group: g.title });
+      }
+    }
+    return m;
+  }, [skillGroups]);
 
-  const createTask = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedChild || !form.skillId || !form.title) return;
-    
+    if (!formChildId || !formSkillId || !formTitle.trim()) return;
     setSaving(true);
     try {
-      await api.post(`/children/${selectedChild}/home-tasks`, form);
-      setShowForm(false);
-      setForm({ skillId: '', title: '', description: '' });
-      reloadTasks();
-    } catch {
-      alert('Ошибка при создании задания');
+      const { data } = await api.post(`/children/${formChildId}/home-tasks`, {
+        skillId: formSkillId,
+        title: formTitle,
+        description: formDescription,
+      });
+      const childName = children.find(c => c.id === formChildId)?.name;
+      setTasks(prev => [{ ...data, childName }, ...prev]);
+      setFormOpen(false);
+      setFormSkillId('');
+      setFormTitle('');
+      setFormDescription('');
     } finally {
       setSaving(false);
     }
   };
 
-  const deleteTask = async (id: string) => {
-    if (!confirm('Удалить эту рекомендацию?')) return;
-    try {
-      await api.delete(`/children/${selectedChild}/home-tasks/${id}`);
-      reloadTasks();
-    } catch {
-      alert('Ошибка при удалении');
-    }
+  const remove = async (task: HomeTask) => {
+    if (!confirm('Удалить рекомендацию?')) return;
+    await api.delete(`/children/${task.childId}/home-tasks/${task.id}`);
+    setTasks(prev => prev.filter(t => t.id !== task.id));
   };
 
   return (
-    <PageLayout title="Рекомендации родителям">
-      <div className="bg-white border rounded-xl p-4 mb-6 flex gap-4 items-center">
-        <label className="font-medium text-gray-700">Ученик:</label>
-        <select 
-          value={selectedChild} 
-          onChange={e => setSelectedChild(e.target.value)} 
-          className="border rounded-lg px-3 py-2 w-64"
-        >
-          {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        
-        <button 
-          onClick={() => setShowForm(true)}
-          className="ml-auto bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-        >
-          + Добавить
-        </button>
-      </div>
-
-      {showForm && (
-        <form onSubmit={createTask} className="bg-white border rounded-xl p-6 mb-6">
-          <h3 className="font-medium text-lg mb-4">Новая рекомендация</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Навык</label>
-              <select 
-                required
-                value={form.skillId} 
-                onChange={e => {
-                  const s = e.target.value;
-                  const skillName = e.target.options[e.target.selectedIndex].text;
-                  setForm(p => ({...p, skillId: s, title: p.title || `Повторить: ${skillName}`}));
-                }}
-                className="w-full border rounded-lg px-3 py-2"
+    <PageLayout
+      eyebrow="Домашние рекомендации"
+      title="Задания родителям"
+      wide
+      actions={
+        <Button variant="primary" size="sm" onClick={() => setFormOpen(v => !v)}>
+          <Plus size={16} />
+          Назначить
+        </Button>
+      }
+    >
+      {formOpen && (
+        <Card padding="md" className="mb-6">
+          <h3 className="font-serif text-xl mb-4">Новая рекомендация</h3>
+          <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Ребёнок
+              </label>
+              <select
+                value={formChildId}
+                onChange={e => setFormChildId(e.target.value)}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               >
-                <option value="" disabled>Выберите навык для закрепления</option>
-                {groups.map(g => {
-                  if (!g.skills?.length) return null;
-                  return (
-                    <optgroup key={g.id} label={g.title}>
-                      {g.skills.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-                    </optgroup>
-                  );
-                })}
+                {children.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
             </div>
-            
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Что рекомендуем сделать?</label>
-              <input 
-                type="text" 
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Навык
+              </label>
+              <select
+                value={formSkillId}
+                onChange={e => {
+                  const id = e.target.value;
+                  const sk = skillIndex.get(id);
+                  setFormSkillId(id);
+                  if (sk && !formTitle) setFormTitle(`Повторить: ${sk.title}`);
+                }}
                 required
-                value={form.title}
-                onChange={e => setForm(p => ({...p, title: e.target.value}))}
-                className="w-full border rounded-lg px-3 py-2" 
-                placeholder="Что нужно сделать?"
-              />
+                className="w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="" disabled>Выберите навык</option>
+                {skillGroups.map(g => g.skills?.length ? (
+                  <optgroup key={g.id} label={g.title}>
+                    {g.skills.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                  </optgroup>
+                ) : null)}
+              </select>
             </div>
-            
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Описание (опционально)</label>
-              <textarea 
-                value={form.description}
-                onChange={e => setForm(p => ({...p, description: e.target.value}))}
-                className="w-full border rounded-lg px-3 py-2 h-24"
-                placeholder="Дополнительные инструкции для родителей..."
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Задание
+              </label>
+              <input
+                value={formTitle}
+                onChange={e => setFormTitle(e.target.value)}
+                required
+                placeholder="Перелить воду из кувшина…"
+                className="w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
             </div>
-          </div>
-          <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? 'Сохранение...' : 'Добавить'}
-            </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 rounded-lg border hover:bg-gray-50 text-gray-700">
-              Отмена
-            </button>
-          </div>
-        </form>
+            <div className="md:col-span-2">
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Описание
+              </label>
+              <textarea
+                value={formDescription}
+                onChange={e => setFormDescription(e.target.value)}
+                rows={3}
+                placeholder="Инструкции для родителей…"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
+              />
+            </div>
+            <div className="md:col-span-2 flex gap-2">
+              <Button type="submit" variant="primary" disabled={saving}>
+                {saving ? 'Сохранение…' : 'Назначить'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+                Отмена
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
 
-      <div className="grid gap-4">
-        {tasks.length === 0 ? (
-          <div className="bg-white border rounded-xl p-8 text-center text-gray-500">
-            Нет активных рекомендаций
+      {tasks.length === 0 ? (
+        <Card padding="md">
+          <div className="text-sm text-slate-400 py-12 text-center">
+            Активных рекомендаций нет
           </div>
-        ) : tasks.map(task => (
-          <div key={task.id} className="bg-white border rounded-xl p-4 flex gap-4 items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h4 className="font-medium text-gray-900">{task.title}</h4>
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                  task.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                  {task.status === 'done' ? 'Выполнено' : 'В процессе'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 mb-2">Навык: {task.skill?.title}</p>
-              {task.description && <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{task.description}</p>}
-            </div>
-            <button 
-              onClick={() => deleteTask(task.id)}
-              className="text-gray-400 hover:text-red-500 p-2"
-              title="Удалить"
-            >
-              🗑️
-            </button>
+        </Card>
+      ) : (
+        <Card padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/40">
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
+                    Ребёнок
+                  </th>
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
+                    Задание
+                  </th>
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
+                    Навык
+                  </th>
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
+                    Срок
+                  </th>
+                  <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
+                    Статус
+                  </th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {tasks.map(t => {
+                  const done = t.status === 'done';
+                  return (
+                    <tr key={t.id}>
+                      <td className="px-5 py-4 font-medium">{shortName(t.childName || '')}</td>
+                      <td className="px-5 py-4">
+                        <div className="text-sm">{t.title}</div>
+                        {t.description && (
+                          <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                            {t.description}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        {t.skill?.title ? (
+                          <Badge tone="brand">{t.skill.title}</Badge>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-slate-500">{formatDate(t.updatedAt)}</td>
+                      <td className="px-5 py-4">
+                        <Badge tone={done ? 'success' : 'warn'} dot>
+                          {done ? 'выполнено' : 'в работе'}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => remove(t)}
+                          className="text-slate-400 hover:text-danger transition-colors"
+                          title="Удалить"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        </Card>
+      )}
     </PageLayout>
   );
 }

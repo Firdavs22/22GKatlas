@@ -1,121 +1,192 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { Plus, Trash2, Calendar } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
+import { Card, Button, Badge } from '@/components/ui';
 import FileUpload from '@/components/FileUpload';
 import api from '@/lib/api';
 import AuthMedia from '@/components/AuthMedia';
 
+interface EventItem {
+  id: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  mediaUrls: string[];
+}
+
+const inputCls =
+  'w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
+
 export default function AdminEvents() {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [showForm, setShowForm] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
-  const loadEvents = () => {
-    api.get('/activities/events').then(res => {
-      setEvents(res.data);
+  const load = () => {
+    api.get('/activities/events').then(r => {
+      setEvents(r.data);
       setLoading(false);
     });
   };
 
-  useEffect(() => { loadEvents(); }, []);
+  useEffect(() => { load(); }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.post('/activities/events', { title, description, eventDate, mediaUrls });
-      setShowForm(false);
-      setTitle(''); setDescription(''); setEventDate(''); setMediaUrls([]);
-      loadEvents();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка при сохранении события');
+      setFormOpen(false);
+      setTitle('');
+      setDescription('');
+      setEventDate('');
+      setMediaUrls([]);
+      load();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Ошибка при сохранении');
     }
   };
 
-  const deleteEvt = async (id: string) => {
-    if (!confirm('Точно удалить событие?')) return;
+  const del = async (id: string) => {
+    if (!confirm('Удалить событие?')) return;
     await api.delete(`/activities/events/${id}`);
-    loadEvents();
+    load();
   };
 
-  return (
-    <PageLayout title="Календарь событий">
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-gray-500 text-sm">Создавайте праздники, утренники и объявления.</p>
-        <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">
-          {showForm ? 'Отменить' : '+ Добавить событие'}
-        </button>
-      </div>
+  const upcoming = events.filter(e => new Date(e.eventDate) >= new Date()).length;
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white p-5 border rounded-xl mb-6 shadow-sm">
-          <h3 className="font-semibold mb-4">Новое событие</h3>
-          <div className="space-y-4 mb-4">
+  return (
+    <PageLayout
+      eyebrow={`Впереди событий: ${upcoming}`}
+      title="События"
+      actions={
+        <Button variant="primary" size="sm" onClick={() => setFormOpen(v => !v)}>
+          <Plus size={16} />
+          {formOpen ? 'Закрыть' : 'Добавить событие'}
+        </Button>
+      }
+    >
+      <p className="text-sm text-slate-500 mb-6">
+        Создавайте праздники, утренники и объявления. События появятся у родителей в ленте.
+      </p>
+
+      {formOpen && (
+        <Card padding="md" className="mb-6">
+          <h3 className="font-serif text-xl mb-4">Новое событие</h3>
+          <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Название события</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} required placeholder="Например: Праздник Осени" className="w-full border rounded px-3 py-2 text-sm" />
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Название
+              </label>
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                required
+                placeholder="Праздник Осени"
+                className={inputCls}
+              />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Дата события</label>
-              <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} required className="w-full md:w-1/2 border rounded px-3 py-2 text-sm" />
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Дата события
+              </label>
+              <input
+                type="date"
+                value={eventDate}
+                onChange={e => setEventDate(e.target.value)}
+                required
+                className={`${inputCls} md:w-1/2`}
+              />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Описание (опционально)</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Подробности для родителей..." className="w-full border rounded px-3 py-2 text-sm h-24" />
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+                Описание
+              </label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Подробности для родителей…"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
+              />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Медиафайлы (фото / видео)</label>
-              <FileUpload onUpload={(urls) => setMediaUrls(prev => [...prev, ...urls])} multiple />
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-2">
+                Медиа
+              </label>
+              <FileUpload onUpload={urls => setMediaUrls(p => [...p, ...urls])} multiple />
               {mediaUrls.length > 0 && (
-                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
                   {mediaUrls.map((url, i) => (
-                    <AuthMedia key={i} src={url} alt="Uploaded" className="h-16 w-16 object-cover rounded shadow-sm border" />
+                    <div key={i} className="w-16 h-16 rounded-lg overflow-hidden bg-brand-pale/40 shrink-0">
+                      <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm w-full hover:bg-green-700">
-            Добавить в Календарь и Ленту
-          </button>
-        </form>
+            <Button type="submit" variant="primary" className="w-full">
+              Опубликовать
+            </Button>
+          </form>
+        </Card>
       )}
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Загрузка...</p>
+        <Card padding="md">
+          <div className="text-sm text-slate-400 py-8 text-center">Загрузка…</div>
+        </Card>
       ) : events.length === 0 ? (
-        <div className="text-center text-gray-500 py-10 bg-gray-50 rounded-xl border border-dashed">
-          Пока нет запланированных событий
-        </div>
+        <Card padding="md">
+          <div className="text-sm text-slate-400 py-12 text-center">
+            Пока нет запланированных событий
+          </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {events.map(evt => (
-            <div key={evt.id} className="bg-white p-5 border border-l-4 border-l-blue-500 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-2">
-                <div className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium">
-                  {new Date(evt.eventDate).toLocaleDateString('ru')}
+          {events.map(evt => {
+            const isPast = new Date(evt.eventDate) < new Date();
+            return (
+              <Card key={evt.id} padding="md" className={isPast ? 'opacity-70' : ''}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <Badge tone={isPast ? 'neutral' : 'brand'}>
+                    <Calendar size={11} />
+                    {new Date(evt.eventDate).toLocaleDateString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                    })}
+                  </Badge>
+                  <button
+                    onClick={() => del(evt.id)}
+                    className="p-1.5 text-slate-400 hover:text-danger transition-colors"
+                    title="Удалить"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-                <button onClick={() => deleteEvt(evt.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded" title="Удалить">🗑️</button>
-              </div>
-              <h3 className="font-semibold text-lg text-gray-900 mt-2">{evt.title}</h3>
-              {evt.description && (
-                <div className="text-sm text-gray-600 whitespace-pre-wrap mt-2">
-                  {evt.description}
-                </div>
-              )}
-              {evt.mediaUrls && evt.mediaUrls.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mt-4">
-                  {evt.mediaUrls.map((url: string, i: number) => (
-                    <AuthMedia key={i} src={url} alt="Media" className="w-full h-24 object-cover rounded border" />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                <h3 className="font-serif text-2xl mb-2">{evt.title}</h3>
+                {evt.description && (
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {evt.description}
+                  </p>
+                )}
+                {evt.mediaUrls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    {evt.mediaUrls.map((url, i) => (
+                      <div key={i} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
+                        <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
     </PageLayout>
