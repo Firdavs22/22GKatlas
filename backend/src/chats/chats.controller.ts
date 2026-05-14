@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatsService } from './chats.service';
+import { ChatsGateway } from './chats.gateway';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
 export class ChatsController {
-  constructor(private chatsService: ChatsService) {}
+  constructor(
+    private chatsService: ChatsService,
+    private chatsGateway: ChatsGateway,
+  ) {}
 
   @Get()
   getChats(@CurrentUser() user: any) { return this.chatsService.getChatsForUser(user.id); }
@@ -25,7 +29,9 @@ export class ChatsController {
   }
 
   @Post(':id/messages')
-  sendMessage(@Param('id') id: string, @Body() dto: { text: string; attachments?: string[] }, @CurrentUser() user: any) {
-    return this.chatsService.sendMessage(id, dto, user.id);
+  async sendMessage(@Param('id') id: string, @Body() dto: { text: string; attachments?: string[] }, @CurrentUser() user: any) {
+    const message = await this.chatsService.sendMessage(id, dto, user.id);
+    this.chatsGateway.notifyNewMessage(id, message);
+    return message;
   }
 }

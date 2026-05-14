@@ -55,9 +55,13 @@ export default function ChatThread({
 
   useEffect(() => {
     api.get(`/chats/${id}/messages`).then(r => setMessages(r.data));
-    const socket = io(WS_URL, { auth: { token } });
-    socket.emit('joinRoom', id);
-    socket.on('newMessage', (msg: ChatMessage) => setMessages(prev => [...prev, msg]));
+    const socket = io(WS_URL, { auth: { token }, transports: ['websocket', 'polling'] });
+    socket.on('connect', () => socket.emit('joinRoom', id));
+    socket.on('newMessage', (msg: ChatMessage) => {
+      setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
+    });
+    socket.on('error', err => console.warn('[chat] socket error:', err));
+    socket.on('connect_error', err => console.warn('[chat] connect_error:', err.message));
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -73,9 +77,15 @@ export default function ChatThread({
     if (!text.trim() && attachments.length === 0) return;
     const payload: Record<string, unknown> = { text };
     if (allowAttachments) payload.attachments = attachments;
-    await api.post(`/chats/${id}/messages`, payload);
     setText('');
     setAttachments([]);
+    try {
+      const { data } = await api.post(`/chats/${id}/messages`, payload);
+      // Optimistic insert; WS echo will be deduped by id
+      setMessages(prev => (prev.some(m => m.id === data.id) ? prev : [...prev, data]));
+    } catch (err) {
+      console.warn('[chat] send failed:', err);
+    }
   };
 
   return (

@@ -111,7 +111,13 @@ export class ChatsGateway implements OnGatewayConnection {
     const message = await this.chatsService.sendMessage(
       data.chatId, { text: data.text, attachments: data.attachments }, userId,
     );
-    this.server.to(data.chatId).emit('newMessage', message);
+    this.notifyNewMessage(data.chatId, message);
     return message;
+  }
+
+  /** Broadcast a freshly persisted message to all sockets joined to the chat room.
+   *  Called by the REST controller after a synchronous POST so realtime works regardless of transport. */
+  notifyNewMessage(chatId: string, message: unknown) {
+    this.server.to(chatId).emit('newMessage', message);
   }
 }
