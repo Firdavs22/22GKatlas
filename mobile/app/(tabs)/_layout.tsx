@@ -1,14 +1,14 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs, Redirect, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, View } from 'react-native';
-import { colors, fontSize } from '../../lib/theme';
+import { ActivityIndicator, View, Pressable, StyleSheet } from 'react-native';
+import { colors, fontSize, radius, shadows, spacing } from '../../lib/theme';
 import type { Role } from '../../lib/types';
 
 // Define which tabs each role can see
 const ROLE_TABS: Record<Role, string[]> = {
   admin:        ['home', 'feed', 'chats', 'profile'],
-  teacher:      ['home', 'feed', 'chats', 'profile'],
+  teacher:      ['home', 'feed', 'post', 'chats', 'profile'],
   parent:       ['home', 'feed', 'chats', 'profile'],
   psychologist: ['home', 'chats', 'profile'],
   pediatrician: ['home', 'chats', 'profile'],
@@ -19,9 +19,25 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const TAB_CONFIG: Record<string, { title: string; icon: IconName; iconFocused: IconName }> = {
   home:    { title: 'Главная',  icon: 'home-outline',         iconFocused: 'home' },
   feed:    { title: 'Лента',    icon: 'newspaper-outline',    iconFocused: 'newspaper' },
+  post:    { title: '',         icon: 'add',                  iconFocused: 'add' },
   chats:   { title: 'Чаты',     icon: 'chatbubbles-outline',  iconFocused: 'chatbubbles' },
   profile: { title: 'Профиль',  icon: 'person-outline',       iconFocused: 'person' },
 };
+
+/** Большая центральная FAB-кнопка «+» в стиле Instagram. */
+function CreatePostButton() {
+  return (
+    <View style={styles.fabSlot}>
+      <Pressable
+        onPress={() => router.push('/new-post')}
+        style={({ pressed }) => [styles.fab, { opacity: pressed ? 0.85 : 1 }]}
+        accessibilityLabel="Создать пост"
+      >
+        <Ionicons name="add" size={28} color={colors.textInverse} />
+      </Pressable>
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { user, loading } = useAuth();
@@ -29,7 +45,7 @@ export default function TabLayout() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.brand} />
       </View>
     );
   }
@@ -42,13 +58,14 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
-          paddingBottom: 4,
-          height: 56,
+          paddingBottom: 6,
+          paddingTop: 6,
+          height: 64,
         },
         tabBarLabelStyle: {
           fontSize: fontSize.xs,
@@ -56,19 +73,53 @@ export default function TabLayout() {
         },
       }}
     >
-      {Object.entries(TAB_CONFIG).map(([key, config]) => (
-        <Tabs.Screen
-          key={key}
-          name={key}
-          options={{
-            title: config.title,
-            href: visibleTabs.includes(key) ? undefined : null, // null = hide tab
-            tabBarIcon: ({ focused, color, size }) => (
-              <Ionicons name={focused ? config.iconFocused : config.icon} size={22} color={color} />
-            ),
-          }}
-        />
-      ))}
+      {Object.entries(TAB_CONFIG).map(([key, config]) => {
+        if (key === 'post') {
+          // Для учителя — большая «+» FAB; для остальных таб скрыт через href:null
+          return (
+            <Tabs.Screen
+              key={key}
+              name={key}
+              options={{
+                title: '',
+                href: visibleTabs.includes(key) ? undefined : null,
+                tabBarButton: (props) => <CreatePostButton {...props} />,
+              }}
+            />
+          );
+        }
+        return (
+          <Tabs.Screen
+            key={key}
+            name={key}
+            options={{
+              title: config.title,
+              href: visibleTabs.includes(key) ? undefined : null,
+              tabBarIcon: ({ focused, color }) => (
+                <Ionicons name={focused ? config.iconFocused : config.icon} size={22} color={color} />
+              ),
+            }}
+          />
+        );
+      })}
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  fabSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -18,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
+  },
+});

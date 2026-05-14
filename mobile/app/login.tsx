@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView,
-  Platform, ActivityIndicator, Alert,
+  View, Text, TextInput, StyleSheet, KeyboardAvoidingView,
+  Platform, Alert, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing, radius, fontSize, fontWeight, shadows } from '../lib/theme';
+import { colors, spacing, radius, fontSize, fontWeight } from '../lib/theme';
 import { API_URL } from '../lib/api';
+import { Button, SectionLabel } from '../components/ui';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -26,17 +27,7 @@ export default function LoginScreen() {
       router.replace('/(tabs)/home');
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Неверный email или пароль';
-      const debug = __DEV__
-        ? `\n\nAPI: ${API_URL}/api\n${err?.message || ''}${err?.code ? ` (${err.code})` : ''}`
-        : '';
-      console.log('[LOGIN] failed', {
-        apiUrl: `${API_URL}/api`,
-        message: err?.message,
-        code: err?.code,
-        status: err?.response?.status,
-        data: err?.response?.data,
-      });
-      Alert.alert('Ошибка входа', `${msg}${debug}`);
+      Alert.alert('Ошибка входа', msg);
     } finally {
       setLoading(false);
     }
@@ -47,24 +38,24 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.inner}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoEmoji}>🌍</Text>
-          </View>
-          <Text style={styles.title}>ГлобоАтлас</Text>
-          <Text style={styles.subtitle}>Монтессори-портал</Text>
+      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+        <View style={styles.brandBlock}>
+          <SectionLabel style={{ textAlign: 'center', marginBottom: 8 }}>
+            Метод Марии Монтессори
+          </SectionLabel>
+          <Text style={styles.title}>
+            Глобо<Text style={{ fontStyle: 'italic' }}>Атлас</Text>
+          </Text>
+          <Text style={styles.subtitle}>Среда, в которой ребёнок ведёт сам.</Text>
         </View>
 
-        {/* Form */}
         <View style={styles.card}>
           <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="admin@test.com"
+            placeholder="вы@почта.com"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
@@ -84,31 +75,30 @@ export default function LoginScreen() {
             textContentType="password"
           />
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+          <Button
+            variant="primary"
             onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
+            loading={loading}
+            fullWidth
+            style={{ marginTop: spacing.xl }}
+            size="lg"
           >
-            {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
-            ) : (
-              <Text style={styles.buttonText}>Войти</Text>
-            )}
-          </TouchableOpacity>
+            Войти
+          </Button>
         </View>
 
-        {/* Test accounts hint */}
-        <View style={styles.hint}>
-          {__DEV__ && <Text style={styles.apiHint}>API: {API_URL}/api</Text>}
-          <Text style={styles.hintTitle}>Тестовые аккаунты:</Text>
-          <Text style={styles.hintText}>admin@test.com / admin123</Text>
-          <Text style={styles.hintText}>teacher@test.com / teacher123</Text>
-          <Text style={styles.hintText}>parent@test.com / parent123</Text>
-          <Text style={styles.hintText}>psychologist@test.com / psych123</Text>
-          <Text style={styles.hintText}>pediatrician@test.com / peds123</Text>
-        </View>
-      </View>
+        {__DEV__ && (
+          <View style={styles.hint}>
+            <Text style={styles.apiHint}>API: {API_URL}/api</Text>
+            <Text style={styles.hintTitle}>Тестовые аккаунты</Text>
+            <Text style={styles.hintText}>admin@test.com · admin123</Text>
+            <Text style={styles.hintText}>teacher@test.com · teacher123</Text>
+            <Text style={styles.hintText}>parent@test.com · parent123</Text>
+            <Text style={styles.hintText}>psychologist@test.com · psych123</Text>
+            <Text style={styles.hintText}>pediatrician@test.com · peds123</Text>
+          </View>
+        )}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -116,95 +106,74 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primaryBg,
+    backgroundColor: colors.background,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.xxxl,
   },
-  logoContainer: {
+  brandBlock: {
     alignItems: 'center',
     marginBottom: spacing.xxxl,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    ...shadows.lg,
-  },
-  logoEmoji: {
-    fontSize: 40,
-  },
   title: {
-    fontSize: fontSize.xxxl,
-    fontWeight: fontWeight.bold,
-    color: colors.primary,
+    fontFamily: 'serif',
+    fontSize: 44,
+    color: colors.textPrimary,
+    lineHeight: 50,
   },
   subtitle: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+    borderRadius: radius.xxl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     padding: spacing.xxl,
-    ...shadows.md,
   },
   label: {
-    fontSize: fontSize.sm,
+    fontSize: 11,
     fontWeight: fontWeight.medium,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    height: 46,
     fontSize: fontSize.md,
     color: colors.textPrimary,
-    backgroundColor: colors.background,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: spacing.xxl,
-    ...shadows.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.textInverse,
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
+    backgroundColor: colors.surface,
   },
   hint: {
     alignItems: 'center',
-    marginTop: spacing.xxl,
+    marginTop: spacing.xl,
   },
   apiHint: {
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
   hintTitle: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: colors.textSecondary,
     marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   hintText: {
     fontSize: fontSize.xs,
     color: colors.textMuted,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

@@ -17,6 +17,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="login" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="new-post" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
     </AuthProvider>
   );
