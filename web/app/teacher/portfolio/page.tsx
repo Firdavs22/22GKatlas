@@ -199,7 +199,7 @@ export default function TeacherPortfolio() {
             <Card key={item.id} padding="none" className="overflow-hidden">
               <div className="aspect-[4/3] bg-brand-pale/40 relative">
                 {item.type === 'photo' && item.fileUrl ? (
-                  <AuthMedia src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
+                  <AuthMedia preview src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
                 ) : item.type === 'video' ? (
                   <div className="w-full h-full flex items-center justify-center text-brand/60">
                     <Video size={32} strokeWidth={1.5} />

@@ -13,6 +13,19 @@ interface AuthMediaProps {
   type?: 'image' | 'video';
   /** Video controls (default: true) */
   controls?: boolean;
+  /** If true and src is an image uploaded post-Sharp era, swap to /api/files/<uuid>_preview.jpg */
+  preview?: boolean;
+  /** Lazy-load image (default: true) */
+  lazy?: boolean;
+}
+
+/** Derive preview URL from a main image URL produced by FilesService.
+ *  /api/files/<uuid>.jpg → /api/files/<uuid>_preview.jpg
+ *  Returns null when the path doesn't match the pattern. */
+function derivePreviewUrl(src: string): string | null {
+  const m = /^(.*\/files\/)([^/.]+)\.(jpg|jpeg|png|webp|gif)$/i.exec(src);
+  if (!m) return null;
+  return `${m[1]}${m[2]}_preview.jpg`;
 }
 
 /**
@@ -29,8 +42,11 @@ export default function AuthMedia({
   fallback,
   type,
   controls = true,
+  preview = false,
+  lazy = true,
 }: AuthMediaProps) {
   const [error, setError] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   if (!src || error) {
     return (
@@ -55,13 +71,12 @@ export default function AuthMedia({
     );
   }
 
-  const authUrl = getAuthMediaUrl(src);
   const mediaType = type || getMediaType(src);
 
   if (mediaType === 'video') {
     return (
       <video
-        src={authUrl}
+        src={getAuthMediaUrl(src)}
         className={className}
         style={style}
         controls={controls}
@@ -70,6 +85,11 @@ export default function AuthMedia({
     );
   }
 
+  const previewSrc = preview ? derivePreviewUrl(src) : null;
+  const tryingPreview = previewSrc && !previewError;
+  const effectiveSrc = tryingPreview ? previewSrc : src;
+  const authUrl = getAuthMediaUrl(effectiveSrc);
+
   // eslint-disable-next-line @next/next/no-img-element
   return (
     <img
@@ -77,7 +97,15 @@ export default function AuthMedia({
       alt={alt}
       className={className}
       style={style}
-      onError={() => setError(true)}
+      loading={lazy ? 'lazy' : undefined}
+      onError={() => {
+        if (tryingPreview) {
+          // Preview missing — silently fall back to the main URL once.
+          setPreviewError(true);
+        } else {
+          setError(true);
+        }
+      }}
     />
   );
 }

@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Param, Query, Req, UseInterceptors, UploadedFile, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Req, UseInterceptors, UploadedFile, UploadedFiles, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { FilesService } from './files.service';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
@@ -42,15 +42,35 @@ export class FilesController {
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }))
-  async uploadFile(@UploadedFile() file: any) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Файл не загружен');
     if (!ALLOWED_MIMETYPES.includes(file.mimetype)) {
       throw new BadRequestException(
         `Недопустимый тип файла: ${file.mimetype}. Разрешены: изображения, видео, PDF, документы.`,
       );
     }
-    const url = await this.filesService.uploadFile(file);
-    return { url };
+    return this.filesService.uploadFile(file);
+  }
+
+  /** Batch upload — accepts up to 20 files in one multipart request. */
+  @Post('upload/batch')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor('files', 20, { limits: { fileSize: MAX_FILE_SIZE } }),
+  )
+  async uploadBatch(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Файлы не загружены');
+    }
+    for (const f of files) {
+      if (!ALLOWED_MIMETYPES.includes(f.mimetype)) {
+        throw new BadRequestException(
+          `Недопустимый тип файла «${f.originalname}»: ${f.mimetype}.`,
+        );
+      }
+    }
+    const results = await this.filesService.uploadFiles(files);
+    return { files: results };
   }
 
   // Proxy endpoint to read files from MinIO

@@ -124,7 +124,7 @@ export default function AdminEvents() {
                 <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
                   {mediaUrls.map((url, i) => (
                     <div key={i} className="w-16 h-16 rounded-lg overflow-hidden bg-brand-pale/40 shrink-0">
-                      <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                      <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
                     </div>
                   ))}
                 </div>
@@ -179,7 +179,7 @@ export default function AdminEvents() {
                   <div className="grid grid-cols-3 gap-2 mt-4">
                     {evt.mediaUrls.map((url, i) => (
                       <div key={i} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
-                        <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                        <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Image as ImageIcon } from 'lucide-react';
+import { Plus, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
@@ -33,6 +33,25 @@ export default function TeacherDiary() {
   const [formVisible, setFormVisible] = useState(false);
   const [formPhotos, setFormPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const generateDescription = async () => {
+    const title = formTitle.trim();
+    if (!title) return;
+    setGenerating(true);
+    try {
+      const area = areas.find(a => a.id === formAreaId);
+      const { data } = await api.post('/ai/observation', {
+        title,
+        area: area ? { id: area.id, title: area.title } : undefined,
+      });
+      if (data?.text) setFormText(data.text);
+    } catch (err) {
+      console.warn('AI generation failed:', err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     api.get('/children').then(r => {
@@ -69,6 +88,7 @@ export default function TeacherDiary() {
     setSaving(true);
     try {
       const { data } = await api.post(`/children/${formChildId}/observations`, {
+        title: formTitle || undefined,
         text: formText,
         visible: formVisible,
         photos: formPhotos,
@@ -146,7 +166,7 @@ export default function TeacherDiary() {
                         <div className="flex gap-2 mb-3">
                           {item.photos.slice(0, 4).map((url, i) => (
                             <div key={i} className="w-16 h-16 rounded-lg overflow-hidden bg-brand-pale/40">
-                              <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                              <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
                             </div>
                           ))}
                         </div>
@@ -212,8 +232,30 @@ export default function TeacherDiary() {
                 )}
                 <div>
                   <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
-                    Описание
+                    Заголовок / упражнение
                   </label>
+                  <input
+                    value={formTitle}
+                    onChange={e => setFormTitle(e.target.value)}
+                    placeholder="Переливание воды, Розовая башня…"
+                    className="w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                      Описание
+                    </label>
+                    <button
+                      type="button"
+                      onClick={generateDescription}
+                      disabled={!formTitle.trim() || generating}
+                      className="inline-flex items-center gap-1 text-xs text-brand hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
+                    >
+                      {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      {generating ? 'Генерация…' : 'Сгенерировать'}
+                    </button>
+                  </div>
                   <textarea
                     value={formText}
                     onChange={e => setFormText(e.target.value)}
@@ -232,7 +274,7 @@ export default function TeacherDiary() {
                     <div className="flex gap-2 mt-2">
                       {formPhotos.map((url, i) => (
                         <div key={i} className="w-12 h-12 rounded-lg overflow-hidden bg-brand-pale/40">
-                          <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                          <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>

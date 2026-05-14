@@ -3,8 +3,16 @@ import { useState, useRef, ReactNode } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
+export interface UploadedFile {
+  url: string;
+  previewUrl?: string;
+}
+
 interface FileUploadProps {
-  onUpload: (urls: string[]) => void;
+  /** Receives just URLs (legacy contract). Use `onUploadDetailed` if you need previews. */
+  onUpload?: (urls: string[]) => void;
+  /** Receives full upload info per file ({ url, previewUrl? }). */
+  onUploadDetailed?: (files: UploadedFile[]) => void;
   accept?: string;
   label?: ReactNode;
   multiple?: boolean;
@@ -12,6 +20,7 @@ interface FileUploadProps {
 
 export default function FileUpload({
   onUpload,
+  onUploadDetailed,
   accept = 'image/*,video/*,.pdf,.doc,.docx',
   label = 'Загрузить файл',
   multiple = false,
@@ -21,29 +30,42 @@ export default function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    const filesList = e.target.files;
+    if (!filesList || filesList.length === 0) return;
+    const files = Array.from(filesList);
 
     setUploading(true);
     setError(null);
 
-    const uploadedUrls: string[] = [];
-
     try {
-      for (let i = 0; i < files.length; i++) {
+      let uploaded: UploadedFile[];
+
+      if (files.length > 1) {
+        // Batch endpoint — one round-trip
         const formData = new FormData();
-        formData.append('file', files[i]);
+        for (const f of files) formData.append('files', f);
+        const { data } = await api.post('/upload/batch', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uploaded = data.files as UploadedFile[];
+      } else {
+        // Single upload
+        const formData = new FormData();
+        formData.append('file', files[0]);
         const { data } = await api.post('/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        uploadedUrls.push(data.url);
+        uploaded = [data as UploadedFile];
       }
-      onUpload(uploadedUrls);
+
+      onUploadDetailed?.(uploaded);
+      onUpload?.(uploaded.map(u => u.url));
 
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (err) {
-      console.error('Upload Error:', err);
-      setError('Ошибка загрузки файла. Попробуйте ещё раз.');
+    } catch (err: unknown) {
+      console.error('Upload error:', err);
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || 'Ошибка загрузки файла. Попробуйте ещё раз.');
     } finally {
       setUploading(false);
     }

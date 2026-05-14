@@ -193,7 +193,7 @@ export default function FeedPage() {
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {item.mediaUrls.slice(0, 3).map((url, i) => (
                       <div key={i} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
-                        <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                        <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>

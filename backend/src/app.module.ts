@@ -13,6 +13,7 @@ import { ScheduleModule } from './schedule/schedule.module';
 import { FilesModule } from './files/files.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { MailModule } from './mail/mail.module';
+import { AiModule } from './ai/ai.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
@@ -32,6 +33,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
     ScheduleModule,
     FilesModule,
     ActivitiesModule,
+    AiModule,
   ],
 })
 export class AppModule {}
