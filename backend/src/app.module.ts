@@ -12,6 +12,7 @@ import { GroupsModule } from './groups/groups.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { FilesModule } from './files/files.module';
 import { ActivitiesModule } from './activities/activities.module';
+import { MailModule } from './mail/mail.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
@@ -20,6 +21,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     CommonModule,
+    MailModule,
     AuthModule,
     AdminModule,
     ChildrenModule,

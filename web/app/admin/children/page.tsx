@@ -4,8 +4,17 @@ import Link from 'next/link';
 import { Plus, Pencil, X, FileText, UserMinus, Search } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge } from '@/components/ui';
+import ChildWizard from '@/components/ChildWizard';
+import ChildCreatedModal from '@/components/ChildCreatedModal';
 import api from '@/lib/api';
 import { Group, User } from '@/lib/types';
+
+interface InviteResult {
+  parentId: string;
+  name: string;
+  email: string;
+  inviteToken: string;
+}
 
 const EXTRA_SERVICES_OPTIONS = ['Логопед', 'Хореография', 'Музыка', 'Английский', 'Рисование', 'Плавание', 'Шахматы', 'Робототехника'];
 
@@ -69,6 +78,10 @@ export default function AdminChildren() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ChildForm>(emptyForm());
+
+  // Wizard (new child creation) and post-creation invite modal
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [createdChild, setCreatedChild] = useState<{ name: string; invites: InviteResult[] } | null>(null);
 
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('all');
@@ -192,9 +205,9 @@ export default function AdminChildren() {
       title="Дети"
       wide
       actions={
-        <Button variant="primary" size="sm" onClick={() => openForm()}>
+        <Button variant="primary" size="sm" onClick={() => setWizardOpen(true)}>
           <Plus size={16} />
-          Добавить
+          Зачислить ребёнка
         </Button>
       }
     >
@@ -543,6 +556,26 @@ export default function AdminChildren() {
             </form>
           </div>
         </div>
+      )}
+
+      {wizardOpen && (
+        <ChildWizard
+          groups={groups}
+          onClose={() => setWizardOpen(false)}
+          onCreated={(child, invites) => {
+            setWizardOpen(false);
+            setCreatedChild({ name: child.name, invites });
+            api.get('/admin/children').then(r => setChildren(r.data));
+          }}
+        />
+      )}
+
+      {createdChild && (
+        <ChildCreatedModal
+          childName={createdChild.name}
+          invites={createdChild.invites}
+          onClose={() => setCreatedChild(null)}
+        />
       )}
     </PageLayout>
   );

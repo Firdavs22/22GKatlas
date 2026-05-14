@@ -40,10 +40,10 @@ export class AdminController {
   getChild(@Param('id') id: string) { return this.adminService.getChild(id); }
 
   @Post('children')
-  createChild(@Body() dto: any) { return this.adminService.createChild(dto); }
+  createChild(@Body() dto: any) { return this.adminService.createChild(dto, this.authService); }
 
   @Put('children/:id')
-  updateChild(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateChild(id, dto); }
+  updateChild(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateChild(id, dto, this.authService); }
 
   @Delete('children/:id')
   archiveChild(@Param('id') id: string) { return this.adminService.archiveChild(id); }

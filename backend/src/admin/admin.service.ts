@@ -1,12 +1,37 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { parentInvite } from '../mail/mail.templates';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as XLSX from 'xlsx';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private mail: MailService,
+    private config: ConfigService,
+  ) {}
+
+  /** Best-effort: send invite email but don't fail the request if SMTP is down. */
+  private async sendInviteEmail(opts: { to: string; parentName: string; childName?: string; token: string }) {
+    const appUrl = (this.config.get<string>('PUBLIC_APP_URL') || 'http://localhost:3000').replace(/\/$/, '');
+    const inviteUrl = `${appUrl}/invite?token=${encodeURIComponent(opts.token)}`;
+    const { subject, html, text } = parentInvite({
+      parentName: opts.parentName,
+      childName: opts.childName,
+      inviteUrl,
+    });
+    try {
+      await this.mail.send({ to: opts.to, subject, html, text });
+    } catch (err) {
+      this.logger.warn(`Не удалось отправить приглашение на ${opts.to}: ${(err as Error).message}`);
+    }
+  }
 
   // ── GROUPS ────────────────────────────────────────────────
   getGroups() {
@@ -86,14 +111,14 @@ export class AdminService {
     });
   }
 
-  async createChild(dto: any) {
+  async createChild(dto: any, authService?: any) {
     const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
     const parents = this.normalizeParentLinks(parentLinks);
     if (!parents?.length) {
       throw new BadRequestException('Укажите хотя бы одного родителя ребёнка');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const child = await tx.child.create({
         data: {
           name,
@@ -108,8 +133,8 @@ export class AdminService {
           ...(notes ? { notes } : {}),
         },
       });
-      await this.syncChildParents(tx, child.id, parents);
-      return tx.child.findUnique({
+      const synced = await this.syncChildParents(tx, child.id, parents);
+      const full = await tx.child.findUnique({
         where: { id: child.id },
         include: {
           group: { select: { id: true, name: true } },
@@ -117,10 +142,15 @@ export class AdminService {
           specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
         },
       });
+      return { child: full, synced };
     });
+
+    // Issue invite tokens + send emails for freshly-created parents (outside the transaction).
+    const invites = await this.issueInvitesForNewParents(result.synced, result.child?.name, authService);
+    return { ...result.child, invites };
   }
 
-  async updateChild(id: string, dto: any) {
+  async updateChild(id: string, dto: any, authService?: any) {
     const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
     const data: any = {};
     if (name !== undefined) data.name = name;
@@ -138,10 +168,10 @@ export class AdminService {
       throw new BadRequestException('У ребёнка должен быть хотя бы один родитель');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.child.update({ where: { id }, data });
-      if (parents) await this.syncChildParents(tx, id, parents);
-      return tx.child.findUnique({
+      const synced = parents ? await this.syncChildParents(tx, id, parents) : [];
+      const full = await tx.child.findUnique({
         where: { id },
         include: {
           group: { select: { id: true, name: true } },
@@ -149,7 +179,32 @@ export class AdminService {
           specialists: { include: { specialist: { select: { id: true, name: true, role: true } } } },
         },
       });
+      return { child: full, synced };
     });
+
+    const invites = await this.issueInvitesForNewParents(result.synced, result.child?.name, authService);
+    return { ...result.child, invites };
+  }
+
+  private async issueInvitesForNewParents(
+    synced: { id: string; name: string; email: string; isNew: boolean }[],
+    childName: string | undefined,
+    authService: any,
+  ): Promise<{ parentId: string; name: string; email: string; inviteToken: string }[]> {
+    if (!authService) return [];
+    const invites: { parentId: string; name: string; email: string; inviteToken: string }[] = [];
+    for (const p of synced) {
+      if (!p.isNew) continue;
+      const inviteToken = authService.generateInviteToken(p.id);
+      invites.push({ parentId: p.id, name: p.name, email: p.email, inviteToken });
+      await this.sendInviteEmail({
+        to: p.email,
+        parentName: p.name,
+        childName,
+        token: inviteToken,
+      });
+    }
+    return invites;
   }
   archiveChild(id: string) { return this.prisma.child.update({ where: { id }, data: { status: 'left' } }); }
   enrollChild(childId: string, groupId: string) {
@@ -178,6 +233,13 @@ export class AdminService {
       create: { childId, parentId: user.id },
     });
     const inviteToken = authService.generateInviteToken(user.id);
+    const child = await this.prisma.child.findUnique({ where: { id: childId }, select: { name: true } });
+    await this.sendInviteEmail({
+      to: user.email,
+      parentName: user.name,
+      childName: child?.name,
+      token: inviteToken,
+    });
     return { inviteToken, userId: user.id };
   }
 
@@ -202,8 +264,13 @@ export class AdminService {
       });
   }
 
-  private async syncChildParents(tx: any, childId: string, parents: { id?: string; name: string; email: string; phone?: string }[]) {
+  private async syncChildParents(
+    tx: any,
+    childId: string,
+    parents: { id?: string; name: string; email: string; phone?: string }[],
+  ): Promise<{ id: string; name: string; email: string; isNew: boolean }[]> {
     const parentIds: string[] = [];
+    const synced: { id: string; name: string; email: string; isNew: boolean }[] = [];
 
     for (const parent of parents) {
       let user = parent.id
@@ -214,6 +281,7 @@ export class AdminService {
         throw new BadRequestException(`Пользователь ${user.email} уже существует, но это не родитель`);
       }
 
+      let isNew = false;
       if (user) {
         user = await tx.user.update({
           where: { id: user.id },
@@ -233,9 +301,11 @@ export class AdminService {
             role: 'parent',
           },
         });
+        isNew = true;
       }
 
       parentIds.push(user.id);
+      synced.push({ id: user.id, name: user.name, email: user.email, isNew });
       await tx.childParent.upsert({
         where: { childId_parentId: { childId, parentId: user.id } },
         update: {},
@@ -249,6 +319,8 @@ export class AdminService {
         parentId: { notIn: parentIds },
       },
     });
+
+    return synced;
   }
 
   // ── STAFF ─────────────────────────────────────────────────
@@ -344,16 +416,43 @@ export class AdminService {
     }
 
     const inviteToken = authService.generateInviteToken(user.id);
+
+    // Pick one of the linked children's names for the email body (if any)
+    let childName: string | undefined;
+    if (childIds.length) {
+      const child = await this.prisma.child.findUnique({
+        where: { id: childIds[0] },
+        select: { name: true },
+      });
+      childName = child?.name;
+    }
+    await this.sendInviteEmail({
+      to: user.email,
+      parentName: user.name,
+      childName,
+      token: inviteToken,
+    });
+
     return { inviteToken, userId: user.id };
   }
 
   async reissueParentInvite(id: string, authService: any) {
     const user = await this.prisma.user.findFirst({
       where: { id, role: 'parent' },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true, name: true, email: true,
+        parentChildren: { take: 1, include: { child: { select: { name: true } } } },
+      },
     });
     if (!user) throw new BadRequestException('Родитель не найден');
     const inviteToken = authService.generateInviteToken(user.id);
+    const childName = user.parentChildren[0]?.child?.name;
+    await this.sendInviteEmail({
+      to: user.email,
+      parentName: user.name,
+      childName,
+      token: inviteToken,
+    });
     return { inviteToken, userId: user.id, name: user.name, email: user.email };
   }
 
