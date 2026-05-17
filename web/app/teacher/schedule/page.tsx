@@ -75,7 +75,7 @@ export default function TeacherSchedule() {
               <tbody className="divide-y divide-slate-100">
                 {timeSlots.map(t => (
                   <tr key={t}>
-                    <td className="px-5 py-4 font-mono text-xs text-slate-500 align-top">{t}</td>
+                    <td className="px-5 py-4 tabular-nums text-xs text-slate-500 align-top">{t}</td>
                     {DAYS.map(d => {
                       const item = byTimeAndDay.get(t)?.get(d.idx);
                       return (

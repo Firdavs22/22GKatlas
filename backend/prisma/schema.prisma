@@ -34,6 +34,7 @@ model User {
   broadcasts         Broadcast[]
   feedLikes          FeedLike[]
   refreshTokens      RefreshToken[]
+  chatParticipants   ChatParticipant[]
 }
 
 enum Role {
@@ -227,6 +228,7 @@ model Observation {
   childId   String
   author    User     @relation(fields: [userId], references: [id])
   userId    String
+  title     String?
   text      String
   areaId    String?
   tags      String[]
@@ -369,6 +371,7 @@ enum ChatType {
 model ChatParticipant {
   chatRoom   ChatRoom  @relation(fields: [chatRoomId], references: [id])
   chatRoomId String
+  user       User      @relation(fields: [userId], references: [id])
   userId     String
   lastReadAt DateTime?
 
@@ -407,10 +410,13 @@ model HomeTask {
   id          String         @id @default(uuid())
   child       Child          @relation(fields: [childId], references: [id])
   childId     String
-  skill       Skill          @relation(fields: [skillId], references: [id])
-  skillId     String
+  skill       Skill?         @relation(fields: [skillId], references: [id])
+  skillId     String?
+  authorId    String?
+  authorRole  String?
   title       String
   description String?
+  tags        String[]       @default([])
   status      HomeTaskStatus @default(pending)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -452,15 +458,24 @@ model Menu {
 }
 
 model Event {
-  id          String   @id @default(uuid())
+  id          String        @id @default(uuid())
   title       String
   description String?
   eventDate   DateTime
-  mediaUrls   String[] @default([])
-  author      User     @relation(fields: [authorId], references: [id])
+  mediaUrls   String[]      @default([])
+  audience    EventAudience @default(all)
+  groupId     String?
+  author      User          @relation(fields: [authorId], references: [id])
   authorId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum EventAudience {
+  all
+  parents
+  group
+  staff
 }
 
 // ─── BROADCAST (РАССЫЛКА) ─────────────────────────────────
@@ -473,6 +488,70 @@ model Broadcast {
   authorId     String
   targetGroups String[] // Array of group IDs, or empty/["all"] for everyone
   sentAt       DateTime @default(now())
+}
+
+// ─── KNOWLEDGE BASE ───────────────────────────────────────
+
+model KbCategory {
+  id          String     @id @default(uuid())
+  title       String
+  slug        String     @unique
+  description String?
+  order       Int        @default(0)
+  articles    KbArticle[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model KbArticle {
+  id          String      @id @default(uuid())
+  category    KbCategory  @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  title       String
+  excerpt     String?
+  body        String
+  videoUrl    String?
+  coverUrl    String?
+  published   Boolean     @default(true)
+  authorId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([categoryId, createdAt(sort: Desc)])
+}
+
+// ─── APPOINTMENT BOOKING ──────────────────────────────────
+
+model AppointmentSlot {
+  id           String              @id @default(uuid())
+  staffId      String
+  startsAt     DateTime
+  endsAt       DateTime
+  location     String?
+  notes        String?
+  bookings     AppointmentBooking[]
+  createdAt    DateTime            @default(now())
+
+  @@index([staffId, startsAt])
+}
+
+model AppointmentBooking {
+  id        String           @id @default(uuid())
+  slot      AppointmentSlot  @relation(fields: [slotId], references: [id])
+  slotId    String           @unique
+  parentId  String
+  childId   String?
+  topic     String?
+  status    BookingStatus    @default(confirmed)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([parentId, createdAt(sort: Desc)])
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
 }
 
 // ─── REFRESH TOKENS ───────────────────────────────────────
@@ -490,4 +569,11 @@ model RefreshToken {
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
+}
+
+// Editable site content (texts, logo, etc.) — keyed JSON blobs.
+model SiteContent {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }

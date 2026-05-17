@@ -34,6 +34,9 @@ export default function AdminSchedule() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<LessonForm>(emptyForm);
 
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+
   useEffect(() => {
     api.get('/admin/groups').then(r => {
       setGroups(r.data);
@@ -101,6 +104,19 @@ export default function AdminSchedule() {
     setSchedule(prev => prev.filter(s => s.id !== id));
   };
 
+  const moveTo = async (id: string, newDay: number) => {
+    const item = schedule.find(s => s.id === id);
+    if (!item || item.dayOfWeek === newDay) return;
+    setSchedule(prev => prev.map(s => (s.id === id ? { ...s, dayOfWeek: newDay } : s)));
+    try {
+      await api.put(`/groups/${selectedGroup}/schedule/${id}`, { dayOfWeek: newDay });
+    } catch {
+      // revert on error
+      setSchedule(prev => prev.map(s => (s.id === id ? { ...s, dayOfWeek: item.dayOfWeek } : s)));
+      alert('Не удалось перенести занятие');
+    }
+  };
+
   return (
     <PageLayout
       eyebrow={groupData?.name ? `Группа «${groupData.name}»` : 'Расписание группы'}
@@ -130,9 +146,36 @@ export default function AdminSchedule() {
         </div>
       </Card>
 
+      <div className="text-xs text-slate-500 mb-2">
+        Можно перетаскивать занятия между днями.
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-        {byDay.map(day => (
-          <Card key={day.day} padding="none" className="overflow-hidden min-h-[220px] flex flex-col">
+        {byDay.map(day => {
+          const isOver = dragOverDay === day.day;
+          return (
+          <Card
+            key={day.day}
+            padding="none"
+            className={`overflow-hidden min-h-[220px] flex flex-col transition-colors ${
+              isOver ? 'ring-2 ring-brand bg-brand-pale/30' : ''
+            }`}
+            onDragOver={e => {
+              if (draggedId) {
+                e.preventDefault();
+                if (dragOverDay !== day.day) setDragOverDay(day.day);
+              }
+            }}
+            onDragLeave={() => {
+              if (dragOverDay === day.day) setDragOverDay(null);
+            }}
+            onDrop={e => {
+              e.preventDefault();
+              setDragOverDay(null);
+              if (draggedId) moveTo(draggedId, day.day);
+              setDraggedId(null);
+            }}
+          >
             <div className="px-4 py-3 border-b border-slate-100 bg-brand-pale/30">
               <h3 className="font-serif text-base text-brand text-center">{day.label}</h3>
             </div>
@@ -143,9 +186,14 @@ export default function AdminSchedule() {
                 day.items.map(item => (
                   <div
                     key={item.id}
-                    className="group relative text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                    draggable
+                    onDragStart={() => setDraggedId(item.id)}
+                    onDragEnd={() => { setDraggedId(null); setDragOverDay(null); }}
+                    className={`group relative text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-100 cursor-grab active:cursor-grabbing ${
+                      draggedId === item.id ? 'opacity-50' : ''
+                    }`}
                   >
-                    <div className="font-mono text-[11px] text-brand mb-0.5">
+                    <div className="tabular-nums text-[11px] text-brand mb-0.5">
                       {item.timeStart} – {item.timeEnd}
                     </div>
                     <div className="font-medium text-sm">{item.activity}</div>
@@ -171,7 +219,8 @@ export default function AdminSchedule() {
               <Plus size={14} /> Добавить
             </button>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {modalOpen && (
@@ -260,7 +309,7 @@ export default function AdminSchedule() {
                 <input
                   value={form.activity}
                   onChange={e => setForm(p => ({ ...p, activity: e.target.value }))}
-                  placeholder="Монтессори-работа"
+                  placeholder="Свободная работа"
                   required
                   className={inputCls}
                 />

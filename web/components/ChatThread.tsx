@@ -13,12 +13,14 @@ import FileUpload from '@/components/FileUpload';
 import AuthMedia from '@/components/AuthMedia';
 
 interface ChatThreadProps {
-  /** Path to the list page (e.g. /parent/chats) used for the back button. */
-  backHref: string;
+  /** Path to the list page (e.g. /parent/chats) used for the back button. Ignored when `embedded` is true. */
+  backHref?: string;
   /** Optional eyebrow label, defaults to a generic one. */
   eyebrow?: string;
   /** Allow staff users to send file attachments. */
   allowAttachments?: boolean;
+  /** When true, renders without PageLayout/Card wrapper — designed to live inside ChatsLayout. */
+  embedded?: boolean;
 }
 
 function formatTime(iso: string): string {
@@ -43,6 +45,7 @@ export default function ChatThread({
   backHref,
   eyebrow = 'Диалог',
   allowAttachments = false,
+  embedded = false,
 }: ChatThreadProps) {
   const { id } = useParams<{ id: string }>();
   const { user, token } = useAuth();
@@ -88,22 +91,8 @@ export default function ChatThread({
     }
   };
 
-  return (
-    <PageLayout
-      eyebrow={eyebrow}
-      title="Сообщения"
-      actions={
-        <button
-          onClick={() => router.push(backHref)}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand transition-colors"
-        >
-          <ArrowLeft size={16} />
-          К списку
-        </button>
-      }
-    >
-      <Card padding="none" className="overflow-hidden">
-        <div className="flex flex-col h-[calc(100vh-220px)] min-h-[400px]">
+  const conversation = (
+    <div className={`flex flex-col ${embedded ? 'h-full' : 'h-[calc(100vh-220px)] min-h-[400px]'}`}>
           <div className="flex-1 overflow-y-auto p-6 space-y-3">
             {messages.length === 0 ? (
               <div className="text-sm text-slate-400 text-center py-12">
@@ -140,13 +129,13 @@ export default function ChatThread({
                           <div className="whitespace-pre-wrap">{msg.text}</div>
                         )}
                         {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="mt-2 flex flex-col gap-1.5">
+                          <div className={`${msg.text ? 'mt-2' : ''} grid gap-1.5 ${msg.attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                             {msg.attachments.map((url, idx) => (
                               <AuthMedia
                                 key={idx}
                                 src={url}
                                 alt=""
-                                className="rounded-lg bg-white/30 object-contain max-h-48"
+                                className="rounded-xl object-cover w-full h-40 bg-black/5"
                               />
                             ))}
                           </div>
@@ -188,34 +177,56 @@ export default function ChatThread({
             </div>
           )}
 
-          <form onSubmit={send} className="p-4 border-t border-slate-100 flex gap-2">
-            {allowAttachments && (
-              <FileUpload
-                onUpload={urls => setAttachments(p => [...p, ...urls])}
-                multiple
-                label={
-                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 text-slate-500 hover:text-brand hover:border-brand transition-colors">
-                    <Paperclip size={16} />
-                  </span>
-                }
-              />
-            )}
-            <input
-              value={text}
-              onChange={e => setText(e.target.value)}
-              placeholder="Напишите сообщение…"
-              className="flex-1 h-10 px-4 text-sm rounded-full border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-            <button
-              type="submit"
-              disabled={!text.trim() && attachments.length === 0}
-              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send size={14} />
-              Отправить
-            </button>
-          </form>
-        </div>
+      <form onSubmit={send} className="p-4 border-t border-slate-100 flex gap-2">
+        {allowAttachments && (
+          <FileUpload
+            onUpload={urls => setAttachments(p => [...p, ...urls])}
+            multiple
+            label={
+              <span className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-slate-200 text-slate-500 hover:text-brand hover:border-brand transition-colors">
+                <Paperclip size={16} />
+              </span>
+            }
+          />
+        )}
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Напишите сообщение…"
+          className="flex-1 h-10 px-4 text-sm rounded-full border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim() && attachments.length === 0}
+          className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Send size={14} />
+          Отправить
+        </button>
+      </form>
+    </div>
+  );
+
+  if (embedded) return conversation;
+
+  return (
+    <PageLayout
+      eyebrow={eyebrow}
+      title="Сообщения"
+      actions={
+        backHref ? (
+          <button
+            onClick={() => router.push(backHref)}
+            className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand transition-colors"
+          >
+            <ArrowLeft size={16} />
+            К списку
+          </button>
+        ) : undefined
+      }
+    >
+      <Card padding="none" className="overflow-hidden">
+        {conversation}
       </Card>
     </PageLayout>
   );

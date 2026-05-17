@@ -373,7 +373,7 @@ export class AdminService {
         createdAt: true,
         parentChildren: {
           include: {
-            child: { select: { id: true, name: true, status: true, group: { select: { name: true } } } },
+            child: { select: { id: true, name: true, status: true, group: { select: { id: true, name: true } } } },
           },
         },
       },

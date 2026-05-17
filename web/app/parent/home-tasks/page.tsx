@@ -1,9 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
+
+const ROLE_LABEL: Record<string, string> = {
+  teacher: 'Педагог',
+  pediatrician: 'Педиатр',
+  psychologist: 'Психолог',
+  admin: 'Администрация',
+};
 
 interface HomeTask {
   id: string;
@@ -15,6 +23,8 @@ interface HomeTask {
   skill?: { id: string; title: string };
   dueDate?: string;
   author?: { name: string };
+  authorRole?: string;
+  tags?: string[];
 }
 
 function formatDate(iso: string): string {
@@ -47,7 +57,7 @@ export default function HomeTasksPage() {
   };
 
   return (
-    <PageLayout eyebrow="От педагога" title="Домашние рекомендации">
+    <PageLayout eyebrow="От педагогов и специалистов" title="Рекомендации">
       {children.length > 1 && (
         <div className="mb-4">
           <select
@@ -70,18 +80,30 @@ export default function HomeTasksPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {tasks.map(t => {
             const done = t.status === 'done';
+            const important = (t.tags || []).some(x => /важно|важн/i.test(x));
             return (
               <button key={t.id} onClick={() => toggle(t)} className="text-left">
                 <Card
                   padding="md"
-                  className={`hover:border-brand transition-colors w-full ${done ? 'opacity-70' : ''}`}
+                  className={`hover:border-brand transition-colors w-full ${
+                    done ? 'opacity-70' : ''
+                  } ${important ? 'border-danger/40' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    {t.skill?.title ? (
-                      <Badge tone="brand">{t.skill.title}</Badge>
-                    ) : (
-                      <span />
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {important && (
+                        <span className="inline-flex items-center gap-1 text-xs text-danger">
+                          <AlertTriangle size={12} />
+                          важно
+                        </span>
+                      )}
+                      {t.skill?.title && <Badge tone="brand">{t.skill.title}</Badge>}
+                      {(t.tags || [])
+                        .filter(tag => !/важно|важн/i.test(tag))
+                        .map(tag => (
+                          <Badge key={tag} tone="neutral">{tag}</Badge>
+                        ))}
+                    </div>
                     <Badge tone={done ? 'success' : 'warn'} dot>
                       {done ? 'выполнено' : 'в работе'}
                     </Badge>
@@ -90,12 +112,17 @@ export default function HomeTasksPage() {
                     {t.title}
                   </h3>
                   {t.description && (
-                    <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                    <p className="text-sm text-slate-600 leading-relaxed mb-3 whitespace-pre-wrap">
                       {t.description}
                     </p>
                   )}
                   <div className="flex items-baseline justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
-                    <span>{t.author?.name || 'Педагог'}</span>
+                    <span>
+                      {t.author?.name || ROLE_LABEL[t.authorRole || ''] || 'Сотрудник'}
+                      {t.authorRole && t.author?.name && (
+                        <span className="text-slate-400"> · {ROLE_LABEL[t.authorRole] || t.authorRole}</span>
+                      )}
+                    </span>
                     <span>
                       {t.dueDate ? `до ${formatDate(t.dueDate)}` : formatDate(t.updatedAt)}
                     </span>

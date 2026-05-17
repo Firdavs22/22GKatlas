@@ -61,8 +61,13 @@ export default function AdminSkills() {
   };
   const deleteArea = async (id: string) => {
     if (!confirm('Удалить зону и все её группы/навыки?')) return;
-    await api.delete(`/admin/areas/${id}`);
-    reload();
+    try {
+      await api.delete(`/admin/areas/${id}`);
+      reload();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Не удалось удалить зону');
+    }
   };
 
   const createSG = async (e: React.FormEvent) => {
@@ -82,8 +87,9 @@ export default function AdminSkills() {
     try {
       await api.delete(`/admin/skill-groups/${id}`);
       reload();
-    } catch {
-      alert('Нельзя удалить группу с навыками');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Нельзя удалить группу с навыками');
     }
   };
 
@@ -112,8 +118,9 @@ export default function AdminSkills() {
     try {
       await api.delete(`/admin/skills/${id}`);
       reload();
-    } catch {
-      alert('Навык имеет прогресс, используйте архивирование');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Навык имеет прогресс, используйте архивирование');
     }
   };
   const startEditSkill = (s: { id: string; title: string; description?: string; ageRange?: string; groupId?: string }) => {
@@ -173,9 +180,9 @@ export default function AdminSkills() {
     >
       <Card padding="md" variant="pale" className="mb-4 text-xs text-slate-600">
         <strong className="text-foreground">Формат Excel:</strong> колонки{' '}
-        <code className="font-mono">Зона</code>, <code className="font-mono">Группа</code>,{' '}
-        <code className="font-mono">Навык</code>, <code className="font-mono">Описание</code> (опц.),{' '}
-        <code className="font-mono">Возраст</code> (опц., напр. 3-6)
+        <code className="px-1 py-0.5 rounded bg-slate-100 text-foreground">Зона</code>, <code className="px-1 py-0.5 rounded bg-slate-100 text-foreground">Группа</code>,{' '}
+        <code className="px-1 py-0.5 rounded bg-slate-100 text-foreground">Навык</code>, <code className="px-1 py-0.5 rounded bg-slate-100 text-foreground">Описание</code> (опц.),{' '}
+        <code className="px-1 py-0.5 rounded bg-slate-100 text-foreground">Возраст</code> (опц., напр. 3-6)
       </Card>
 
       {areaFormOpen && (

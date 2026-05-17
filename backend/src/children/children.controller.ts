@@ -94,19 +94,19 @@ export class ChildrenController {
   getHomeTasks(@Param('id') id: string) { return this.childrenService.getHomeTasks(id); }
 
   @Post(':id/home-tasks')
-  @Roles('admin', 'teacher')
-  createHomeTask(@Param('id') id: string, @Body() dto: any) {
-    return this.childrenService.createHomeTask(id, dto);
+  @Roles('admin', 'teacher', 'psychologist', 'pediatrician')
+  createHomeTask(@Param('id') id: string, @Body() dto: any, @CurrentUser() user: any) {
+    return this.childrenService.createHomeTask(id, dto, user);
   }
 
   @Put(':id/home-tasks/:taskId')
-  @Roles('admin', 'teacher', 'parent')
+  @Roles('admin', 'teacher', 'psychologist', 'pediatrician', 'parent')
   updateHomeTask(@Param('id') id: string, @Param('taskId') taskId: string, @Body() dto: any) {
     return this.childrenService.updateHomeTask(id, taskId, dto);
   }
 
   @Delete(':id/home-tasks/:taskId')
-  @Roles('admin', 'teacher')
+  @Roles('admin', 'teacher', 'psychologist', 'pediatrician')
   deleteHomeTask(@Param('id') id: string, @Param('taskId') taskId: string) {
     return this.childrenService.deleteHomeTask(id, taskId);
   }

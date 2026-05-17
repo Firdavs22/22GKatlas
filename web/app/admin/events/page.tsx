@@ -7,19 +7,40 @@ import FileUpload from '@/components/FileUpload';
 import api from '@/lib/api';
 import AuthMedia from '@/components/AuthMedia';
 
+type Audience = 'all' | 'parents' | 'group' | 'staff';
+
 interface EventItem {
   id: string;
   title: string;
   description?: string;
   eventDate: string;
   mediaUrls: string[];
+  audience?: Audience;
+  groupId?: string | null;
 }
+
+interface GroupRow { id: string; name: string }
+
+const AUDIENCE_LABEL: Record<Audience, string> = {
+  all: 'Всем',
+  parents: 'Только родителям',
+  group: 'Конкретной группе',
+  staff: 'Только сотрудникам',
+};
+
+const AUDIENCE_TONE: Record<Audience, 'brand' | 'success' | 'warn' | 'neutral'> = {
+  all: 'brand',
+  parents: 'success',
+  group: 'warn',
+  staff: 'neutral',
+};
 
 const inputCls =
   'w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
 
 export default function AdminEvents() {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -27,25 +48,41 @@ export default function AdminEvents() {
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [audience, setAudience] = useState<Audience>('all');
+  const [groupId, setGroupId] = useState('');
 
   const load = () => {
     api.get('/activities/events').then(r => {
       setEvents(r.data);
       setLoading(false);
     });
+    api.get('/admin/groups').then(r => setGroups(r.data)).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (audience === 'group' && !groupId) {
+      alert('Выберите группу');
+      return;
+    }
     try {
-      await api.post('/activities/events', { title, description, eventDate, mediaUrls });
+      await api.post('/activities/events', {
+        title,
+        description,
+        eventDate,
+        mediaUrls,
+        audience,
+        groupId: audience === 'group' ? groupId : undefined,
+      });
       setFormOpen(false);
       setTitle('');
       setDescription('');
       setEventDate('');
       setMediaUrls([]);
+      setAudience('all');
+      setGroupId('');
       load();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Ошибка при сохранении');
@@ -104,6 +141,42 @@ export default function AdminEvents() {
               />
             </div>
             <div>
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-2">
+                Кому показать
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(['all', 'parents', 'group', 'staff'] as Audience[]).map(a => {
+                  const active = audience === a;
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setAudience(a)}
+                      className={`px-3 h-10 text-sm rounded-xl transition-colors text-left ${
+                        active
+                          ? 'bg-brand text-white'
+                          : 'border border-slate-200 text-slate-600 hover:border-brand'
+                      }`}
+                    >
+                      {AUDIENCE_LABEL[a]}
+                    </button>
+                  );
+                })}
+              </div>
+              {audience === 'group' && (
+                <select
+                  value={groupId}
+                  onChange={e => setGroupId(e.target.value)}
+                  className={`${inputCls} mt-2`}
+                >
+                  <option value="">Выберите группу…</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                 Описание
               </label>
@@ -154,13 +227,22 @@ export default function AdminEvents() {
             return (
               <Card key={evt.id} padding="md" className={isPast ? 'opacity-70' : ''}>
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <Badge tone={isPast ? 'neutral' : 'brand'}>
-                    <Calendar size={11} />
-                    {new Date(evt.eventDate).toLocaleDateString('ru-RU', {
-                      day: 'numeric',
-                      month: 'long',
-                    })}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone={isPast ? 'neutral' : 'brand'}>
+                      <Calendar size={11} />
+                      {new Date(evt.eventDate).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                      })}
+                    </Badge>
+                    {evt.audience && evt.audience !== 'all' && (
+                      <Badge tone={AUDIENCE_TONE[evt.audience]}>
+                        {AUDIENCE_LABEL[evt.audience]}
+                        {evt.audience === 'group' && evt.groupId &&
+                          ` · ${groups.find(g => g.id === evt.groupId)?.name || ''}`}
+                      </Badge>
+                    )}
+                  </div>
                   <button
                     onClick={() => del(evt.id)}
                     className="p-1.5 text-slate-400 hover:text-danger transition-colors"

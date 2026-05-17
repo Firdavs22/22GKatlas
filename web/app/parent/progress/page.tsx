@@ -9,7 +9,9 @@ import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
 import { Area, Child, Progress } from '@/lib/types';
 import AuthMedia from '@/components/AuthMedia';
-import { getAuthMediaUrl } from '@/lib/media';
+import { normalizePortfolioType } from '@/lib/media';
+import PostMedia from '@/components/PostMedia';
+import Lightbox from '@/components/Lightbox';
 
 type TabId = 'map' | 'diary' | 'portfolio' | 'feed';
 type Period = 'week' | 'month' | 'year';
@@ -45,6 +47,7 @@ export default function ProgressPage() {
   const [observations, setObservations] = useState<{ id: string; text: string; date: string; author?: { name: string } }[]>([]);
   const [portfolio, setPortfolio] = useState<{ id: string; title: string; type: string; fileUrl: string; date: string }[]>([]);
   const [feed, setFeed] = useState<{ id: string; title?: string; text?: string; mediaUrls: string[]; createdAt: string; author?: { name: string } }[]>([]);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     api.get('/children').then(r => setChildren(r.data));
@@ -204,7 +207,7 @@ export default function ProgressPage() {
           {/* Skill list */}
           <Card padding="md">
             <div className="mb-5">
-              <SectionLabel>Области Монтессори</SectionLabel>
+              <SectionLabel>Области развития</SectionLabel>
               <h3 className="font-serif text-2xl mt-1">Прогресс по навыкам</h3>
             </div>
             {areaStats.length === 0 ? (
@@ -270,11 +273,20 @@ export default function ProgressPage() {
               </Card>
             </div>
           ) : (
-            portfolio.map(item => (
+            portfolio.map(item => {
+              const kind = normalizePortfolioType(item.type, item.fileUrl);
+              const isPhoto = kind === 'photo' && !!item.fileUrl;
+              return (
               <Card key={item.id} padding="none" className="overflow-hidden">
                 <div className="aspect-square bg-brand-pale/40 flex items-center justify-center">
-                  {item.type === 'photo' ? (
-                    <AuthMedia src={getAuthMediaUrl(item.fileUrl)} alt={item.title} className="w-full h-full object-cover" />
+                  {isPhoto ? (
+                    <button
+                      type="button"
+                      onClick={() => setLightbox(item.fileUrl)}
+                      className="w-full h-full cursor-zoom-in"
+                    >
+                      <AuthMedia preview src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
+                    </button>
                   ) : (
                     <ImageIcon size={28} className="text-brand/50" strokeWidth={1.5} />
                   )}
@@ -286,7 +298,8 @@ export default function ProgressPage() {
                   </div>
                 </div>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -308,20 +321,13 @@ export default function ProgressPage() {
                 </div>
                 {item.title && <h4 className="font-serif text-lg mb-1">{item.title}</h4>}
                 {item.text && <p className="text-sm text-slate-700 leading-relaxed">{item.text}</p>}
-                {item.mediaUrls.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mt-3">
-                    {item.mediaUrls.slice(0, 3).map((url, idx) => (
-                      <div key={idx} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
-                        <AuthMedia src={getAuthMediaUrl(url)} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <PostMedia urls={item.mediaUrls} className="mt-3" />
               </Card>
             ))
           )}
         </div>
       )}
+      <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
     </PageLayout>
   );
 }

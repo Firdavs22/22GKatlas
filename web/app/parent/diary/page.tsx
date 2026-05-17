@@ -5,6 +5,7 @@ import PageLayout from '@/components/PageLayout';
 import { Card, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
 import { Observation, Child } from '@/lib/types';
+import PostMedia from '@/components/PostMedia';
 
 export default function ParentDiary() {
   const [children, setChildren] = useState<Child[]>([]);
@@ -66,7 +67,9 @@ export default function ParentDiary() {
                       </div>
                     )}
                   </div>
+                  {o.title && <h4 className="font-serif text-lg mb-1">{o.title}</h4>}
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{o.text}</p>
+                  {o.photos?.length > 0 && <PostMedia urls={o.photos} className="mt-3" />}
                 </div>
               </div>
             </Card>

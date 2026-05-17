@@ -88,7 +88,7 @@ export default function HeatmapPage() {
 
   if (!data) {
     return (
-      <PageLayout title="Тепловая карта" wide>
+      <PageLayout title="Тепловая карта" full>
         <div className="text-sm text-slate-400 py-12 text-center">Загрузка…</div>
       </PageLayout>
     );
@@ -98,7 +98,7 @@ export default function HeatmapPage() {
     <PageLayout
       eyebrow={`Группа ${data.group?.name || ''}${data.group?.ageRange ? ` · ${data.group.ageRange}` : ''}`}
       title="Тепловая карта"
-      wide
+      full
       actions={
         <div className="inline-flex rounded-full bg-slate-100 p-0.5">
           {(['week', 'month', 'year'] as Period[]).map(p => (
@@ -115,13 +115,21 @@ export default function HeatmapPage() {
         </div>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+      <div className="mb-5 max-w-3xl">
+        <p className="text-sm text-slate-600 leading-relaxed">
+          Тепловая карта показывает <b>усвоение материала по зонам</b> для каждого ребёнка группы.
+          Каждое число — процент освоенных навыков в зоне (усреднённо: <i>знакомство</i> = 25, <i>практика</i> = 60, <i>усвоено</i> = 100).
+          Чем темнее цвет — тем выше показатель. Справа — шкала и средние по всей группе.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-6 items-start">
         {/* Heatmap table */}
-        <Card padding="none" className="overflow-hidden">
-          <div className="overflow-x-auto">
+        <Card padding="none" className="overflow-hidden h-[calc(100vh-280px)] min-h-[420px] flex flex-col">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/40">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="border-b border-slate-100 bg-slate-50/60">
                   <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3 min-w-[160px]">
                     Ребёнок
                   </th>
@@ -144,7 +152,7 @@ export default function HeatmapPage() {
                       return (
                         <td key={area.id} className="px-5 py-3">
                           <span
-                            className={`inline-flex items-center justify-center min-w-[52px] h-9 px-3 rounded-xl text-sm font-mono ${b.bg} ${b.text}`}
+                            className={`inline-flex items-center justify-center min-w-[52px] h-9 px-3 rounded-xl text-sm tabular-nums font-medium ${b.bg} ${b.text}`}
                           >
                             {pct}
                           </span>

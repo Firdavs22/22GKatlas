@@ -103,7 +103,7 @@ function InviteCard({ invite, childName }: { invite: Invite; childName: string }
           <div className="text-xs text-slate-500">{invite.email}</div>
         </div>
       </div>
-      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs font-mono text-slate-700 break-all mb-3">
+      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-700 break-all mb-3">
         {inviteUrl}
       </div>
       <div className="grid grid-cols-3 gap-2">

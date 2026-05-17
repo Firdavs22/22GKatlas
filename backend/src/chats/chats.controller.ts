@@ -15,8 +15,11 @@ export class ChatsController {
   @Get()
   getChats(@CurrentUser() user: any) { return this.chatsService.getChatsForUser(user.id); }
 
+  @Get('unread-total')
+  getUnreadTotal(@CurrentUser() user: any) { return this.chatsService.getUnreadTotal(user.id); }
+
   @Get('staff')
-  getAvailableStaff(@CurrentUser() user: any) { return this.chatsService.getAvailableStaff(user.id); }
+  getAvailableStaff(@CurrentUser() user: any) { return this.chatsService.getAvailableStaff(user); }
 
   @Post()
   createChat(@Body() dto: { targetUserId: string; type: string }, @CurrentUser() user: any) {

@@ -20,7 +20,7 @@ body {
     text-wrap: balance;
   }
   .font-serif-italic {
-    font-family: var(--font-serif), Georgia, serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     font-style: italic;
   }
 }

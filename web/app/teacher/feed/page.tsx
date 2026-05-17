@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { FeedItem, Child } from '@/lib/types';
 import FileUpload from '@/components/FileUpload';
 import AuthMedia from '@/components/AuthMedia';
+import PostMedia from '@/components/PostMedia';
 
 type PostType = 'group_news' | 'child_photo' | 'child_achievement';
 
@@ -217,15 +218,7 @@ export default function TeacherFeed() {
                   {item.text}
                 </p>
               )}
-              {item.mediaUrls.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {item.mediaUrls.slice(0, 3).map((url, i) => (
-                    <div key={i} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
-                      <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
+              <PostMedia urls={item.mediaUrls} />
             </Card>
           ))
         )}

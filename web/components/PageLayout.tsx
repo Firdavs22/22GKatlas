@@ -13,6 +13,8 @@ interface PageLayoutProps {
   showBackButton?: boolean;
   /** Use wider max-width for table-heavy pages. */
   wide?: boolean;
+  /** Full-bleed: no max-width, only side padding. */
+  full?: boolean;
 }
 
 export default function PageLayout({
@@ -22,15 +24,20 @@ export default function PageLayout({
   actions,
   showBackButton,
   wide,
+  full,
 }: PageLayoutProps) {
   const router = useRouter();
-  const maxW = wide ? 'max-w-[1400px]' : 'max-w-6xl';
+  // All pages are full-bleed by default (no max-w). `wide` and `full` are kept
+  // as accepted props for backward compatibility but no longer affect width.
+  void wide;
+  void full;
+  const maxW = '';
 
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
       <main className="flex-1 min-w-0">
-        <div className={`${maxW} mx-auto px-6 lg:px-10 py-8`}>
+        <div className={`${maxW} px-6 lg:px-10 py-8`}>
           {(title || actions || showBackButton) && (
             <header className="mb-8 flex items-start justify-between gap-6">
               <div className="min-w-0 flex-1">

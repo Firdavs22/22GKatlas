@@ -11,7 +11,22 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { API_URL } from '@/lib/network';
 import { Child } from '@/lib/types';
+
+interface SidebarBranding {
+  label: string;
+  labelSize: number;
+  hasIcon: boolean;
+  iconSize: number;
+}
+
+const DEFAULT_SIDEBAR: SidebarBranding = {
+  label: 'GloboAtlas',
+  labelSize: 14,
+  hasIcon: false,
+  iconSize: 36,
+};
 
 interface NavItem {
   href: string;
@@ -30,8 +45,10 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/parent/schedule', label: 'Расписание', icon: Calendar },
     { href: '/parent/menu', label: 'Меню', icon: UtensilsCrossed },
     { href: '/parent/payments', label: 'Оплата', icon: Wallet },
-    { href: '/parent/home-tasks', label: 'Задания', icon: ListChecks },
-    { href: '/parent/about', label: 'О методе', icon: BookOpen },
+    { href: '/parent/home-tasks', label: 'Рекомендации', icon: ListChecks },
+    { href: '/parent/knowledge', label: 'База знаний', icon: BookOpen },
+    { href: '/parent/appointments', label: 'Запись на приём', icon: CalendarCheck },
+    { href: '/parent/about', label: 'О системе', icon: BookOpen },
   ],
   teacher: [
     { href: '/teacher', label: 'Матрица прогресса', icon: Grid3x3 },
@@ -57,13 +74,19 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/events', label: 'События', icon: Calendar },
     { href: '/admin/menu', label: 'Меню', icon: ChefHat },
     { href: '/admin/broadcasts', label: 'Рассылки', icon: Megaphone },
+    { href: '/admin/knowledge', label: 'База знаний', icon: BookOpen },
+    { href: '/admin/site-content', label: 'О системе и логин', icon: Settings },
   ],
   psychologist: [
     { href: '/psychologist', label: 'Дети', icon: GraduationCap },
+    { href: '/psychologist/recommendations', label: 'Рекомендации', icon: ClipboardList },
+    { href: '/psychologist/slots', label: 'Запись на приём', icon: CalendarCheck },
     { href: '/psychologist/chats', label: 'Чаты', icon: MessageCircle },
   ],
   pediatrician: [
     { href: '/pediatrician', label: 'Дети', icon: GraduationCap },
+    { href: '/pediatrician/recommendations', label: 'Рекомендации', icon: ClipboardList },
+    { href: '/pediatrician/slots', label: 'Запись на приём', icon: CalendarCheck },
     { href: '/pediatrician/chats', label: 'Чаты', icon: MessageCircle },
     { href: '/pediatrician/menu', label: 'Меню', icon: UtensilsCrossed },
   ],
@@ -162,6 +185,35 @@ function ContextCard() {
 export default function AppSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [unreadChats, setUnreadChats] = useState(0);
+  const [brand, setBrand] = useState<SidebarBranding>(DEFAULT_SIDEBAR);
+
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false;
+    const load = () => api
+      .get('/chats/unread-total')
+      .then(r => { if (!stopped) setUnreadChats(r.data?.total || 0); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { stopped = true; clearInterval(id); };
+  }, [user, pathname]);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get('/site-content/sidebar')
+      .then(r => {
+        const data = r.data || {};
+        setBrand({
+          label: typeof data.label === 'string' ? data.label : DEFAULT_SIDEBAR.label,
+          labelSize: Number(data.labelSize) || DEFAULT_SIDEBAR.labelSize,
+          hasIcon: Boolean(data.iconUrl),
+          iconSize: Number(data.iconSize) || DEFAULT_SIDEBAR.iconSize,
+        });
+      })
+      .catch(() => {});
+  }, [user]);
 
   if (!user) return null;
 
@@ -173,11 +225,35 @@ export default function AppSidebar() {
     <aside className="hidden md:flex w-64 shrink-0 border-r border-slate-200 bg-white flex-col h-screen sticky top-0">
       {/* Brand */}
       <div className="px-5 pt-6 pb-4 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-brand text-white flex items-center justify-center font-serif text-lg">
-          G
-        </div>
-        <div className="leading-tight">
-          <div className="font-medium text-sm text-foreground">GloboAtlas</div>
+        {brand.hasIcon ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`${API_URL}/api/site-content/public/sidebar-icon`}
+            alt=""
+            className="object-contain shrink-0"
+            style={{ width: `${brand.iconSize}px`, height: `${brand.iconSize}px` }}
+          />
+        ) : (
+          <div
+            className="rounded-xl bg-brand text-white flex items-center justify-center font-serif shrink-0"
+            style={{
+              width: `${brand.iconSize}px`,
+              height: `${brand.iconSize}px`,
+              fontSize: `${brand.iconSize / 2}px`,
+            }}
+          >
+            G
+          </div>
+        )}
+        <div className="leading-tight min-w-0">
+          {brand.label && (
+            <div
+              className="font-medium text-foreground truncate"
+              style={{ fontSize: `${brand.labelSize}px` }}
+            >
+              {brand.label}
+            </div>
+          )}
           <div className="text-[10px] uppercase tracking-wider text-slate-500">
             {ROLE_LABEL[user.role]}
           </div>
@@ -195,6 +271,8 @@ export default function AppSidebar() {
           {items.map(item => {
             const Icon = item.icon;
             const active = isActive(item.href);
+            const isChats = item.href.endsWith('/chats');
+            const badge = isChats ? unreadChats : item.badge ?? 0;
             return (
               <li key={item.href}>
                 <Link
@@ -207,9 +285,9 @@ export default function AppSidebar() {
                 >
                   <Icon size={18} className="shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
-                  {item.badge !== undefined && item.badge > 0 && (
+                  {badge > 0 && (
                     <span className="bg-brand text-white text-[11px] min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-medium">
-                      {item.badge}
+                      {badge > 99 ? '99+' : badge}
                     </span>
                   )}
                 </Link>

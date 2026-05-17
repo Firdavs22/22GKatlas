@@ -24,9 +24,6 @@ function shell(title: string, body: string): string {
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <tr>
             <td style="padding:32px 32px 24px 32px;border-bottom:1px solid #F1F5F9;">
-              <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1.2px;color:${MUTED};margin-bottom:6px;">
-                Метод Марии Монтессори
-              </div>
               <div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.1;color:${FOREGROUND};">
                 Глобо<em>Атлас</em>
               </div>

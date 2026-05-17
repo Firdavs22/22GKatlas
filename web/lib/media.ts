@@ -47,3 +47,23 @@ export function getMediaType(url: string | null | undefined): 'image' | 'video' 
   if (['mp4', 'webm', 'mov'].includes(ext)) return 'video';
   return 'other';
 }
+
+/**
+ * Нормализует тип портфолио-элемента. Поддерживает разные варианты записи:
+ *   'photo' | 'Фото' | 'image' | 'img' → 'photo'
+ *   'video' | 'Видео'                  → 'video'
+ * Если тип неясен — определяем по расширению fileUrl.
+ */
+export function normalizePortfolioType(
+  type: string | null | undefined,
+  fileUrl?: string | null,
+): 'photo' | 'video' | 'document' {
+  const t = (type || '').trim().toLowerCase();
+  if (t === 'photo' || t === 'фото' || t === 'image' || t === 'img') return 'photo';
+  if (t === 'video' || t === 'видео') return 'video';
+  if (t === 'document' || t === 'документ' || t === 'doc') return 'document';
+  const m = getMediaType(fileUrl);
+  if (m === 'image') return 'photo';
+  if (m === 'video') return 'video';
+  return 'document';
+}

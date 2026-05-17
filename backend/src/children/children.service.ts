@@ -187,7 +187,27 @@ export class ChildrenService {
   }
 
   createObservation(childId: string, dto: any, user: any) {
-    return this.prisma.observation.create({ data: { ...dto, childId, userId: user.id } });
+    const title = typeof dto?.title === 'string' ? dto.title.trim() : '';
+    const rawText = typeof dto?.text === 'string' ? dto.text.trim() : '';
+    const text = rawText || title || 'Наблюдение';
+    const photos = Array.isArray(dto?.photos)
+      ? dto.photos.filter((p: unknown): p is string => typeof p === 'string')
+      : [];
+    const tags = Array.isArray(dto?.tags)
+      ? dto.tags.filter((t: unknown): t is string => typeof t === 'string')
+      : [];
+    return this.prisma.observation.create({
+      data: {
+        childId,
+        userId: user.id,
+        title: title || null,
+        text,
+        areaId: typeof dto?.areaId === 'string' && dto.areaId ? dto.areaId : null,
+        tags,
+        photos,
+        visible: dto?.visible === false ? false : true,
+      },
+    });
   }
 
   getPortfolio(childId: string) {
@@ -244,12 +264,27 @@ export class ChildrenService {
     });
   }
 
-  getHomeTasks(childId: string) {
-    return this.prisma.homeTask.findMany({
+  async getHomeTasks(childId: string) {
+    const tasks = await this.prisma.homeTask.findMany({
       where: { childId },
       include: { skill: { select: { id: true, title: true } } },
-      orderBy: { id: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
+
+    const authorIds = Array.from(
+      new Set(tasks.map(t => t.authorId).filter((id): id is string => !!id)),
+    );
+    const authors = authorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: authorIds } },
+          select: { id: true, name: true, role: true },
+        })
+      : [];
+    const authorById = new Map(authors.map(a => [a.id, a]));
+    return tasks.map(t => ({
+      ...t,
+      author: t.authorId ? authorById.get(t.authorId) || null : null,
+    }));
   }
 
   updateHomeTask(childId: string, taskId: string, dto: any) {
@@ -259,16 +294,60 @@ export class ChildrenService {
     });
   }
 
-  createHomeTask(childId: string, dto: any) {
-    return this.prisma.homeTask.create({
+  async createHomeTask(childId: string, dto: any, user?: { id: string; role: string }) {
+    const tags: string[] = Array.isArray(dto?.tags)
+      ? dto.tags.filter((t: unknown): t is string => typeof t === 'string')
+      : [];
+    const task = await this.prisma.homeTask.create({
       data: {
         childId,
-        skillId: dto.skillId,
+        skillId: typeof dto?.skillId === 'string' && dto.skillId ? dto.skillId : null,
+        authorId: user?.id || null,
+        authorRole: user?.role || null,
         title: dto.title,
-        description: dto.description,
+        description: dto.description ?? null,
+        tags,
       },
       include: { skill: { select: { id: true, title: true } } },
     });
+
+    // Notify parents
+    try {
+      const parents = await this.prisma.childParent.findMany({
+        where: { childId },
+        select: { parentId: true },
+      });
+      if (parents.length > 0) {
+        const child = await this.prisma.child.findUnique({
+          where: { id: childId },
+          select: { name: true },
+        });
+        const roleLabel = user?.role === 'pediatrician'
+          ? 'Педиатр'
+          : user?.role === 'psychologist'
+            ? 'Психолог'
+            : user?.role === 'teacher'
+              ? 'Педагог'
+              : 'Сотрудник';
+        const important = tags.some(t => /важно|важн/i.test(t));
+        await this.prisma.notification.createMany({
+          data: parents.map(p => ({
+            userId: p.parentId,
+            type: 'recommendation',
+            title: `${roleLabel}: ${task.title}`,
+            body: `${child?.name ? `Для ${child.name}` : ''}${
+              tags.length ? ` · ${tags.join(', ')}` : ''
+            }`,
+            data: { taskId: task.id, important, tags },
+            read: false,
+          })),
+        });
+      }
+    } catch {
+      /* Notification creation is best-effort. */
+    }
+
+    return task;
   }
 
   deleteHomeTask(childId: string, taskId: string) {

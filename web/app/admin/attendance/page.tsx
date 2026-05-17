@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Check, AlertCircle, Loader2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
-import { Card, Button } from '@/components/ui';
+import { Card } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
 
@@ -24,7 +24,7 @@ function getWeekDates(baseDate: Date): Date[] {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
   const dates: Date[] = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 5; i++) {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     dates.push(date);
@@ -41,8 +41,11 @@ export default function AdminAttendance() {
   const [weekBase, setWeekBase] = useState(() => new Date());
   const [attendance, setAttendance] = useState<Record<string, Record<string, Status>>>({});
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const pendingDatesRef = useRef<Set<string>>(new Set());
+  const dirtyAttendanceRef = useRef<Record<string, Record<string, Status>>>({});
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     Promise.all([api.get('/admin/groups'), api.get('/admin/children')]).then(([g, c]) => {
@@ -79,11 +82,61 @@ export default function AdminAttendance() {
 
   const groupChildren = children.filter(c => c.groupId === selectedGroup && c.status === 'active');
 
+  // Keep a ref of the latest attendance for the debounced flush
+  useEffect(() => { dirtyAttendanceRef.current = attendance; }, [attendance]);
+
+  const flushPending = async () => {
+    if (!selectedGroup || pendingDatesRef.current.size === 0) return;
+    const dates = Array.from(pendingDatesRef.current);
+    pendingDatesRef.current = new Set();
+    setSaveStatus('saving');
+    try {
+      await Promise.all(
+        dates.map(date => {
+          const records = groupChildren
+            .filter(c => dirtyAttendanceRef.current[c.id]?.[date])
+            .map(c => ({ childId: c.id, status: dirtyAttendanceRef.current[c.id][date] }));
+          return api.post('/admin/attendance', { groupId: selectedGroup, date, records });
+        }),
+      );
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1500);
+    } catch {
+      setSaveStatus('error');
+    }
+  };
+
+  const scheduleSave = (date: string) => {
+    pendingDatesRef.current.add(date);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => flushPending(), 600);
+  };
+
+  // Flush on tab hide/unmount
+  useEffect(() => {
+    const onHide = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        flushPending();
+      }
+    };
+    window.addEventListener('beforeunload', onHide);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('beforeunload', onHide);
+      document.removeEventListener('visibilitychange', onHide);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroup]);
+
   const setStatus = (childId: string, date: string, status: Status) => {
     setAttendance(prev => ({
       ...prev,
       [childId]: { ...(prev[childId] || {}), [date]: status },
     }));
+    scheduleSave(date);
   };
 
   const markAllDay = (date: string, status: Status) => {
@@ -94,43 +147,14 @@ export default function AdminAttendance() {
       });
       return next;
     });
-  };
-
-  const saveDay = async (date: string) => {
-    if (!selectedGroup) return;
-    setSaving(true);
-    const records = groupChildren
-      .filter(c => attendance[c.id]?.[date])
-      .map(c => ({ childId: c.id, status: attendance[c.id][date] }));
-    try {
-      await api.post('/admin/attendance', { groupId: selectedGroup, date, records });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveAll = async () => {
-    setSaving(true);
-    try {
-      for (const d of weekDates) {
-        const date = fmt(d);
-        const records = groupChildren
-          .filter(c => attendance[c.id]?.[date])
-          .map(c => ({ childId: c.id, status: attendance[c.id][date] }));
-        if (records.length > 0) {
-          await api.post('/admin/attendance', { groupId: selectedGroup, date, records });
-        }
-      }
-    } finally {
-      setSaving(false);
-    }
+    scheduleSave(date);
   };
 
   const today = fmt(new Date());
 
   const monthRangeLabel = () => {
     const first = weekDates[0];
-    const last = weekDates[6];
+    const last = weekDates[weekDates.length - 1];
     if (first.getMonth() === last.getMonth()) {
       return `${first.getDate()}–${last.getDate()} ${first.toLocaleDateString('ru-RU', { month: 'long' })}`;
     }
@@ -143,10 +167,29 @@ export default function AdminAttendance() {
       title="Посещаемость"
       wide
       actions={
-        <Button variant="primary" size="sm" onClick={saveAll} disabled={saving || groupChildren.length === 0}>
-          <Save size={16} />
-          {saving ? 'Сохранение…' : 'Сохранить'}
-        </Button>
+        <span className="inline-flex items-center gap-1.5 text-xs px-3 h-9 rounded-full bg-slate-50 text-slate-500 min-w-[140px] justify-center">
+          {saveStatus === 'saving' ? (
+            <>
+              <Loader2 size={12} className="animate-spin" />
+              Сохранение…
+            </>
+          ) : saveStatus === 'saved' ? (
+            <>
+              <Check size={12} className="text-success" />
+              Сохранено
+            </>
+          ) : saveStatus === 'error' ? (
+            <>
+              <AlertCircle size={12} className="text-danger" />
+              Ошибка сохранения
+            </>
+          ) : (
+            <>
+              <Check size={12} />
+              Автосохранение
+            </>
+          )}
+        </span>
       }
     >
       <Card padding="md" className="mb-4">
@@ -267,17 +310,6 @@ export default function AdminAttendance() {
                   >
                     Не пришли
                   </button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => saveDay(dateStr)}
-                    disabled={saving}
-                    className="ml-3"
-                  >
-                    <Save size={14} />
-                    Сохранить день
-                  </Button>
                 </div>
               </div>
               <ul className="divide-y divide-slate-100">

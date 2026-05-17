@@ -22,7 +22,9 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "Georgia", "serif"],
+        // Headings use the same Nunito family — `font-serif` is kept as an
+        // alias so existing class names keep working without sweeping edits.
+        serif: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
     },
   },

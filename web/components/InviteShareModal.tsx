@@ -79,7 +79,7 @@ export default function InviteShareModal({
         <div className="p-6 space-y-5">
           <div>
             <SectionLabel>Ссылка для родителя</SectionLabel>
-            <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-mono text-slate-700 break-all">
+            <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-100 text-sm text-slate-700 break-all">
               {inviteUrl}
             </div>
             <p className="text-xs text-slate-500 mt-2">

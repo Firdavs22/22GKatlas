@@ -40,7 +40,7 @@ export default function NotificationsPage() {
           </div>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {notifications.map(n => (
             <Card
               key={n.id}

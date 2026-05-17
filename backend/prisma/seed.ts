@@ -223,17 +223,17 @@ async function main() {
   const schedule = [
     { day: 1, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
     { day: 1, start: '08:30', end: '09:00', activity: 'Завтрак', desc: null },
-    { day: 1, start: '09:00', end: '11:30', activity: 'Монтессори-работа', desc: 'Свободная работа с материалом' },
+    { day: 1, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: 'Свободная работа с материалом' },
     { day: 1, start: '11:30', end: '12:00', activity: 'Прогулка', desc: null },
     { day: 1, start: '12:00', end: '13:00', activity: 'Обед', desc: null },
     { day: 2, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
-    { day: 2, start: '09:00', end: '11:30', activity: 'Монтессори-работа', desc: null },
+    { day: 2, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
     { day: 3, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
-    { day: 3, start: '09:00', end: '11:30', activity: 'Монтессори-работа', desc: null },
+    { day: 3, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
     { day: 4, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
-    { day: 4, start: '09:00', end: '11:30', activity: 'Монтессори-работа', desc: null },
+    { day: 4, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
     { day: 5, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
-    { day: 5, start: '09:00', end: '11:30', activity: 'Монтессори-работа', desc: null },
+    { day: 5, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
   ];
 
   for (const s of schedule) {

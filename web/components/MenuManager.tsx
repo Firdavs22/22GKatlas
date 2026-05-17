@@ -183,7 +183,7 @@ export default function MenuManager() {
                         key={item.id}
                         className="group relative text-xs p-2.5 rounded-xl bg-white border border-slate-100"
                       >
-                        <div className="font-mono text-[11px] text-brand">
+                        <div className="tabular-nums text-[11px] text-brand">
                           {item.time} · {item.name}
                         </div>
                         <div className="text-sm text-foreground mt-0.5">{item.food}</div>
@@ -278,7 +278,7 @@ export default function MenuManager() {
                                 ) : (
                                   parsed[d].map((meal, idx) => (
                                     <div key={`${meal.time}-${idx}`} className="text-xs">
-                                      <div className="font-mono text-[11px] text-brand">
+                                      <div className="tabular-nums text-[11px] text-brand">
                                         {meal.time} · {meal.name}
                                       </div>
                                       <div className="text-foreground mt-0.5">{meal.food}</div>

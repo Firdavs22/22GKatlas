@@ -12,15 +12,18 @@ type ParentUser = {
   name: string;
   email: string;
   phone?: string;
-  parentChildren?: { child: { id: string; name: string; status: string; group?: { name?: string } } }[];
+  parentChildren?: { child: { id: string; name: string; status: string; group?: { id?: string; name?: string } } }[];
 };
 
 type ChildRow = {
   id: string;
   name: string;
-  group?: { name?: string };
+  groupId?: string;
+  group?: { id?: string; name?: string };
   parents?: { parent: { id: string; name: string; email: string } }[];
 };
+
+type GroupRow = { id: string; name: string };
 
 const emptyForm = { email: '', name: '', phone: '', childIds: [] as string[] };
 const inputCls =
@@ -29,6 +32,8 @@ const inputCls =
 export default function AdminParents() {
   const [parents, setParents] = useState<ParentUser[]>([]);
   const [children, setChildren] = useState<ChildRow[]>([]);
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [groupFilter, setGroupFilter] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
 
   const [formOpen, setFormOpen] = useState(false);
@@ -38,9 +43,14 @@ export default function AdminParents() {
   const [invite, setInvite] = useState<{ token: string; name: string } | null>(null);
 
   const load = () => {
-    Promise.all([api.get('/admin/parents'), api.get('/admin/children')]).then(([p, c]) => {
+    Promise.all([
+      api.get('/admin/parents'),
+      api.get('/admin/children'),
+      api.get('/admin/groups'),
+    ]).then(([p, c, g]) => {
       setParents(p.data || []);
       setChildren(c.data || []);
+      setGroups(g.data || []);
     });
   };
 
@@ -48,11 +58,33 @@ export default function AdminParents() {
 
   const orphans = useMemo(() => children.filter(c => !c.parents?.length), [children]);
 
-  const filtered = parents.filter(p => {
+  const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return [p.name, p.email, p.phone].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
-  });
+    return parents.filter(p => {
+      if (q) {
+        const matches = [p.name, p.email, p.phone]
+          .filter(Boolean)
+          .some(v => String(v).toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+      if (groupFilter.size > 0) {
+        const parentGroupIds = (p.parentChildren || [])
+          .map(link => link.child.group?.id)
+          .filter((id): id is string => Boolean(id));
+        if (!parentGroupIds.some(id => groupFilter.has(id))) return false;
+      }
+      return true;
+    });
+  }, [parents, search, groupFilter]);
+
+  const toggleGroup = (id: string) => {
+    setGroupFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const openForm = (p?: ParentUser) => {
     if (p) {
@@ -97,7 +129,11 @@ export default function AdminParents() {
 
   return (
     <PageLayout
-      eyebrow={`${parents.length} родителей · ${orphans.length} детей без родителя`}
+      eyebrow={
+        groupFilter.size > 0
+          ? `${filtered.length} из ${parents.length} родителей · ${orphans.length} детей без родителя`
+          : `${parents.length} родителей · ${orphans.length} детей без родителя`
+      }
       title="Родители"
       wide
       actions={
@@ -117,6 +153,41 @@ export default function AdminParents() {
             className={`${inputCls} pl-9`}
           />
         </div>
+        {groups.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mr-1">
+              Группы
+            </span>
+            <button
+              type="button"
+              onClick={() => setGroupFilter(new Set())}
+              className={`px-3 h-7 text-xs rounded-full transition-colors ${
+                groupFilter.size === 0
+                  ? 'bg-brand text-white'
+                  : 'border border-slate-200 text-slate-600 hover:border-brand'
+              }`}
+            >
+              Все
+            </button>
+            {groups.map(g => {
+              const active = groupFilter.has(g.id);
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => toggleGroup(g.id)}
+                  className={`px-3 h-7 text-xs rounded-full transition-colors ${
+                    active
+                      ? 'bg-brand text-white'
+                      : 'border border-slate-200 text-slate-600 hover:border-brand'
+                  }`}
+                >
+                  {g.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
       {orphans.length > 0 && (
@@ -197,7 +268,7 @@ export default function AdminParents() {
         </Card>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {filtered.length === 0 ? (
           <Card padding="md">
             <div className="text-sm text-slate-400 py-12 text-center">Родители не найдены</div>

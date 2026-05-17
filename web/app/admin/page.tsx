@@ -94,7 +94,7 @@ export default function AdminDashboard() {
     { label: 'Оплаты', href: '/admin/payments', desc: 'Начисления, статусы и долги', icon: Wallet },
     { label: 'Посещаемость', href: '/admin/attendance', desc: 'Быстрая отметка по группе', icon: CalendarCheck },
     { label: 'Родители', href: '/admin/parents', desc: 'Аккаунты и связь с детьми', icon: Users },
-    { label: 'Навыки', href: '/admin/skills', desc: 'Дерево Montessori-навыков', icon: BookOpen },
+    { label: 'Навыки', href: '/admin/skills', desc: 'Дерево навыков', icon: BookOpen },
     { label: 'Расписание', href: '/admin/schedule', desc: 'Занятия по дням и группам', icon: Calendar },
     { label: 'Меню', href: '/admin/menu', desc: 'Питание и альтернативы', icon: ChefHat },
     { label: 'Рассылки', href: '/admin/broadcasts', desc: 'Сообщения родителям', icon: Megaphone },

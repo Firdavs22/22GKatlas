@@ -45,7 +45,7 @@ async function main() {
       await prisma.portfolioItem.create({
         data: {
           childId: child.id, authorId: teacher.id,
-          title: 'Творческая работа', description: 'Упражнение с материалами Монтессори',
+          title: 'Творческая работа', description: 'Развивающее упражнение',
           date: date,
           type: 'Фото',
           fileUrl: 'https://images.unsplash.com/photo-1596464716127-f2a82984de30?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',

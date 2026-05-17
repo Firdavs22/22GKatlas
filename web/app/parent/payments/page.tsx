@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, CalendarDays } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
@@ -45,6 +45,33 @@ function shortInvoiceId(id: string): string {
   return `#${id.replace(/-/g, '').slice(-5)}`;
 }
 
+/** Кол-во рабочих дней (Пн-Пт) в месяце. */
+function workingDaysInMonth(year: number, month: number): number {
+  const last = new Date(year, month + 1, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= last; d++) {
+    const day = new Date(year, month, d).getDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
+}
+
+/** Рабочих дней до сегодня включительно. */
+function workingDaysElapsed(year: number, month: number, today: Date): number {
+  const inSameMonth = today.getFullYear() === year && today.getMonth() === month;
+  const lastDay = inSameMonth
+    ? today.getDate()
+    : today > new Date(year, month, 1)
+      ? new Date(year, month + 1, 0).getDate()
+      : 0;
+  let count = 0;
+  for (let d = 1; d <= lastDay; d++) {
+    const day = new Date(year, month, d).getDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
+}
+
 export default function PaymentsPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [childId, setChildId] = useState('');
@@ -74,6 +101,35 @@ export default function PaymentsPage() {
   }, [payments]);
 
   const dueLabel = dueNext ? formatMonth(dueNext.month).toLowerCase() : '';
+
+  /** Накоплено по тарифу за месяц на сегодня (по рабочим дням). */
+  const monthlyAccrual = useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const currentInvoice = payments.find(p => {
+      const d = new Date(p.month);
+      return d.getFullYear() === y && d.getMonth() === m;
+    });
+    const monthly = currentInvoice
+      ? Number(currentInvoice.amount)
+      : payments.length
+        ? Number(payments[0].amount)
+        : 0;
+    if (!monthly) return null;
+    const total = workingDaysInMonth(y, m);
+    const elapsed = workingDaysElapsed(y, m, today);
+    if (total === 0) return null;
+    const perDay = monthly / total;
+    return {
+      monthly,
+      perDay: Math.round(perDay),
+      elapsed,
+      total,
+      accrued: Math.round(perDay * elapsed),
+      label: formatMonth(new Date(y, m, 1).toISOString()),
+    };
+  }, [payments]);
 
   return (
     <PageLayout
@@ -137,7 +193,7 @@ export default function PaymentsPage() {
                   {sorted.map(p => (
                     <tr key={p.id}>
                       <td className="px-6 py-4 font-medium">{formatMonth(p.month)}</td>
-                      <td className="px-6 py-4 font-mono text-sm">
+                      <td className="px-6 py-4 tabular-nums text-sm">
                         {Number(p.amount).toLocaleString('ru-RU')} ₽
                       </td>
                       <td className="px-6 py-4">
@@ -150,7 +206,7 @@ export default function PaymentsPage() {
                           ? formatShortDate(p.month)
                           : `до ${formatShortDate(p.month)}`}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                      <td className="px-6 py-4 tabular-nums text-xs text-slate-400">
                         {p.status === 'paid' ? shortInvoiceId(p.id) : '—'}
                       </td>
                     </tr>
@@ -163,6 +219,35 @@ export default function PaymentsPage() {
 
         {/* Pay card + requisites */}
         <div className="space-y-4">
+          {monthlyAccrual && (
+            <Card padding="md">
+              <div className="flex items-center gap-2 mb-2 text-brand">
+                <CalendarDays size={16} />
+                <SectionLabel>Накоплено за месяц</SectionLabel>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-serif text-3xl">
+                  {monthlyAccrual.accrued.toLocaleString('ru-RU')}
+                </span>
+                <span className="text-base text-slate-500">₽</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {monthlyAccrual.label} · {monthlyAccrual.elapsed} из {monthlyAccrual.total} рабочих дней
+              </div>
+              <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, Math.round((monthlyAccrual.accrued / monthlyAccrual.monthly) * 100))}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-400 mt-1.5">
+                <span>≈ {monthlyAccrual.perDay.toLocaleString('ru-RU')} ₽ / день</span>
+                <span>из {monthlyAccrual.monthly.toLocaleString('ru-RU')} ₽</span>
+              </div>
+            </Card>
+          )}
           {dueNext && (
             <Card padding="md" variant="pale">
               <SectionLabel>К оплате</SectionLabel>
@@ -190,11 +275,11 @@ export default function PaymentsPage() {
               </div>
               <div>
                 <dt className="text-xs text-slate-500">ИНН</dt>
-                <dd className="font-mono text-foreground">7723123456</dd>
+                <dd className="tabular-nums text-foreground">7723123456</dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500">Счёт</dt>
-                <dd className="font-mono text-foreground">40702 810 …</dd>
+                <dd className="tabular-nums text-foreground">40702 810 …</dd>
               </div>
             </dl>
           </Card>

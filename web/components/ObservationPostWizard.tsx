@@ -7,6 +7,7 @@ import {
 import api from '@/lib/api';
 import { Card, Button, SectionLabel } from '@/components/ui';
 import AuthMedia from '@/components/AuthMedia';
+import PostMedia from '@/components/PostMedia';
 
 interface Area { id: string; title: string; }
 interface ChildLite { id: string; name: string; }
@@ -538,18 +539,7 @@ function Step3Publish({
           </div>
           <div className="text-xs text-slate-500 shrink-0">{child?.name}</div>
         </div>
-        {photos.length > 0 && (
-          <div className={`grid gap-1.5 ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
-            {photos.map((url, i) => (
-              <div
-                key={i}
-                className={`${photos.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} rounded-xl overflow-hidden bg-brand-pale/40`}
-              >
-                <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
+        <PostMedia urls={photos} />
         {text && (
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{text}</p>
         )}

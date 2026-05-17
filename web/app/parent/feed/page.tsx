@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Filter, Download, Heart, MessageSquare, Calendar } from 'lucide-react';
+import { Filter, Download, Calendar } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
-import AuthMedia from '@/components/AuthMedia';
+import PostMedia from '@/components/PostMedia';
 
 interface FeedItem {
   id: string;
@@ -17,8 +17,6 @@ interface FeedItem {
   createdAt: string;
   author?: { id: string; name: string; role?: string };
   group?: { id: string; name: string };
-  likes?: { userId: string }[];
-  _count?: { likes?: number; comments?: number };
 }
 
 interface EventItem {
@@ -127,19 +125,6 @@ export default function FeedPage() {
     }
   };
 
-  const toggleLike = async (id: string) => {
-    await api.post(`/feed/${id}/like`);
-    setFeed(prev => prev.map(f => {
-      if (f.id !== id) return f;
-      const liked = (f.likes?.length || 0) > 0;
-      return {
-        ...f,
-        likes: liked ? [] : [{ userId: 'me' }],
-        _count: { ...f._count, likes: (f._count?.likes || 0) + (liked ? -1 : 1) },
-      };
-    }));
-  };
-
   return (
     <PageLayout
       eyebrow="Публикации группы"
@@ -189,35 +174,7 @@ export default function FeedPage() {
                     {item.text}
                   </p>
                 )}
-                {item.mediaUrls.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {item.mediaUrls.slice(0, 3).map((url, i) => (
-                      <div key={i} className="aspect-square rounded-lg overflow-hidden bg-brand-pale/40">
-                        <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => toggleLike(item.id)}
-                      className={`inline-flex items-center gap-1.5 text-sm transition-colors ${
-                        (item.likes?.length || 0) > 0 ? 'text-red-500' : 'text-slate-500 hover:text-red-500'
-                      }`}
-                    >
-                      <Heart size={16} fill={(item.likes?.length || 0) > 0 ? 'currentColor' : 'none'} />
-                      {item._count?.likes || 0}
-                    </button>
-                    <button className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-foreground">
-                      <MessageSquare size={16} />
-                      Комментарии
-                    </button>
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    Видно: {item.scope === 'school' ? 'всем' : item.scope === 'group' ? 'родителям группы' : 'вам'}
-                  </span>
-                </div>
+                <PostMedia urls={item.mediaUrls} />
               </Card>
             ))
           )}

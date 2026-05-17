@@ -1,6 +1,8 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
+import type { ForwardedRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Download, ChevronDown, ChevronRight, Check, AlertCircle, Loader2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button } from '@/components/ui';
 import ProgressStageDot, { STAGE_ORDER, STAGE_LABEL } from '@/components/ProgressStageDot';
@@ -52,15 +54,27 @@ function shortName(name: string): string {
   return `${parts[0]} ${parts[1].charAt(0)}.`;
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 export default function TeacherMatrix() {
   const [data, setData] = useState<GroupProgressResponse | null>(null);
   const [progress, setProgress] = useState<Record<string, Record<string, Stage>>>({});
   const [pending, setPending] = useState<Map<string, Stage>>(new Map());
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [collapsedAreas, setCollapsedAreas] = useState<Set<string>>(new Set());
-  const [openCell, setOpenCell] = useState<string | null>(null);
+  const [openCell, setOpenCell] = useState<{
+    key: string;
+    childId: string;
+    skillId: string;
+    skillTitle: string;
+    stage: Stage;
+    rect: DOMRect;
+  } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     api.get('/children/group-progress').then(r => {
@@ -69,7 +83,7 @@ export default function TeacherMatrix() {
     });
   }, []);
 
-  // Close popover on outside click
+  // Close popover on outside click, scroll, escape
   useEffect(() => {
     if (!openCell) return;
     const handler = (e: MouseEvent) => {
@@ -77,8 +91,16 @@ export default function TeacherMatrix() {
         setOpenCell(null);
       }
     };
+    const onScroll = () => setOpenCell(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenCell(null); };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+    };
   }, [openCell]);
 
   const toggleArea = (areaId: string) => {
@@ -87,6 +109,29 @@ export default function TeacherMatrix() {
       if (next.has(areaId)) next.delete(areaId);
       else next.add(areaId);
       return next;
+    });
+  };
+
+  const flush = async () => {
+    setPending(prev => {
+      if (prev.size === 0) return prev;
+      setSaveStatus('saving');
+      const entries = Array.from(prev.entries());
+      (async () => {
+        try {
+          await Promise.all(
+            entries.map(([key, stage]) => {
+              const [childId, skillId] = key.split(':');
+              return api.put(`/children/${childId}/progress`, { skillId, stage });
+            }),
+          );
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1500);
+        } catch {
+          setSaveStatus('error');
+        }
+      })();
+      return new Map();
     });
   };
 
@@ -101,22 +146,28 @@ export default function TeacherMatrix() {
       return map;
     });
     setOpenCell(null);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => flush(), 600);
   };
 
-  const handleSave = async () => {
-    if (pending.size === 0) return;
-    setSaving(true);
-    try {
-      const entries = Array.from(pending.entries());
-      for (const [key, stage] of entries) {
-        const [childId, skillId] = key.split(':');
-        await api.put(`/children/${childId}/progress`, { skillId, stage });
+  // Flush pending on unmount / page hide
+  useEffect(() => {
+    const onHide = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        flush();
       }
-      setPending(new Map());
-    } finally {
-      setSaving(false);
-    }
-  };
+    };
+    window.addEventListener('beforeunload', onHide);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('beforeunload', onHide);
+      document.removeEventListener('visibilitychange', onHide);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Per-area metadata: skill list (when expanded) and counts. */
   const areaColumns = useMemo(() => {
@@ -163,7 +214,7 @@ export default function TeacherMatrix() {
     <PageLayout
       eyebrow={`Группа ${groupName} · ${ageRange} · ${childrenCount} ${childrenCount === 1 ? 'ребёнок' : childrenCount < 5 ? 'ребёнка' : 'детей'}`}
       title="Матрица прогресса"
-      wide
+      full
       actions={
         <>
           <Button
@@ -181,15 +232,29 @@ export default function TeacherMatrix() {
             <Download size={16} />
             Отчёт
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSave}
-            disabled={pending.size === 0 || saving}
-          >
-            <Save size={16} />
-            {saving ? 'Сохранение…' : pending.size > 0 ? `Сохранить (${pending.size})` : 'Сохранить'}
-          </Button>
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 h-9 rounded-full bg-slate-50 text-slate-500 min-w-[120px] justify-center">
+            {saveStatus === 'saving' || pending.size > 0 ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Сохранение…
+              </>
+            ) : saveStatus === 'saved' ? (
+              <>
+                <Check size={12} className="text-success" />
+                Сохранено
+              </>
+            ) : saveStatus === 'error' ? (
+              <>
+                <AlertCircle size={12} className="text-danger" />
+                Ошибка
+              </>
+            ) : (
+              <>
+                <Check size={12} />
+                Автосохранение
+              </>
+            )}
+          </span>
         </>
       }
     >
@@ -207,15 +272,15 @@ export default function TeacherMatrix() {
         </span>
       </div>
 
-      <Card padding="none" className="overflow-hidden">
-        <div className="overflow-x-auto">
+      <Card padding="none" className="overflow-hidden h-[calc(100vh-280px)] min-h-[420px] flex flex-col">
+        <div className="overflow-auto flex-1">
           <table className="border-collapse text-sm">
-            <thead>
+            <thead className="sticky top-0 z-20 bg-white">
               {/* Row 1: areas (with colspan) */}
               <tr>
                 <th
                   rowSpan={2}
-                  className="sticky left-0 z-20 bg-white border-b border-r border-slate-100 px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 min-w-[180px] align-bottom"
+                  className="sticky left-0 z-30 bg-white border-b border-r border-slate-100 px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 min-w-[180px] align-bottom"
                 >
                   Ребёнок
                 </th>
@@ -316,53 +381,33 @@ export default function TeacherMatrix() {
                       const stage = (progress[child.id]?.[skill.id] || 'none') as Stage;
                       const cellKey = `${child.id}:${skill.id}`;
                       const isPending = pending.has(cellKey);
-                      const isOpen = openCell === cellKey;
                       return (
                         <td
                           key={skill.id}
-                          className={`relative border-r border-slate-100 text-center p-1 ${isPending ? 'bg-brand-pale/30' : ''}`}
+                          className={`border-r border-slate-100 text-center p-1 ${isPending ? 'bg-brand-pale/30' : ''}`}
                         >
                           <button
                             type="button"
-                            onClick={() => setOpenCell(isOpen ? null : cellKey)}
+                            onClick={e => {
+                              if (openCell?.key === cellKey) {
+                                setOpenCell(null);
+                              } else {
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                setOpenCell({
+                                  key: cellKey,
+                                  childId: child.id,
+                                  skillId: skill.id,
+                                  skillTitle: skill.title,
+                                  stage,
+                                  rect,
+                                });
+                              }
+                            }}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-100 transition-colors"
                             title={`${child.name} — ${skill.title}: ${STAGE_LABEL[stage]}`}
                           >
                             <ProgressStageDot stage={stage} size={20} />
                           </button>
-                          {isOpen && (
-                            <div
-                              ref={popoverRef}
-                              className="absolute z-30 top-full left-1/2 -translate-x-1/2 mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 p-2"
-                            >
-                              <div className="text-[10px] uppercase tracking-wider text-slate-400 px-2 pt-1 pb-1.5 truncate">
-                                {skill.title}
-                              </div>
-                              <div className="flex flex-col">
-                                {STAGE_ORDER.map(s => {
-                                  const active = s === stage;
-                                  return (
-                                    <button
-                                      key={s}
-                                      type="button"
-                                      onClick={() => setStage(child.id, skill.id, s)}
-                                      className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-left text-sm transition-colors ${
-                                        active ? 'bg-brand-pale/60' : 'hover:bg-slate-50'
-                                      }`}
-                                    >
-                                      <ProgressStageDot stage={s} size={18} />
-                                      <span className="flex-1">
-                                        <span className="block font-medium text-sm">{STAGE_LABEL[s]}</span>
-                                        <span className="block text-[11px] text-slate-500 leading-tight">
-                                          {STAGE_HINT[s]}
-                                        </span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
                         </td>
                       );
                     });
@@ -373,6 +418,74 @@ export default function TeacherMatrix() {
           </table>
         </div>
       </Card>
+      {mounted && openCell && createPortal(
+        <PopoverStage
+          ref={popoverRef}
+          rect={openCell.rect}
+          stage={openCell.stage}
+          skillTitle={openCell.skillTitle}
+          stageHints={STAGE_HINT}
+          onPick={s => setStage(openCell.childId, openCell.skillId, s)}
+        />,
+        document.body,
+      )}
     </PageLayout>
   );
 }
+
+interface PopoverStageProps {
+  rect: DOMRect;
+  stage: Stage;
+  skillTitle: string;
+  stageHints: Record<Stage, string>;
+  onPick: (s: Stage) => void;
+}
+
+const PopoverStage = forwardRef<HTMLDivElement, PopoverStageProps>(function PopoverStage(
+  { rect, stage, skillTitle, stageHints, onPick }: PopoverStageProps,
+  ref: ForwardedRef<HTMLDivElement>,
+) {
+  const popoverW = 240;
+  const popoverH = 230;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  let left = rect.left + rect.width / 2 - popoverW / 2;
+  left = Math.max(8, Math.min(left, vw - popoverW - 8));
+  const bottomRoom = vh - rect.bottom;
+  const placeAbove = bottomRoom < popoverH + 12 && rect.top > popoverH + 12;
+  const top = placeAbove ? rect.top - popoverH - 6 : rect.bottom + 6;
+  return (
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top, left, width: popoverW, zIndex: 60 }}
+      className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2"
+    >
+      <div className="text-[10px] uppercase tracking-wider text-slate-400 px-2 pt-1 pb-1.5 truncate">
+        {skillTitle}
+      </div>
+      <div className="flex flex-col">
+        {STAGE_ORDER.map(s => {
+          const active = s === stage;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onPick(s)}
+              className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-left text-sm transition-colors ${
+                active ? 'bg-brand-pale/60' : 'hover:bg-slate-50'
+              }`}
+            >
+              <ProgressStageDot stage={s} size={18} />
+              <span className="flex-1">
+                <span className="block font-medium text-sm">{STAGE_LABEL[s]}</span>
+                <span className="block text-[11px] text-slate-500 leading-tight">
+                  {stageHints[s]}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+});

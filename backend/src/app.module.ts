@@ -14,6 +14,9 @@ import { FilesModule } from './files/files.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { MailModule } from './mail/mail.module';
 import { AiModule } from './ai/ai.module';
+import { KbModule } from './kb/kb.module';
+import { AppointmentsModule } from './appointments/appointments.module';
+import { SiteContentModule } from './site-content/site-content.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
@@ -34,6 +37,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
     FilesModule,
     ActivitiesModule,
     AiModule,
+    KbModule,
+    AppointmentsModule,
+    SiteContentModule,
   ],
 })
 export class AppModule {}

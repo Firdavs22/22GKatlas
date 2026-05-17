@@ -40,9 +40,6 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <View style={styles.brandBlock}>
-          <SectionLabel style={{ textAlign: 'center', marginBottom: 8 }}>
-            Метод Марии Монтессори
-          </SectionLabel>
           <Text style={styles.title}>
             Глобо<Text style={{ fontStyle: 'italic' }}>Атлас</Text>
           </Text>

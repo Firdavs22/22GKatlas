@@ -55,6 +55,7 @@ export interface Observation {
   childId: string;
   userId: string;
   author?: { id: string; name: string };
+  title?: string | null;
   text: string;
   areaId?: string;
   tags: string[];
@@ -106,6 +107,7 @@ export interface ChatRoom {
   childId?: string;
   participants: { userId: string; lastReadAt?: string }[];
   messages?: ChatMessage[];
+  unreadCount?: number;
 }
 
 export interface ChatMessage {

@@ -193,7 +193,7 @@ export default function ParentDashboard() {
                 const mins = Math.round((end.getTime() - start.getTime()) / 60000);
                 return (
                   <li key={item.id} className="flex items-start gap-4 py-3">
-                    <div className="font-mono text-sm text-slate-500 w-12 shrink-0 mt-0.5">
+                    <div className="tabular-nums text-sm text-slate-500 w-12 shrink-0 mt-0.5">
                       {item.timeStart}
                     </div>
                     <div className="min-w-0 flex-1">

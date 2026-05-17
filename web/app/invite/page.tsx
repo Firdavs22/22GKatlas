@@ -106,7 +106,7 @@ function InviteForm() {
           {info.name}, у вас уже есть пароль.
         </p>
         <p className="text-xs text-slate-500 mb-5">
-          Можете войти по адресу <span className="font-mono">{info.email}</span>
+          Можете войти по адресу <span className="text-foreground">{info.email}</span>
         </p>
         <button
           onClick={() => router.push('/login')}
@@ -129,7 +129,7 @@ function InviteForm() {
         </h2>
         <p className="text-sm text-slate-600 mt-2">
           Создайте пароль чтобы войти в личный кабинет родителя ГлобоАтлас.
-          Аккаунт привязан к адресу <span className="font-mono text-foreground">{info?.email}</span>.
+          Аккаунт привязан к адресу <span className="text-foreground">{info?.email}</span>.
         </p>
       </div>
 
@@ -188,9 +188,6 @@ export default function InvitePage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-3">
-            Метод Марии Монтессори
-          </div>
           <h1 className="font-serif text-4xl text-foreground leading-tight">
             Глобо<span className="italic">Атлас</span>
           </h1>

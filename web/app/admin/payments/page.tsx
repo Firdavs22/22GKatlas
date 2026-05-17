@@ -330,7 +330,7 @@ export default function AdminPayments() {
                         </button>
                       </td>
                       <td className="px-3 py-3 text-xs text-slate-500">{r.groupName}</td>
-                      <td className="px-3 py-3 text-right font-mono">{r.monthlyFee.toLocaleString('ru-RU')}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{r.monthlyFee.toLocaleString('ru-RU')}</td>
                       <td className="px-3 py-3 text-center text-xs">
                         {r.sickDays > 0 ? (
                           <span className="text-red-700">
@@ -350,7 +350,7 @@ export default function AdminPayments() {
                           <span className="text-emerald-700 font-medium">−{totalDiscount.toLocaleString('ru-RU')}</span>
                         ) : <span className="text-slate-300">—</span>}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono font-semibold">
+                      <td className="px-3 py-3 text-right tabular-nums font-semibold">
                         {r.finalAmount.toLocaleString('ru-RU')} ₽
                       </td>
                       <td className="px-3 py-3 text-center">
@@ -418,9 +418,9 @@ export default function AdminPayments() {
                           <td className="px-5 py-3 font-medium">
                             {new Date(p.month).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' })}
                           </td>
-                          <td className="px-3 py-3 text-right font-mono">{p.amount.toLocaleString('ru-RU')} ₽</td>
-                          <td className="px-3 py-3 text-right font-mono text-emerald-700">{p.paid.toLocaleString('ru-RU')} ₽</td>
-                          <td className="px-3 py-3 text-right font-mono">
+                          <td className="px-3 py-3 text-right tabular-nums">{p.amount.toLocaleString('ru-RU')} ₽</td>
+                          <td className="px-3 py-3 text-right tabular-nums text-emerald-700">{p.paid.toLocaleString('ru-RU')} ₽</td>
+                          <td className="px-3 py-3 text-right tabular-nums">
                             <span className={balance > 0 ? 'text-red-700 font-medium' : 'text-emerald-700 font-medium'}>
                               {balance > 0 ? `−${balance.toLocaleString('ru-RU')}` : '0'} ₽
                             </span>

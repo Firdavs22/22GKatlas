@@ -141,7 +141,7 @@ export default function AdminGroupDetail() {
                           key={s.id}
                           className="text-xs p-2 rounded-lg bg-white border border-slate-100"
                         >
-                          <div className="font-mono text-[11px] text-brand mb-0.5">
+                          <div className="tabular-nums text-[11px] text-brand mb-0.5">
                             {s.timeStart} – {s.timeEnd}
                           </div>
                           <div className="text-sm text-foreground">{s.activity}</div>

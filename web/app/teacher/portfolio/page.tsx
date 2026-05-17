@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import { Child } from '@/lib/types';
 import FileUpload from '@/components/FileUpload';
 import AuthMedia from '@/components/AuthMedia';
+import Lightbox from '@/components/Lightbox';
+import { normalizePortfolioType } from '@/lib/media';
 
 interface PortfolioItem {
   id: string;
@@ -32,6 +34,8 @@ export default function TeacherPortfolio() {
   const [children, setChildren] = useState<Child[]>([]);
   const [items, setItems] = useState<(PortfolioItem & { childName?: string })[]>([]);
   const [childFilter, setChildFilter] = useState<string>('all');
+
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   // Upload form
   const [formOpen, setFormOpen] = useState(false);
@@ -195,12 +199,20 @@ export default function TeacherPortfolio() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map(item => (
+          {filtered.map(item => {
+            const kind = normalizePortfolioType(item.type, item.fileUrl);
+            return (
             <Card key={item.id} padding="none" className="overflow-hidden">
               <div className="aspect-[4/3] bg-brand-pale/40 relative">
-                {item.type === 'photo' && item.fileUrl ? (
-                  <AuthMedia preview src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
-                ) : item.type === 'video' ? (
+                {kind === 'photo' && item.fileUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(item.fileUrl)}
+                    className="w-full h-full cursor-zoom-in"
+                  >
+                    <AuthMedia preview src={item.fileUrl} alt={item.title} className="w-full h-full object-cover" />
+                  </button>
+                ) : kind === 'video' ? (
                   <div className="w-full h-full flex items-center justify-center text-brand/60">
                     <Video size={32} strokeWidth={1.5} />
                   </div>
@@ -209,7 +221,7 @@ export default function TeacherPortfolio() {
                     <FileText size={32} strokeWidth={1.5} />
                   </div>
                 )}
-                {item.type === 'video' && (
+                {kind === 'video' && (
                   <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 text-white text-[11px]">
                     <Video size={12} /> видео
                   </span>
@@ -226,9 +238,11 @@ export default function TeacherPortfolio() {
                 )}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
+      <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
     </PageLayout>
   );
 }

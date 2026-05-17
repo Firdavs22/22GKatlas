@@ -31,9 +31,9 @@ export class ActivitiesController {
 
   // ===================== EVENTS =====================
   @Get('events')
-  @Roles('admin', 'teacher', 'parent', 'pediatrician')
-  async getEvents() {
-    return this.activitiesService.getEvents();
+  @Roles('admin', 'teacher', 'parent', 'pediatrician', 'psychologist')
+  async getEvents(@Request() req) {
+    return this.activitiesService.getEvents(req.user);
   }
 
   @Post('events')
