@@ -5,7 +5,13 @@ import { MailService } from '../mail/mail.service';
 import { parentInvite } from '../mail/mail.templates';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import * as XLSX from 'xlsx';
+
+/** Strong random temporary password — used as placeholder until the invitee sets their own. */
+function strongTempPassword(): string {
+  return crypto.randomBytes(32).toString('base64');
+}
 
 @Injectable()
 export class AdminService {
@@ -222,7 +228,7 @@ export class AdminService {
   async inviteParent(childId: string, email: string, name: string | undefined, authService: any) {
     let user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+      const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
       user = await this.prisma.user.create({
         data: { email, password: tempPassword, name: name || email, role: 'parent' },
       });
@@ -291,7 +297,7 @@ export class AdminService {
           },
         });
       } else {
-        const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+        const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
         user = await tx.user.create({
           data: {
             email: parent.email,
@@ -346,7 +352,7 @@ export class AdminService {
   async inviteStaff(email: string, name: string, role: Role, authService: any) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Пользователь с таким email уже существует');
-    const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+    const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
     const user = await this.prisma.user.create({ data: { email, password: tempPassword, name, role } });
     const inviteToken = authService.generateInviteToken(user.id);
     return { inviteToken, userId: user.id };
@@ -393,7 +399,7 @@ export class AdminService {
     }
 
     if (!user) {
-      const tempPassword = await bcrypt.hash(Math.random().toString(36), 10);
+      const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
       user = await this.prisma.user.create({
         data: { email, password: tempPassword, name, phone: phone || null, role: 'parent' },
       });

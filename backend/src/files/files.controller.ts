@@ -3,6 +3,7 @@ import { FilesService } from './files.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { Request, Response } from 'express';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
@@ -42,14 +43,14 @@ export class FilesController {
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }))
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: { id: string }) {
     if (!file) throw new BadRequestException('Файл не загружен');
     if (!ALLOWED_MIMETYPES.includes(file.mimetype)) {
       throw new BadRequestException(
         `Недопустимый тип файла: ${file.mimetype}. Разрешены: изображения, видео, PDF, документы.`,
       );
     }
-    return this.filesService.uploadFile(file);
+    return this.filesService.uploadFile(file, user?.id);
   }
 
   /** Batch upload — accepts up to 20 files in one multipart request. */
@@ -58,7 +59,10 @@ export class FilesController {
   @UseInterceptors(
     FilesInterceptor('files', 20, { limits: { fileSize: MAX_FILE_SIZE } }),
   )
-  async uploadBatch(@UploadedFiles() files: Express.Multer.File[]) {
+  async uploadBatch(
+    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: { id: string },
+  ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('Файлы не загружены');
     }
@@ -69,7 +73,7 @@ export class FilesController {
         );
       }
     }
-    const results = await this.filesService.uploadFiles(files);
+    const results = await this.filesService.uploadFiles(files, user?.id);
     return { files: results };
   }
 
@@ -91,10 +95,15 @@ export class FilesController {
       throw new UnauthorizedException('Требуется авторизация');
     }
 
+    let payload: { sub?: string; role?: string };
     try {
-      this.jwtService.verify(token);
+      payload = this.jwtService.verify(token);
     } catch {
       throw new UnauthorizedException('Недействительный токен');
+    }
+
+    if (payload.sub && payload.role) {
+      await this.filesService.assertCanRead(filename, { id: payload.sub, role: payload.role });
     }
 
     const stream = await this.filesService.getFileStream(filename);

@@ -6,6 +6,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { AdminService } from './admin.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from '../auth/auth.service';
+import { InviteStaffDto, UpdateStaffDto } from './dto/staff.dto';
+import { InviteParentDto, UpdateParentDto } from './dto/parent.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -68,12 +70,12 @@ export class AdminController {
   getParents() { return this.adminService.getParents(); }
 
   @Post('parents/invite')
-  inviteParentAccount(@Body() dto: { email: string; name: string; phone?: string; childIds?: string[] }) {
+  inviteParentAccount(@Body() dto: InviteParentDto) {
     return this.adminService.inviteParentAccount(dto, this.authService);
   }
 
   @Put('parents/:id')
-  updateParent(@Param('id') id: string, @Body() dto: any) {
+  updateParent(@Param('id') id: string, @Body() dto: UpdateParentDto) {
     return this.adminService.updateParent(id, dto);
   }
 
@@ -90,12 +92,14 @@ export class AdminController {
   getStaffById(@Param('id') id: string) { return this.adminService.getStaffById(id); }
 
   @Post('staff/invite')
-  inviteStaff(@Body() dto: { email: string; name: string; role: any }) {
+  inviteStaff(@Body() dto: InviteStaffDto) {
     return this.adminService.inviteStaff(dto.email, dto.name, dto.role, this.authService);
   }
 
   @Put('staff/:id')
-  updateStaff(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateStaff(id, dto); }
+  updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
+    return this.adminService.updateStaff(id, dto);
+  }
 
   // ── AREAS ─────────────────────────────────────────────────
   @Get('areas')

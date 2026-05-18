@@ -1,7 +1,8 @@
-import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus, ForbiddenException } from '@nestjs/common';
 import * as Minio from 'minio';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
+import { PrismaService } from '../prisma/prisma.service';
 
 const IMAGE_MIMETYPES = new Set([
   'image/png',
@@ -28,6 +29,8 @@ export class FilesService implements OnModuleInit {
   private readonly logger = new Logger(FilesService.name);
   private bucketName = 'globoatlas-files';
 
+  constructor(private readonly prisma: PrismaService) {}
+
   async onModuleInit() {
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || 'localhost',
@@ -51,17 +54,34 @@ export class FilesService implements OnModuleInit {
     }
   }
 
-  async uploadFile(file: Express.Multer.File): Promise<UploadResult> {
+  async uploadFile(file: Express.Multer.File, uploaderId?: string): Promise<UploadResult> {
     if (!file) throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
 
     const isImage = IMAGE_MIMETYPES.has(file.mimetype);
     const baseId = crypto.randomUUID();
 
     try {
-      if (isImage) {
-        return await this.uploadImage(baseId, file);
+      const result = isImage
+        ? await this.uploadImage(baseId, file)
+        : await this.uploadRaw(baseId, file);
+
+      // Track uploader for downstream access control.
+      if (uploaderId) {
+        const filenames = [result.url, result.previewUrl]
+          .filter((u): u is string => Boolean(u))
+          .map(u => u.split('/').pop()!)
+          .filter(Boolean);
+        await Promise.all(
+          filenames.map(filename =>
+            this.prisma.fileMeta.upsert({
+              where: { filename },
+              update: {},
+              create: { filename, scope: 'uploader', uploaderId },
+            }),
+          ),
+        );
       }
-      return await this.uploadRaw(baseId, file);
+      return result;
     } catch (error) {
       this.logger.error(`Upload failed: ${(error as Error).message}`);
       throw new HttpException('File upload failed', HttpStatus.INTERNAL_SERVER_ERROR);
@@ -69,12 +89,71 @@ export class FilesService implements OnModuleInit {
   }
 
   /** Bulk upload — runs in parallel, returns one result per file in input order. */
-  async uploadFiles(files: Express.Multer.File[]): Promise<UploadResult[]> {
+  async uploadFiles(files: Express.Multer.File[], uploaderId?: string): Promise<UploadResult[]> {
     if (!files || files.length === 0) {
       throw new HttpException('Файлы не загружены', HttpStatus.BAD_REQUEST);
     }
-    // Parallel — sharp + minio releases the event loop fine here.
-    return Promise.all(files.map(f => this.uploadFile(f)));
+    return Promise.all(files.map(f => this.uploadFile(f, uploaderId)));
+  }
+
+  /**
+   * Authorize file read. Throws ForbiddenException if the requester may not view this file.
+   * Rules:
+   *   • Legacy files (no FileMeta) — always allowed (current behavior).
+   *   • Uploader can always read their own files.
+   *   • Admin can read any file.
+   *   • Files uploaded by staff (admin/teacher/specialists) — readable by any authenticated user
+   *     (URLs only leak through accessible posts).
+   *   • Files uploaded by a parent — readable by uploader + admin + staff with a child of theirs.
+   */
+  async assertCanRead(filename: string, requester: { id: string; role: string }): Promise<void> {
+    const meta = await this.prisma.fileMeta.findUnique({ where: { filename } });
+    if (!meta) return; // legacy file — fall through to permissive
+    if (meta.scope === 'public') return;
+    if (requester.role === 'admin') return;
+    if (meta.uploaderId === requester.id) return;
+
+    if (!meta.uploaderId) return; // anonymous-origin file — permissive
+
+    const uploader = await this.prisma.user.findUnique({
+      where: { id: meta.uploaderId },
+      select: { role: true, id: true },
+    });
+    if (!uploader) return; // uploader gone — fall through
+
+    if (uploader.role !== 'parent') {
+      // Staff uploads are visible to all authenticated users by design.
+      return;
+    }
+
+    // Parent-uploaded: check if requester is staff connected to one of the uploader's children.
+    if (
+      requester.role === 'teacher' ||
+      requester.role === 'psychologist' ||
+      requester.role === 'pediatrician'
+    ) {
+      const parentChildren = await this.prisma.childParent.findMany({
+        where: { parentId: uploader.id },
+        select: { childId: true },
+      });
+      const childIds = parentChildren.map(c => c.childId);
+      if (childIds.length === 0) {
+        throw new ForbiddenException('Нет доступа к файлу');
+      }
+      if (requester.role === 'teacher') {
+        const ok = await this.prisma.child.count({
+          where: { id: { in: childIds }, group: { teacherId: requester.id } },
+        });
+        if (ok > 0) return;
+      } else {
+        const ok = await this.prisma.childSpecialist.count({
+          where: { specialistId: requester.id, childId: { in: childIds } },
+        });
+        if (ok > 0) return;
+      }
+    }
+
+    throw new ForbiddenException('Нет доступа к файлу');
   }
 
   /** Strips EXIF, resizes if too large, generates a 400px preview. */

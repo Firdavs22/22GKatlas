@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import api from '../../lib/api';
 import { colors, spacing, radius, fontSize, fontWeight, shadows } from '../../lib/theme';
+import { layout, useScreenLayout } from '../../lib/layout';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { STAGE_CONFIG } from '../../lib/theme';
@@ -15,6 +16,7 @@ export default function ChildProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
+  const screen = useScreenLayout();
 
   const loadData = async () => {
     if (!id) return;
@@ -51,6 +53,7 @@ export default function ChildProfileScreen() {
       <Stack.Screen options={{ headerShown: true, title: child.name, headerTintColor: colors.primary, headerStyle: { backgroundColor: colors.surface } }} />
       <ScrollView
         style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: screen.horizontalPadding }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {/* Profile header */}
@@ -109,7 +112,8 @@ export default function ChildProfileScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.lg },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' },
   loading: { fontSize: fontSize.md, color: colors.textMuted, textAlign: 'center', marginTop: 80 },
 
   profileCard: {
@@ -139,9 +143,9 @@ const styles = StyleSheet.create({
   },
   progressPct: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.sm },
 
-  stageRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+  stageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.lg },
   stageBadge: {
-    flex: 1, borderRadius: radius.md, paddingVertical: spacing.md,
+    flex: 1, minWidth: 84, borderRadius: radius.md, paddingVertical: spacing.md,
     alignItems: 'center', gap: 2,
   },
   stageValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },

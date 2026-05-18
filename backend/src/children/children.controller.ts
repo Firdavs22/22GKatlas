@@ -35,6 +35,19 @@ export class ChildrenController {
   @Get(':id/progress')
   getProgress(@Param('id') id: string) { return this.childrenService.getProgress(id); }
 
+  @Get(':id/development-summary')
+  getDevelopmentSummary(@Param('id') id: string) {
+    return this.childrenService.getDevelopmentSummary(id);
+  }
+
+  @Get(':id/dimension/:dimension')
+  getDimensionDetail(
+    @Param('id') id: string,
+    @Param('dimension') dimension: 'emotion' | 'cognition' | 'body',
+  ) {
+    return this.childrenService.getDimensionDetail(id, dimension);
+  }
+
   @Get(':id/report')
   async getReport(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.reportService.generateChildReport(id);

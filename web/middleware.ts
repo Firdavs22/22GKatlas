@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/invite'];
+const PUBLIC_PATHS = ['/login', '/invite', '/forgot', '/reset', '/privacy'];
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   admin: ['/admin'],
@@ -43,7 +43,7 @@ export function middleware(request: NextRequest) {
   // Role-based access
   if (role) {
     const allowedPrefixes = ROLE_PREFIXES[role] || [];
-    const commonPrefixes = ['/profile', '/notifications'];
+    const commonPrefixes = ['/profile', '/notifications', '/settings'];
     const allAllowed = [...allowedPrefixes, ...commonPrefixes];
     const isAllowed = allAllowed.some((prefix) => pathname.startsWith(prefix));
     if (!isAllowed) {

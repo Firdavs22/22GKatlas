@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../lib/api';
-import { colors, spacing, radius, fontSize, fontWeight, shadows } from '../../lib/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../lib/theme';
 import type { ChatRoom } from '../../lib/types';
+import MobileShell from '../../components/MobileShell';
 
 export default function ChatsScreen() {
   const [chats, setChats] = useState<ChatRoom[]>([]);
@@ -13,94 +13,94 @@ export default function ChatsScreen() {
   const { user } = useAuth();
 
   useEffect(() => {
-    api.get('/chats').then(r => { setChats(r.data); setLoading(false); }).catch(() => setLoading(false));
+    api.get('/chats')
+      .then((r) => setChats(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const formatTime = (d?: string) => {
     if (!d) return '';
-    const date = new Date(d);
-    return date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const renderChat = ({ item }: { item: ChatRoom }) => {
-    const other = item.otherUser;
-    const last = item.lastMessage;
-
-    return (
-      <TouchableOpacity style={styles.chatItem} activeOpacity={0.7}>
-        <View style={styles.avatar}>
-          <Text style={{ fontSize: 20 }}>
-            {other?.role === 'teacher' ? '👩‍🏫' : other?.role === 'parent' ? '👨‍👩‍👧' : '💬'}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatName} numberOfLines={1}>{other?.name || 'Чат'}</Text>
-            {last && <Text style={styles.chatTime}>{formatTime(last.createdAt)}</Text>}
-          </View>
-          {last && (
-            <Text style={styles.chatPreview} numberOfLines={1}>
-              {last.senderId === user?.id ? 'Вы: ' : ''}{last.text}
-            </Text>
-          )}
-        </View>
-        {(item.unreadCount || 0) > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.unreadCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
+    return new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Text style={styles.header}>Чаты</Text>
-      {loading ? (
-        <Text style={styles.emptyText}>Загрузка...</Text>
-      ) : chats.length === 0 ? (
+    <MobileShell eyebrow="Диалоги" title="Чаты">
+      {loading ? <Text style={styles.emptyText}>Загрузка...</Text> : null}
+      {!loading && chats.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="chatbubbles-outline" size={48} color={colors.textMuted} />
-          <Text style={styles.emptyText}>Нет активных чатов</Text>
+          <Ionicons name="chatbubbles-outline" size={42} color={colors.textMuted} />
+          <Text style={styles.emptyText}>Активных чатов пока нет</Text>
         </View>
-      ) : (
-        <FlatList
-          data={chats}
-          renderItem={renderChat}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg }}
-        />
-      )}
-    </SafeAreaView>
+      ) : null}
+      {chats.map((item) => {
+        const other = item.otherUser;
+        const last = item.lastMessage;
+        return (
+          <TouchableOpacity key={item.id} style={styles.chatItem} activeOpacity={0.74}>
+            <View style={styles.avatar}>
+              <Ionicons
+                name={other?.role === 'parent' ? 'people-outline' : other?.role === 'teacher' ? 'school-outline' : 'medkit-outline'}
+                size={20}
+                color={colors.brand}
+              />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.chatHeader}>
+                <Text style={styles.chatName} numberOfLines={1}>{other?.name || 'Чат'}</Text>
+                {last ? <Text style={styles.chatTime}>{formatTime(last.createdAt)}</Text> : null}
+              </View>
+              <Text style={styles.chatPreview} numberOfLines={1}>
+                {last ? `${last.senderId === user?.id ? 'Вы: ' : ''}${last.text}` : 'Сообщений пока нет'}
+              </Text>
+            </View>
+            {(item.unreadCount || 0) > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  header: { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textPrimary, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md },
-
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: spacing.md },
-  emptyText: { fontSize: fontSize.md, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing.lg },
-
+  empty: { alignItems: 'center', paddingVertical: 80, gap: spacing.md },
+  emptyText: { fontSize: fontSize.md, color: colors.textMuted, textAlign: 'center' },
   chatItem: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.surface, borderRadius: radius.lg,
-    padding: spacing.lg, marginBottom: spacing.sm, gap: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderLight,
     ...shadows.sm,
   },
   avatar: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: colors.primaryBg, justifyContent: 'center', alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.brandPale,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   chatName: { fontSize: fontSize.md, fontWeight: fontWeight.medium, color: colors.textPrimary, flex: 1 },
   chatTime: { fontSize: fontSize.xs, color: colors.textMuted },
   chatPreview: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
-
   badge: {
-    backgroundColor: colors.primary, borderRadius: 10,
-    minWidth: 20, height: 20, paddingHorizontal: 6,
-    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.brand,
+    borderRadius: radius.full,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   badgeText: { fontSize: fontSize.xs, color: colors.textInverse, fontWeight: fontWeight.bold },
 });

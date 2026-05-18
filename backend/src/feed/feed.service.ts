@@ -54,11 +54,39 @@ export class FeedService {
     if (user.role === 'teacher' && dto.scope === 'school') {
       throw new ForbiddenException('Только администратор может публиковать новости сада');
     }
+
+    // Resolve groupId from teacher's own group when needed, so the post is
+    // visible in everyone's feed query.
+    let groupId: string | null = dto.groupId ?? null;
+    let childId: string | null = dto.childId ?? null;
+
+    if (dto.scope === 'group' || (dto.scope === 'child' && childId)) {
+      if (!groupId && user.role === 'teacher') {
+        const g = await this.prisma.group.findFirst({ where: { teacherId: user.id }, select: { id: true } });
+        groupId = g?.id ?? null;
+      }
+      if (!groupId && childId) {
+        const c = await this.prisma.child.findUnique({ where: { id: childId }, select: { groupId: true } });
+        groupId = c?.groupId ?? null;
+      }
+    }
+
     return this.prisma.feedItem.create({
-      data: { ...dto, authorId: user.id },
+      data: {
+        type: dto.type,
+        scope: dto.scope,
+        title: dto.title || null,
+        text: dto.text || null,
+        mediaUrls: dto.mediaUrls || [],
+        authorId: user.id,
+        ...(childId ? { childId } : {}),
+        ...(groupId ? { groupId } : {}),
+      },
       include: {
         author: { select: { id: true, name: true } },
         child: { select: { id: true, name: true } },
+        group: { select: { id: true, name: true } },
+        _count: { select: { likes: true } },
       },
     });
   }

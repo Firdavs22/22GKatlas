@@ -23,6 +23,12 @@ interface SidebarContent {
   iconSize: number;        // px (square)
 }
 
+interface PrivacyContent {
+  title: string;
+  body: string;
+  updatedLabel: string;
+}
+
 interface ZoneItem { n: string; title: string; desc: string; accent: string; }
 interface StageItem { label: string; desc: string; }
 interface AboutContent {
@@ -45,6 +51,12 @@ const DEFAULT_SIDEBAR: SidebarContent = {
   labelSize: 14,
   iconUrl: null,
   iconSize: 36,
+};
+
+const DEFAULT_PRIVACY: PrivacyContent = {
+  title: 'Политика конфиденциальности',
+  body: 'Сюда — текст политики (152-ФЗ). Согласуйте с юристом и опубликуйте.',
+  updatedLabel: 'Редакция от 17 мая 2026',
 };
 
 const DEFAULT_ABOUT: AboutContent = {
@@ -104,6 +116,7 @@ export default function AdminSiteContent() {
   const [login, setLogin] = useState<LoginContent>(DEFAULT_LOGIN);
   const [sidebar, setSidebar] = useState<SidebarContent>(DEFAULT_SIDEBAR);
   const [about, setAbout] = useState<AboutContent>(DEFAULT_ABOUT);
+  const [privacy, setPrivacy] = useState<PrivacyContent>(DEFAULT_PRIVACY);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,10 +127,11 @@ export default function AdminSiteContent() {
       if (data.login) setLogin({ ...DEFAULT_LOGIN, ...data.login });
       if (data.sidebar) setSidebar({ ...DEFAULT_SIDEBAR, ...data.sidebar });
       if (data.about) setAbout({ ...DEFAULT_ABOUT, ...data.about });
+      if (data.privacy) setPrivacy({ ...DEFAULT_PRIVACY, ...data.privacy });
     }).catch(() => {});
   }, []);
 
-  const save = async (key: 'login' | 'sidebar' | 'about', value: unknown) => {
+  const save = async (key: 'login' | 'sidebar' | 'about' | 'privacy', value: unknown) => {
     setSavingKey(key);
     setError(null);
     try {
@@ -527,6 +541,58 @@ export default function AdminSiteContent() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* PRIVACY POLICY */}
+      <Card padding="md" className="mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <SectionLabel>Политика конфиденциальности · /privacy</SectionLabel>
+            <h3 className="text-xl mt-0.5">Текст 152-ФЗ для родителей</h3>
+          </div>
+          <Button size="sm" onClick={() => save('privacy', privacy)} disabled={savingKey === 'privacy'}>
+            <StatusIcon k="privacy" /> Сохранить
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+              Заголовок
+            </label>
+            <input
+              value={privacy.title}
+              onChange={e => setPrivacy(s => ({ ...s, title: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+              Подпись «Редакция от …»
+            </label>
+            <input
+              value={privacy.updatedLabel}
+              onChange={e => setPrivacy(s => ({ ...s, updatedLabel: e.target.value }))}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
+              Текст политики (раскрывается на /privacy и в ссылке инвайта)
+            </label>
+            <textarea
+              rows={20}
+              value={privacy.body}
+              onChange={e => setPrivacy(s => ({ ...s, body: e.target.value }))}
+              className={taCls}
+              style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 1.5 }}
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Поддерживается обычный текст с переносами. Перед публичным запуском —
+              согласуйте формулировки с юристом.
+            </p>
           </div>
         </div>
       </Card>

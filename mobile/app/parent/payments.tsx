@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../lib/api';
 import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../lib/theme';
+import { layout, useScreenLayout } from '../../lib/layout';
 import type { Child, Payment } from '../../lib/types';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -17,6 +18,7 @@ export default function ParentPaymentsScreen() {
   const [items, setItems] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const screen = useScreenLayout();
 
   const loadData = async () => {
     try {
@@ -40,7 +42,11 @@ export default function ParentPaymentsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <Stack.Screen options={{ headerShown: true, title: 'Оплата', headerTintColor: colors.primary }} />
-      <ScrollView style={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { padding: screen.horizontalPadding }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         {loading ? <Text style={styles.muted}>Загрузка...</Text> : null}
         {!loading && !child ? <Text style={styles.muted}>Ребенок не найден</Text> : null}
         {child ? <Text style={styles.header}>{child.name}</Text> : null}
@@ -65,7 +71,8 @@ export default function ParentPaymentsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1, padding: spacing.lg },
+  scroll: { flex: 1 },
+  scrollContent: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center', paddingBottom: spacing.xxxl },
   header: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.textPrimary, marginBottom: spacing.lg },
   muted: { color: colors.textSecondary, fontSize: fontSize.md },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.sm, ...shadows.sm },

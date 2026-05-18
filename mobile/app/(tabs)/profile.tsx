@@ -1,27 +1,22 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, radius, fontSize, fontWeight, shadows } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
+import MobileShell from '../../components/MobileShell';
+import NavList from '../../components/NavList';
+import { ROLE_LABELS, ROLE_NAV } from '../../lib/navigation';
+import { colors, fontSize, fontWeight, radius, spacing } from '../../lib/theme';
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Администратор',
-  teacher: 'Педагог',
-  parent: 'Родитель',
-  psychologist: 'Психолог',
-  pediatrician: 'Педиатр',
-};
-
-export default function ProfileScreen() {
+export default function MoreScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
-    Alert.alert('Выход', 'Вы уверены, что хотите выйти?', [
+    Alert.alert('Выход', 'Выйти из аккаунта?', [
       { text: 'Отмена', style: 'cancel' },
       {
-        text: 'Выйти', style: 'destructive',
+        text: 'Выйти',
+        style: 'destructive',
         onPress: async () => {
           await logout();
           router.replace('/login');
@@ -33,98 +28,59 @@ export default function ProfileScreen() {
   if (!user) return null;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.scroll}>
-        {/* Profile header */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarLarge}>
-            <Text style={{ fontSize: 36 }}>
-              {user.role === 'admin' ? '🔑' : user.role === 'teacher' ? '👩‍🏫' : user.role === 'parent' ? '👨‍👩‍👧' : '🧑‍⚕️'}
-            </Text>
-          </View>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userRole}>{ROLE_LABELS[user.role] || user.role}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
+    <MobileShell eyebrow={ROLE_LABELS[user.role]} title="Разделы">
+      <View style={styles.profile}>
+        <View style={styles.avatar}>
+          <Ionicons name="person" size={22} color={colors.brand} />
         </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.name} numberOfLines={1}>{user.name}</Text>
+          <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
+        </View>
+      </View>
 
-        {/* Settings */}
-        <Text style={styles.sectionTitle}>Настройки</Text>
+      <NavList items={ROLE_NAV[user.role]} />
 
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-          <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-          <Text style={styles.menuLabel}>Уведомления</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.logout} onPress={handleLogout} activeOpacity={0.75}>
+        <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+        <Text style={styles.logoutText}>Выйти из аккаунта</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-          <Ionicons name="phone-portrait-outline" size={20} color={colors.primary} />
-          <Text style={styles.menuLabel}>Активные сессии</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
-          <Text style={styles.menuLabel}>Безопасность</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
-          <Text style={styles.menuLabel}>О приложении</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-          <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-          <Text style={styles.logoutText}>Выйти из аккаунта</Text>
-        </TouchableOpacity>
-
-        {/* Version */}
-        <Text style={styles.version}>ГлобоАтлас v1.0.0</Text>
-      </ScrollView>
-    </SafeAreaView>
+      <Text style={styles.version}>ГлобоАтлас v1.0.0</Text>
+    </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1, paddingHorizontal: spacing.lg },
-
-  profileCard: {
-    backgroundColor: colors.surface, borderRadius: radius.xl,
-    padding: spacing.xxl, alignItems: 'center',
-    marginTop: spacing.lg, ...shadows.md,
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.brandPale,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
-  avatarLarge: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: colors.primaryBg,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: spacing.md,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  userName: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.textPrimary },
-  userRole: { fontSize: fontSize.sm, color: colors.primary, fontWeight: fontWeight.medium, marginTop: spacing.xs },
-  userEmail: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.xs },
-
-  sectionTitle: {
-    fontSize: fontSize.lg, fontWeight: fontWeight.bold,
-    color: colors.textPrimary, marginTop: spacing.xxl, marginBottom: spacing.md,
-  },
-
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.surface, borderRadius: radius.lg,
-    padding: spacing.lg, marginBottom: spacing.sm, gap: spacing.md,
-    ...shadows.sm,
-  },
-  menuLabel: { flex: 1, fontSize: fontSize.md, color: colors.textPrimary },
-
-  logoutButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.dangerBg, borderRadius: radius.lg,
-    padding: spacing.lg, marginTop: spacing.xxl, gap: spacing.sm,
+  name: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.textPrimary },
+  email: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  logout: {
+    marginTop: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.dangerBg,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   logoutText: { fontSize: fontSize.md, fontWeight: fontWeight.medium, color: colors.danger },
-
-  version: { textAlign: 'center', fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.xxxl },
+  version: { textAlign: 'center', fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xl },
 });

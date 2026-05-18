@@ -12,6 +12,15 @@ import AuthMedia from '@/components/AuthMedia';
 import { normalizePortfolioType } from '@/lib/media';
 import PostMedia from '@/components/PostMedia';
 import Lightbox from '@/components/Lightbox';
+import DimensionCard, { Dimension } from '@/components/DimensionCard';
+
+type ViewMode = 'overview' | 'zones';
+
+interface DimSummary { mastered: number; total: number; percent: number; label: string; }
+interface DevelopmentSummary {
+  by_dimension: Record<'emotion' | 'cognition' | 'body', DimSummary>;
+  by_zone: { id: string; title: string; color: string; mastered: number; total: number; percent: number; label: string }[];
+}
 
 type TabId = 'map' | 'diary' | 'portfolio' | 'feed';
 type Period = 'week' | 'month' | 'year';
@@ -48,6 +57,8 @@ export default function ProgressPage() {
   const [portfolio, setPortfolio] = useState<{ id: string; title: string; type: string; fileUrl: string; date: string }[]>([]);
   const [feed, setFeed] = useState<{ id: string; title?: string; text?: string; mediaUrls: string[]; createdAt: string; author?: { name: string } }[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
+  const [devSummary, setDevSummary] = useState<DevelopmentSummary | null>(null);
 
   useEffect(() => {
     api.get('/children').then(r => setChildren(r.data));
@@ -67,6 +78,7 @@ export default function ProgressPage() {
     api.get(`/children/${child.id}/observations`).then(r => setObservations(r.data)).catch(() => {});
     api.get(`/children/${child.id}/portfolio`).then(r => setPortfolio(r.data)).catch(() => {});
     api.get(`/children/${child.id}/feed`).then(r => setFeed(r.data)).catch(() => {});
+    api.get(`/children/${child.id}/development-summary`).then(r => setDevSummary(r.data)).catch(() => {});
   }, [child]);
 
   // Per-area aggregates
@@ -148,6 +160,39 @@ export default function ProgressPage() {
       </div>
 
       {activeTab === 'map' && (
+        <>
+          {/* 3 dimension light-cards — always visible (main element) */}
+          {devSummary && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              {(['emotion', 'cognition', 'body'] as Dimension[]).map(d => (
+                <DimensionCard
+                  key={d}
+                  dimension={d}
+                  summary={devSummary.by_dimension[d]}
+                  href={child ? `/parent/progress/dimension/${d}` : undefined}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* View toggle */}
+          <div className="inline-flex rounded-lg bg-slate-100 p-0.5 mb-4">
+            {([
+              { id: 'overview', label: 'Общий вид' },
+              { id: 'zones',    label: 'По зонам Монтессори' },
+            ] as { id: ViewMode; label: string }[]).map(t => (
+              <button
+                key={t.id}
+                onClick={() => setViewMode(t.id)}
+                className={`px-3 h-8 text-sm rounded-md transition-colors ${
+                  viewMode === t.id ? 'bg-white shadow-sm text-foreground font-medium' : 'text-slate-500'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Radar */}
           <Card padding="md">
@@ -155,52 +200,81 @@ export default function ProgressPage() {
               <div>
                 <SectionLabel>Общая карта</SectionLabel>
                 <h3 className="font-serif text-2xl mt-1">
-                  Сейчас vs <span className="italic">{period === 'week' ? 'неделя' : period === 'month' ? 'месяц' : 'год'} назад</span>
+                  {viewMode === 'overview'
+                    ? <>Три направления <span className="italic">развития</span></>
+                    : <>Сейчас vs <span className="italic">{period === 'week' ? 'неделя' : period === 'month' ? 'месяц' : 'год'} назад</span></>
+                  }
                 </h3>
               </div>
-              <div className="inline-flex rounded-full bg-slate-100 p-0.5">
-                {(['week', 'month', 'year'] as Period[]).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                      period === p ? 'bg-white shadow-sm text-foreground font-medium' : 'text-slate-500'
-                    }`}
-                  >
-                    {p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Год'}
-                  </button>
-                ))}
-              </div>
+              {viewMode === 'zones' && (
+                <div className="inline-flex rounded-full bg-slate-100 p-0.5">
+                  {(['week', 'month', 'year'] as Period[]).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPeriod(p)}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        period === p ? 'bg-white shadow-sm text-foreground font-medium' : 'text-slate-500'
+                      }`}
+                    >
+                      {p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Год'}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData}>
-                  <PolarGrid stroke="#E2E8F0" />
-                  <PolarAngleAxis dataKey="area" tick={{ fontSize: 11, fill: '#64748B' }} />
-                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                  <Radar
-                    name={period === 'week' ? 'Неделя назад' : period === 'month' ? 'Месяц назад' : 'Год назад'}
-                    dataKey="prev"
-                    stroke="#7EB3E4"
-                    fill="#7EB3E4"
-                    fillOpacity={0.1}
-                    strokeDasharray="4 4"
-                  />
-                  <Radar
-                    name="Сейчас"
-                    dataKey="current"
-                    stroke="#0F5192"
-                    fill="#0F5192"
-                    fillOpacity={0.25}
-                    strokeWidth={2}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    iconType="line"
-                    wrapperStyle={{ fontSize: 12, color: '#64748B' }}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
+              {viewMode === 'overview' && devSummary ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart
+                    data={[
+                      { axis: 'Эмоции',   value: devSummary.by_dimension.emotion.percent },
+                      { axis: 'Мышление', value: devSummary.by_dimension.cognition.percent },
+                      { axis: 'Тело',     value: devSummary.by_dimension.body.percent },
+                    ]}
+                  >
+                    <PolarGrid stroke="#E2E8F0" />
+                    <PolarAngleAxis dataKey="axis" tick={{ fontSize: 12, fill: '#64748B' }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name="Освоено"
+                      dataKey="value"
+                      stroke="#534AB7"
+                      fill="#534AB7"
+                      fillOpacity={0.18}
+                      strokeWidth={1.5}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData}>
+                    <PolarGrid stroke="#E2E8F0" />
+                    <PolarAngleAxis dataKey="area" tick={{ fontSize: 11, fill: '#64748B' }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name={period === 'week' ? 'Неделя назад' : period === 'month' ? 'Месяц назад' : 'Год назад'}
+                      dataKey="prev"
+                      stroke="#7EB3E4"
+                      fill="#7EB3E4"
+                      fillOpacity={0.1}
+                      strokeDasharray="4 4"
+                    />
+                    <Radar
+                      name="Сейчас"
+                      dataKey="current"
+                      stroke="#0F5192"
+                      fill="#0F5192"
+                      fillOpacity={0.25}
+                      strokeWidth={2}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="line"
+                      wrapperStyle={{ fontSize: 12, color: '#64748B' }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
 
@@ -240,6 +314,7 @@ export default function ProgressPage() {
             )}
           </Card>
         </div>
+        </>
       )}
 
       {activeTab === 'diary' && (

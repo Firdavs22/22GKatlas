@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { LoginDto, RefreshDto, AcceptInviteDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -10,17 +11,17 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min
-  login(@Body() body: { email: string; password: string; deviceId?: string; deviceName?: string }) {
+  login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password, body.deviceId, body.deviceName);
   }
 
   @Post('refresh')
-  refresh(@Body() body: { refreshToken: string }) {
+  refresh(@Body() body: RefreshDto) {
     return this.authService.refreshToken(body.refreshToken);
   }
 
   @Post('logout')
-  logout(@Body() body: { refreshToken: string }) {
+  logout(@Body() body: RefreshDto) {
     return this.authService.logout(body.refreshToken);
   }
 
@@ -42,8 +43,19 @@ export class AuthController {
   }
 
   @Post('invite/accept')
-  acceptInvite(@Body() body: { token: string; password: string; name?: string }) {
-    return this.authService.acceptInvite(body.token, body.password, body.name);
+  acceptInvite(@Body() body: AcceptInviteDto) {
+    return this.authService.acceptInvite(body.token, body.password, body.name, body.consent);
+  }
+
+  @Post('forgot')
+  @Throttle({ default: { limit: 3, ttl: 900000 } }) // 3 per 15 min
+  forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(body.email);
+  }
+
+  @Post('reset')
+  resetPassword(@Body() body: ResetPasswordDto) {
+    return this.authService.resetPassword(body.token, body.password);
   }
 
   @UseGuards(JwtAuthGuard)

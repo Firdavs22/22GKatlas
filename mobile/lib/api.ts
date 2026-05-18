@@ -17,6 +17,9 @@ function getDevApiUrl() {
     (Constants as any).manifest?.debuggerHost ||
     Constants.manifest2?.extra?.expoClient?.hostUri;
   const host = extractHost(hostUri);
+  if (host?.endsWith('.exp.direct')) {
+    return 'http://192.168.0.124:3001';
+  }
   return host ? `http://${host}:3001` : 'http://localhost:3001';
 }
 

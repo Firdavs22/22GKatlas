@@ -11,7 +11,15 @@ interface SkillForm {
   description: string;
   ageRange: string;
   groupId: string;
+  developsEmotion: boolean;
+  developsCognition: boolean;
+  developsBody: boolean;
 }
+
+const EMPTY_SKILL: SkillForm = {
+  title: '', description: '', ageRange: '', groupId: '',
+  developsEmotion: false, developsCognition: false, developsBody: false,
+};
 
 const AGE_OPTIONS = ['0-3', '3-6', '6-9', '9-12', '3-12'];
 const inputCls =
@@ -31,9 +39,7 @@ export default function AdminSkills() {
   const [sgForm, setSgForm] = useState({ title: '' });
 
   const [skillFormFor, setSkillFormFor] = useState('');
-  const [skillForm, setSkillForm] = useState<SkillForm>({
-    title: '', description: '', ageRange: '', groupId: '',
-  });
+  const [skillForm, setSkillForm] = useState<SkillForm>({ ...EMPTY_SKILL });
   const [editingSkill, setEditingSkill] = useState<string | null>(null);
 
   const reload = () => api.get('/admin/areas').then(r => setAreas(r.data));
@@ -102,7 +108,7 @@ export default function AdminSkills() {
       sortOrder: sg?.skills?.length || 0,
     });
     setSkillFormFor('');
-    setSkillForm({ title: '', description: '', ageRange: '', groupId: '' });
+    setSkillForm({ ...EMPTY_SKILL });
     reload();
   };
   const updateSkill = async (e: React.FormEvent) => {
@@ -110,7 +116,7 @@ export default function AdminSkills() {
     if (!editingSkill) return;
     await api.put(`/admin/skills/${editingSkill}`, skillForm);
     setEditingSkill(null);
-    setSkillForm({ title: '', description: '', ageRange: '', groupId: '' });
+    setSkillForm({ ...EMPTY_SKILL });
     reload();
   };
   const deleteSkill = async (id: string) => {
@@ -123,13 +129,25 @@ export default function AdminSkills() {
       alert(msg || 'Навык имеет прогресс, используйте архивирование');
     }
   };
-  const startEditSkill = (s: { id: string; title: string; description?: string; ageRange?: string; groupId?: string }) => {
+  const startEditSkill = (s: {
+    id: string;
+    title: string;
+    description?: string;
+    ageRange?: string;
+    groupId?: string;
+    developsEmotion?: boolean;
+    developsCognition?: boolean;
+    developsBody?: boolean;
+  }) => {
     setEditingSkill(s.id);
     setSkillForm({
       title: s.title,
       description: s.description || '',
       ageRange: s.ageRange || '',
       groupId: s.groupId || '',
+      developsEmotion: Boolean(s.developsEmotion),
+      developsCognition: Boolean(s.developsCognition),
+      developsBody: Boolean(s.developsBody),
     });
   };
 
@@ -248,6 +266,7 @@ export default function AdminSkills() {
                 {AGE_OPTIONS.map(a => <option key={a} value={a}>{a} лет</option>)}
               </select>
             </div>
+            <DimensionPicker form={skillForm} onChange={setSkillForm} />
             <div className="flex gap-2">
               <Button type="submit" variant="primary">Сохранить</Button>
               <Button type="button" variant="outline" onClick={() => setEditingSkill(null)}>
@@ -311,7 +330,7 @@ export default function AdminSkills() {
                             e.stopPropagation();
                             setExpandedGroups(p => new Set(p).add(group.id));
                             setSkillFormFor(group.id);
-                            setSkillForm({ title: '', description: '', ageRange: '', groupId: group.id });
+                            setSkillForm({ ...EMPTY_SKILL, groupId: group.id });
                           }}
                           className="p-1.5 text-slate-400 hover:text-brand transition-colors"
                           title="Добавить навык"
@@ -359,6 +378,7 @@ export default function AdminSkills() {
                                 {AGE_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
                               </select>
                             </div>
+                            <DimensionPicker form={skillForm} onChange={setSkillForm} />
                             <div className="flex gap-2">
                               <Button type="submit" variant="primary" size="sm">Добавить</Button>
                               <Button type="button" variant="outline" size="sm" onClick={() => setSkillFormFor('')}>
@@ -458,5 +478,47 @@ export default function AdminSkills() {
         ))}
       </div>
     </PageLayout>
+  );
+}
+
+function DimensionPicker({
+  form,
+  onChange,
+}: {
+  form: SkillForm;
+  onChange: (updater: (p: SkillForm) => SkillForm) => void;
+}) {
+  const items: { key: keyof SkillForm; label: string; tone: string }[] = [
+    { key: 'developsEmotion',   label: '❤ Эмоции и общение',   tone: 'bg-pink-50 border-pink-200 text-pink-900' },
+    { key: 'developsCognition', label: '🧠 Мышление и память', tone: 'bg-violet-50 border-violet-200 text-violet-900' },
+    { key: 'developsBody',      label: '🏃 Тело и движение',   tone: 'bg-teal-50 border-teal-200 text-teal-900' },
+  ];
+  return (
+    <div>
+      <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
+        Развивает измерения
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {items.map(it => {
+          const checked = Boolean(form[it.key]);
+          return (
+            <label
+              key={it.key as string}
+              className={`inline-flex items-center gap-2 px-3 h-8 rounded-full border text-xs cursor-pointer transition-colors ${
+                checked ? it.tone : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={e => onChange(p => ({ ...p, [it.key]: e.target.checked }))}
+                className="w-3.5 h-3.5"
+              />
+              {it.label}
+            </label>
+          );
+        })}
+      </div>
+    </div>
   );
 }

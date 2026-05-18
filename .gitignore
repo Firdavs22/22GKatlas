@@ -49,7 +49,16 @@ MAKE_NO_MISTAKES_CLAUDE.md
 # Log files
 *.err.log
 *.out.log
+*.log
 /backend/backend-local.*
+
+# DB backups / SQL dumps — never commit
+backup-*.sql
+*.sql.gz
+*.dump
+
+# Windows artifacts
+NUL
 
 # Expo
 /mobile/dist/

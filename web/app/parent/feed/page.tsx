@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { Filter, Download, Calendar } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Filter, Download, Calendar, Check } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
@@ -69,6 +69,24 @@ export default function FeedPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [active, setActive] = useState<Set<FilterKey>>(() => new Set<FilterKey>(['all']));
   const [downloading, setDownloading] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!filterRef.current?.contains(e.target as Node)) setFilterOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setFilterOpen(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [filterOpen]);
+
+  const activeCount = active.has('all') ? 0 : active.size;
 
   useEffect(() => {
     api.get('/feed').then(r => setFeed(r.data));
@@ -131,10 +149,50 @@ export default function FeedPage() {
       title="Лента"
       actions={
         <>
-          <Button variant="outline" size="sm">
-            <Filter size={16} />
-            Фильтр
-          </Button>
+          <div className="relative" ref={filterRef}>
+            <Button variant="outline" size="sm" onClick={() => setFilterOpen(v => !v)}>
+              <Filter size={16} />
+              Фильтр
+              {activeCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-brand text-white text-[10px] font-medium">
+                  {activeCount}
+                </span>
+              )}
+            </Button>
+            {filterOpen && (
+              <div className="absolute right-0 top-[calc(100%+6px)] w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-30">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Показывать</span>
+                  {activeCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActive(new Set<FilterKey>(['all']))}
+                      className="text-xs text-brand hover:underline"
+                    >
+                      Сбросить
+                    </button>
+                  )}
+                </div>
+                <ul className="py-1.5">
+                  {FILTERS.map(f => {
+                    const checked = active.has(f.id);
+                    return (
+                      <li key={f.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleFilter(f.id)}
+                          className="w-full px-4 py-2 flex items-center justify-between text-sm hover:bg-slate-50 transition-colors"
+                        >
+                          <span className={checked ? 'text-foreground font-medium' : 'text-slate-600'}>{f.label}</span>
+                          {checked && <Check size={14} className="text-brand" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
           <Button variant="outline" size="sm" onClick={handleDownloadAll} disabled={downloading}>
             <Download size={16} />
             {downloading ? 'Архив...' : 'Скачать все фото'}
@@ -200,24 +258,6 @@ export default function FeedPage() {
               </Button>
             </Card>
           )}
-          <Card padding="md">
-            <SectionLabel>Фильтры</SectionLabel>
-            <ul className="space-y-2 mt-3">
-              {FILTERS.map(f => (
-                <li key={f.id}>
-                  <label className="flex items-center gap-2.5 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={active.has(f.id)}
-                      onChange={() => toggleFilter(f.id)}
-                      className="w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand"
-                    />
-                    {f.label}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </Card>
         </aside>
       </div>
     </PageLayout>

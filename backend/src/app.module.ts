@@ -17,7 +17,12 @@ import { AiModule } from './ai/ai.module';
 import { KbModule } from './kb/kb.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { SiteContentModule } from './site-content/site-content.module';
+import { MeModule } from './me/me.module';
+import { HealthModule } from './health/health.module';
+import { AuditModule } from './audit/audit.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditInterceptor } from './audit/audit.interceptor';
 
 @Module({
   imports: [
@@ -40,6 +45,12 @@ import { ThrottlerModule } from '@nestjs/throttler';
     KbModule,
     AppointmentsModule,
     SiteContentModule,
+    MeModule,
+    HealthModule,
+    AuditModule,
+  ],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
 export class AppModule {}

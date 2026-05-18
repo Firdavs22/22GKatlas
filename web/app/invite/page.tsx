@@ -28,6 +28,7 @@ function InviteForm() {
 
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
+  const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -57,10 +58,14 @@ function InviteForm() {
       setError('Пароли не совпадают');
       return;
     }
+    if (!consent) {
+      setError('Нужно согласие на обработку персональных данных');
+      return;
+    }
     if (!info) return;
     setSubmitting(true);
     try {
-      await api.post('/auth/invite/accept', { token, password });
+      await api.post('/auth/invite/accept', { token, password, consent: true });
       const user = await login(info.email, password);
       router.push(ROLE_HOME[user.role] || '/');
     } catch (err: unknown) {
@@ -165,6 +170,22 @@ function InviteForm() {
           />
         </div>
 
+        <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 leading-relaxed">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={e => setConsent(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+          />
+          <span>
+            Согласен(на) на обработку персональных данных в соответствии с{' '}
+            <a href="/privacy" target="_blank" className="text-brand hover:underline">
+              политикой конфиденциальности
+            </a>{' '}
+            (152-ФЗ). Без галки активировать аккаунт нельзя.
+          </span>
+        </label>
+
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/10 text-red-900 px-3 py-2 text-sm">
             {error}
@@ -173,7 +194,7 @@ function InviteForm() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !consent}
           className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand-soft transition-colors disabled:opacity-50"
         >
           {submitting ? 'Создаём аккаунт…' : (<>Войти в кабинет <ArrowRight size={16} /></>)}

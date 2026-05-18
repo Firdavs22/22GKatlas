@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
@@ -9,6 +11,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private mail: MailService,
+    private config: ConfigService,
   ) {}
 
   async login(email: string, password: string, deviceId?: string, deviceName?: string) {
@@ -105,7 +109,18 @@ export class AuthService {
     };
   }
 
-  async acceptInvite(token: string, password: string, name?: string) {
+  async acceptInvite(
+    token: string,
+    password: string,
+    name?: string,
+    consent?: boolean,
+  ) {
+    if (consent !== true) {
+      throw new BadRequestException(
+        'Необходимо согласиться с обработкой персональных данных (152-ФЗ).',
+      );
+    }
+
     let payload: any;
     try {
       payload = this.jwt.verify(token);
@@ -125,6 +140,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         password: hashed,
+        consentGivenAt: new Date(),
         ...(name && name.trim() ? { name: name.trim() } : {}),
       },
     });
@@ -135,6 +151,50 @@ export class AuthService {
 
   generateInviteToken(userId: string): string {
     return this.jwt.sign({ sub: userId, type: 'invite' }, { expiresIn: '30d' });
+  }
+
+  /**
+   * Forgot password — always returns 200 to prevent email enumeration.
+   * Sends reset-link by email if the address exists.
+   */
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (!user || user.password === 'INVALIDATED') return { ok: true };
+    const token = this.jwt.sign({ sub: user.id, type: 'reset' }, { expiresIn: '1h' });
+    const publicAppUrl = this.config.get<string>('PUBLIC_APP_URL') || '';
+    const link = `${publicAppUrl}/reset?token=${encodeURIComponent(token)}`;
+    try {
+      await this.mail.send({
+        to: user.email,
+        subject: 'Сброс пароля в ГлобоАтлас',
+        html: `<p>Здравствуйте, ${user.name}.</p>
+          <p>Чтобы сбросить пароль, перейдите по <a href="${link}">этой ссылке</a>. Она действует 1 час.</p>
+          <p>Если вы не запрашивали сброс — просто игнорируйте письмо.</p>`,
+      });
+    } catch {
+      // Swallow — don't leak failure to caller.
+    }
+    return { ok: true };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    let payload: any;
+    try {
+      payload = this.jwt.verify(token);
+    } catch {
+      throw new BadRequestException('Ссылка недействительна или истекла');
+    }
+    if (payload.type !== 'reset') throw new BadRequestException('Неверный тип токена');
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.password === 'INVALIDATED') throw new BadRequestException('Аккаунт недоступен');
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+    return { ok: true };
   }
 
   // ── Private helpers ────────────────────────────────────

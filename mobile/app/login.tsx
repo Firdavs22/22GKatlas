@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, radius, fontSize, fontWeight } from '../lib/theme';
+import { useScreenLayout } from '../lib/layout';
 import { API_URL } from '../lib/api';
 import { Button, SectionLabel } from '../components/ui';
 
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const screen = useScreenLayout();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -26,7 +28,10 @@ export default function LoginScreen() {
       await login(email.trim().toLowerCase(), password);
       router.replace('/(tabs)/home');
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Неверный email или пароль';
+      const msg = err?.response?.data?.message ||
+        (err?.code === 'ECONNABORTED' || !err?.response
+          ? 'Не удалось подключиться к серверу. Проверьте сеть и адрес API.'
+          : 'Неверный email или пароль');
       Alert.alert('Ошибка входа', msg);
     } finally {
       setLoading(false);
@@ -38,7 +43,16 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[
+          styles.inner,
+          {
+            paddingHorizontal: screen.isNarrow ? spacing.lg : spacing.xxl,
+            justifyContent: screen.width < 420 ? 'flex-start' : 'center',
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.brandBlock}>
           <Text style={styles.title}>
             Глобо<Text style={{ fontStyle: 'italic' }}>Атлас</Text>
@@ -107,9 +121,10 @@ const styles = StyleSheet.create({
   },
   inner: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xxl,
     paddingVertical: spacing.xxxl,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   brandBlock: {
     alignItems: 'center',
@@ -125,6 +140,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     marginTop: spacing.sm,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: colors.surface,

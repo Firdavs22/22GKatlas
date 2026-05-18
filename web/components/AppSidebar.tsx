@@ -76,6 +76,7 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/broadcasts', label: 'Рассылки', icon: Megaphone },
     { href: '/admin/knowledge', label: 'База знаний', icon: BookOpen },
     { href: '/admin/site-content', label: 'О системе и логин', icon: Settings },
+    { href: '/admin/audit', label: 'Журнал действий', icon: BarChart3 },
   ],
   psychologist: [
     { href: '/psychologist', label: 'Дети', icon: GraduationCap },
@@ -305,6 +306,13 @@ export default function AppSidebar() {
         >
           <Bell size={18} className="shrink-0" />
           <span className="flex-1 truncate">Уведомления</span>
+        </Link>
+        <Link
+          href="/settings"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
+        >
+          <Settings size={18} className="shrink-0" />
+          <span className="flex-1 truncate">Настройки</span>
         </Link>
         <button
           onClick={logout}

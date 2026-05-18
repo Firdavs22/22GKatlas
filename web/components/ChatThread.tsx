@@ -11,6 +11,8 @@ import { ChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import FileUpload from '@/components/FileUpload';
 import AuthMedia from '@/components/AuthMedia';
+import Lightbox from '@/components/Lightbox';
+import { getMediaType } from '@/lib/media';
 
 interface ChatThreadProps {
   /** Path to the list page (e.g. /parent/chats) used for the back button. Ignored when `embedded` is true. */
@@ -53,6 +55,7 @@ export default function ChatThread({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -130,14 +133,33 @@ export default function ChatThread({
                         )}
                         {msg.attachments && msg.attachments.length > 0 && (
                           <div className={`${msg.text ? 'mt-2' : ''} grid gap-1.5 ${msg.attachments.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                            {msg.attachments.map((url, idx) => (
-                              <AuthMedia
-                                key={idx}
-                                src={url}
-                                alt=""
-                                className="rounded-xl object-cover w-full h-40 bg-black/5"
-                              />
-                            ))}
+                            {msg.attachments.map((url, idx) => {
+                              const isImage = getMediaType(url) === 'image';
+                              if (isImage) {
+                                return (
+                                  <button
+                                    type="button"
+                                    key={idx}
+                                    onClick={() => setLightboxUrl(url)}
+                                    className="block rounded-xl overflow-hidden bg-black/5 cursor-zoom-in"
+                                  >
+                                    <AuthMedia
+                                      src={url}
+                                      alt=""
+                                      className="object-cover w-full h-40"
+                                    />
+                                  </button>
+                                );
+                              }
+                              return (
+                                <AuthMedia
+                                  key={idx}
+                                  src={url}
+                                  alt=""
+                                  className="rounded-xl object-cover w-full h-40 bg-black/5"
+                                />
+                              );
+                            })}
                           </div>
                         )}
                         <div
@@ -204,6 +226,7 @@ export default function ChatThread({
           Отправить
         </button>
       </form>
+      <Lightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 

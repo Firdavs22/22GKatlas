@@ -10,15 +10,19 @@ datasource db {
 // ─── DIRECTORY ────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role
-  avatar    String?
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  name            String
+  role            Role
+  avatar          String?
+  phone           String?
+  // Personal-data processing consent (152-ФЗ). Set when invitee accepts terms.
+  consentGivenAt  DateTime?
+  // Soft-delete marker. Anonymized record kept for FK integrity until 30 days, then physical-delete by cron.
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   teacherGroup       Group?            @relation("GroupTeacher")
   parentChildren     ChildParent[]
@@ -175,15 +179,24 @@ model SkillGroup {
 }
 
 model Skill {
-  id          String     @id @default(uuid())
-  title       String
-  description String?
-  ageRange    String?
-  sortOrder   Int
-  group       SkillGroup @relation(fields: [groupId], references: [id])
-  groupId     String
-  progress    Progress[]
-  homeTasks   HomeTask[]
+  id                 String     @id @default(uuid())
+  title              String
+  description        String?
+  ageRange           String?
+  sortOrder          Int
+  group              SkillGroup @relation(fields: [groupId], references: [id])
+  groupId            String
+  progress           Progress[]
+  homeTasks          HomeTask[]
+  // Three development dimensions (parent-facing view).
+  // One skill can carry multiple flags (e.g. Pink Tower → cognition + body).
+  developsEmotion    Boolean    @default(false)
+  developsCognition  Boolean    @default(false)
+  developsBody       Boolean    @default(false)
+
+  @@index([developsEmotion])
+  @@index([developsCognition])
+  @@index([developsBody])
 }
 
 model Progress {
@@ -576,4 +589,51 @@ model SiteContent {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// Append-only log of mutating actions by users (admin compliance + breach forensics).
+// Populated by AuditInterceptor on every POST/PUT/PATCH/DELETE under /api/.
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actorRole String?
+  method    String   // POST | PUT | PATCH | DELETE
+  path      String   // route, e.g. /admin/staff/123
+  status    Int      // HTTP status returned
+  ip        String?
+  userAgent String?
+  // Sanitized request body (passwords stripped). Limited to 4 KB.
+  body      Json?
+  // Free-form summary set by service when interesting (e.g. "Удалён ребёнок Иванов И.").
+  summary   String?
+  durationMs Int?
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([path, createdAt])
+  @@index([createdAt])
+}
+
+// Per-uploaded-file metadata. Used by GET /api/files/:filename to check that
+// the requester has access to the resource (otherwise any logged-in user could
+// download any file by guessing the UUID).
+//
+//   scope:
+//     'public'    — anyone authenticated (logo, sidebar icon, kb articles)
+//     'uploader'  — only the uploader (drafts, in-progress uploads)
+//     'child'     — anyone with access to childId (parent, teacher of group,
+//                   assigned specialist, admin)
+//     'group'     — anyone in groupId (teacher + parents whose child is in group + admin)
+//     'school'    — anyone authenticated (school-wide posts/menus/events)
+model FileMeta {
+  filename   String   @id
+  scope      String   // 'public' | 'uploader' | 'child' | 'group' | 'school'
+  uploaderId String?
+  childId    String?
+  groupId    String?
+  createdAt  DateTime @default(now())
+
+  @@index([uploaderId])
+  @@index([childId])
+  @@index([groupId])
 }

@@ -3,13 +3,14 @@ import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Pressable, StyleSheet } from 'react-native';
 import { colors, fontSize, radius, shadows, spacing } from '../../lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Role } from '../../lib/types';
 
 // Define which tabs each role can see
 const ROLE_TABS: Record<Role, string[]> = {
-  admin:        ['home', 'feed', 'chats', 'profile'],
+  admin:        ['home', 'profile'],
   teacher:      ['home', 'feed', 'post', 'chats', 'profile'],
-  parent:       ['home', 'feed', 'chats', 'profile'],
+  parent:       ['home', 'progress', 'feed', 'chats', 'profile'],
   psychologist: ['home', 'chats', 'profile'],
   pediatrician: ['home', 'chats', 'profile'],
 };
@@ -18,10 +19,11 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TAB_CONFIG: Record<string, { title: string; icon: IconName; iconFocused: IconName }> = {
   home:    { title: 'Главная',  icon: 'home-outline',         iconFocused: 'home' },
+  progress:{ title: 'Карта',    icon: 'map-outline',          iconFocused: 'map' },
   feed:    { title: 'Лента',    icon: 'newspaper-outline',    iconFocused: 'newspaper' },
   post:    { title: '',         icon: 'add',                  iconFocused: 'add' },
   chats:   { title: 'Чаты',     icon: 'chatbubbles-outline',  iconFocused: 'chatbubbles' },
-  profile: { title: 'Профиль',  icon: 'person-outline',       iconFocused: 'person' },
+  profile: { title: 'Еще',      icon: 'menu-outline',         iconFocused: 'menu' },
 };
 
 /** Большая центральная FAB-кнопка «+» в стиле Instagram. */
@@ -41,6 +43,7 @@ function CreatePostButton() {
 
 export default function TabLayout() {
   const { user, loading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (loading) {
     return (
@@ -63,9 +66,9 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
-          paddingBottom: 6,
+          paddingBottom: Math.max(insets.bottom, 6),
           paddingTop: 6,
-          height: 64,
+          height: 64 + Math.max(insets.bottom, 6),
         },
         tabBarLabelStyle: {
           fontSize: fontSize.xs,
@@ -75,6 +78,7 @@ export default function TabLayout() {
     >
       {Object.entries(TAB_CONFIG).map(([key, config]) => {
         if (key === 'post') {
+          const visible = visibleTabs.includes(key);
           // Для учителя — большая «+» FAB; для остальных таб скрыт через href:null
           return (
             <Tabs.Screen
@@ -82,8 +86,8 @@ export default function TabLayout() {
               name={key}
               options={{
                 title: '',
-                href: visibleTabs.includes(key) ? undefined : null,
-                tabBarButton: (props) => <CreatePostButton {...props} />,
+                href: visible ? undefined : null,
+                tabBarButton: visible ? (props) => <CreatePostButton {...props} /> : undefined,
               }}
             />
           );

@@ -124,6 +124,162 @@ export class ChildrenService {
     });
   }
 
+  /**
+   * Three-dimension summary for parent dashboard (see tz-karta-razvitiya.md).
+   * Counts mastered skills per dimension and per Montessori zone.
+   * Skills can carry multiple dimension flags; totals across the three
+   * dimensions intentionally do not sum to total skill count.
+   */
+  async getDevelopmentSummary(childId: string) {
+    const child = await this.prisma.child.findUnique({
+      where: { id: childId },
+      select: {
+        id: true,
+        name: true,
+        birthDate: true,
+        photo: true,
+        group: { select: { name: true } },
+      },
+    });
+    if (!child) return null;
+
+    const ageMonths = (() => {
+      const b = new Date(child.birthDate);
+      const now = new Date();
+      return (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+    })();
+
+    // All skills with their dimension flags + area
+    const allSkills = await this.prisma.skill.findMany({
+      select: {
+        id: true,
+        developsEmotion: true,
+        developsCognition: true,
+        developsBody: true,
+        group: { select: { area: { select: { id: true, title: true, color: true, sortOrder: true } } } },
+      },
+    });
+
+    // Child's mastered progress
+    const masteredProgress = await this.prisma.progress.findMany({
+      where: { childId, stage: 'mastered' },
+      select: { skillId: true },
+    });
+    const masteredSet = new Set(masteredProgress.map(p => p.skillId));
+
+    // ── Aggregate by dimension ──
+    const dim = {
+      emotion:   { mastered: 0, total: 0 },
+      cognition: { mastered: 0, total: 0 },
+      body:      { mastered: 0, total: 0 },
+    };
+    for (const s of allSkills) {
+      const m = masteredSet.has(s.id);
+      if (s.developsEmotion)   { dim.emotion.total++;   if (m) dim.emotion.mastered++; }
+      if (s.developsCognition) { dim.cognition.total++; if (m) dim.cognition.mastered++; }
+      if (s.developsBody)      { dim.body.total++;      if (m) dim.body.mastered++; }
+    }
+
+    // ── Aggregate by zone (Area) ──
+    type ZoneAgg = { id: string; title: string; color: string; sortOrder: number; mastered: number; total: number };
+    const zoneMap = new Map<string, ZoneAgg>();
+    for (const s of allSkills) {
+      const a = s.group?.area;
+      if (!a) continue;
+      const cur = zoneMap.get(a.id) ?? { id: a.id, title: a.title, color: a.color, sortOrder: a.sortOrder, mastered: 0, total: 0 };
+      cur.total++;
+      if (masteredSet.has(s.id)) cur.mastered++;
+      zoneMap.set(a.id, cur);
+    }
+    const zones = Array.from(zoneMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // ── Recent changes (last 5) ──
+    const recentRaw = await this.prisma.progressHistory.findMany({
+      where: { progress: { childId } },
+      include: {
+        progress: { include: { skill: { include: { group: { include: { area: true } } } } } },
+      },
+      orderBy: { changedAt: 'desc' },
+      take: 5,
+    });
+    const recent_changes = recentRaw.map(r => ({
+      skill_title: r.progress.skill.title,
+      zone: r.progress.skill.group.area.title,
+      old_stage: r.oldStage,
+      new_stage: r.newStage,
+      changed_at: r.changedAt,
+    }));
+
+    const wrap = (mastered: number, total: number) => {
+      const percent = total > 0 ? Math.round((mastered / total) * 100) : 0;
+      // §8.1: brand-new child → neutral, no panic.
+      if (mastered === 0 && total > 0) {
+        return { mastered, total, percent: 0, label: 'Только знакомимся' };
+      }
+      // §5.1 thresholds
+      let label = 'Только начинаем';
+      if (percent >= 75)      label = 'Отлично';
+      else if (percent >= 50) label = 'Хорошо развивается';
+      else if (percent >= 25) label = 'Идёт развитие';
+      return { mastered, total, percent, label };
+    };
+
+    return {
+      child: {
+        id: child.id,
+        name: child.name,
+        age_months: ageMonths,
+        group_name: child.group?.name || null,
+        avatar_url: child.photo,
+      },
+      by_dimension: {
+        emotion:   wrap(dim.emotion.mastered,   dim.emotion.total),
+        cognition: wrap(dim.cognition.mastered, dim.cognition.total),
+        body:      wrap(dim.body.mastered,      dim.body.total),
+      },
+      by_zone: zones.map(z => ({
+        id: z.id,
+        title: z.title,
+        color: z.color,
+        ...wrap(z.mastered, z.total),
+      })),
+      recent_changes,
+    };
+  }
+
+  /**
+   * Skills for a single dimension (drill-down screen).
+   * Returns skills grouped by zone → group, with child's stage on each.
+   */
+  async getDimensionDetail(childId: string, dimension: 'emotion' | 'cognition' | 'body') {
+    const flagField = dimension === 'emotion'
+      ? 'developsEmotion'
+      : dimension === 'cognition' ? 'developsCognition' : 'developsBody';
+
+    const skills = await this.prisma.skill.findMany({
+      where: { [flagField]: true } as any,
+      include: { group: { include: { area: true } } },
+      orderBy: [{ group: { area: { sortOrder: 'asc' } } }, { group: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
+    });
+
+    const progress = await this.prisma.progress.findMany({
+      where: { childId, skillId: { in: skills.map(s => s.id) } },
+      select: { skillId: true, stage: true, updatedAt: true },
+    });
+    const progressMap = new Map(progress.map(p => [p.skillId, p]));
+
+    return skills.map(s => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      group_title: s.group.title,
+      zone_title: s.group.area.title,
+      zone_color: s.group.area.color,
+      stage: progressMap.get(s.id)?.stage || 'none',
+      updated_at: progressMap.get(s.id)?.updatedAt || null,
+    }));
+  }
+
   getProgressHistory(childId: string) {
     return this.prisma.progressHistory.findMany({
       where: { progress: { childId } },

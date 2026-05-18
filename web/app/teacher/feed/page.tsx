@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Image as ImageIcon, Paperclip, Send } from 'lucide-react';
+import { Image as ImageIcon, Paperclip, Send, Plus, X } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge } from '@/components/ui';
 import api from '@/lib/api';
@@ -50,6 +50,7 @@ export default function TeacherFeed() {
   const [groupName, setGroupName] = useState('группе');
 
   // Composer
+  const [composerOpen, setComposerOpen] = useState(false);
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const [postType, setPostType] = useState<PostType>('group_news');
@@ -85,9 +86,15 @@ export default function TeacherFeed() {
       setText('');
       setTitle('');
       setPhotos([]);
+      setComposerOpen(false);
     } finally {
       setPosting(false);
     }
+  };
+
+  const closeComposer = () => {
+    if (posting) return;
+    setComposerOpen(false);
   };
 
   return (
@@ -96,90 +103,130 @@ export default function TeacherFeed() {
       title="Лента группы"
       wide
       actions={
-        <Button variant="primary" size="sm">
+        <Button variant="primary" size="sm" onClick={() => setComposerOpen(true)}>
           <Plus size={16} />
           Новая публикация
         </Button>
       }
     >
-      {/* Composer */}
-      <Card padding="md" className="mb-6">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-full bg-brand-pale flex items-center justify-center font-serif text-sm text-brand shrink-0">
-            G
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs text-slate-500 mb-2">
-              Опубликовать в группе {groupName}
+      {composerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+          onClick={closeComposer}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-2xl shadow-xl my-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                  Опубликовать в группе {groupName}
+                </div>
+                <h3 className="font-serif text-xl mt-0.5">Новая публикация</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeComposer}
+                className="text-slate-400 hover:text-slate-700 p-1"
+                aria-label="Закрыть"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Заголовок (опционально)"
-              className="w-full mb-2 px-3 py-2 text-sm font-serif text-base rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-            />
-            <textarea
-              value={text}
-              onChange={e => setText(e.target.value)}
-              placeholder="Что хотите рассказать родителям?"
-              rows={3}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
-            />
-            {photos.length > 0 && (
-              <div className="flex gap-2 mt-3">
-                {photos.map((url, i) => (
-                  <div key={i} className="w-16 h-16 rounded-lg overflow-hidden bg-brand-pale/40">
-                    <AuthMedia preview src={url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-              <FileUpload
-                onUpload={urls => setPhotos(p => [...p, ...urls])}
-                label={
-                  <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand">
-                    <ImageIcon size={16} /> Фото
-                  </span>
-                }
+
+            <div className="p-5 space-y-3">
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Заголовок (опционально)"
+                className="w-full px-3 py-2 text-sm font-serif text-base rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
-              <FileUpload
-                onUpload={urls => setPhotos(p => [...p, ...urls])}
-                label={
-                  <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand">
-                    <Paperclip size={16} /> Файл
-                  </span>
-                }
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                placeholder="Что хотите рассказать родителям?"
+                rows={5}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
               />
-              {postType !== 'group_news' && children.length > 0 && (
-                <select
-                  value={childId}
-                  onChange={e => setChildId(e.target.value)}
-                  className="h-8 px-2 text-xs rounded-full border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                >
-                  {children.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+
+              {photos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {photos.map((url, i) => (
+                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-brand-pale/40 group">
+                      <AuthMedia src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotos(p => p.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Убрать"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   ))}
-                </select>
+                </div>
               )}
-              <div className="ml-auto inline-flex rounded-full bg-slate-100 p-0.5">
-                {TYPE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setPostType(opt.id)}
-                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                      postType === opt.id ? 'bg-white shadow-sm font-medium' : 'text-slate-500'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <FileUpload
+                  multiple
+                  accept="image/*"
+                  onUpload={urls => setPhotos(p => [...p, ...urls])}
+                  label={
+                    <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand cursor-pointer">
+                      <ImageIcon size={16} /> Фото
+                    </span>
+                  }
+                />
+                <FileUpload
+                  multiple
+                  onUpload={urls => setPhotos(p => [...p, ...urls])}
+                  label={
+                    <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand cursor-pointer">
+                      <Paperclip size={16} /> Файл
+                    </span>
+                  }
+                />
               </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <div className="inline-flex rounded-full bg-slate-100 p-0.5">
+                  {TYPE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setPostType(opt.id)}
+                      className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                        postType === opt.id ? 'bg-white shadow-sm font-medium' : 'text-slate-500'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {postType !== 'group_news' && children.length > 0 && (
+                  <select
+                    value={childId}
+                    onChange={e => setChildId(e.target.value)}
+                    className="h-8 px-2 text-xs rounded-full border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  >
+                    {children.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={closeComposer} disabled={posting}>
+                Отмена
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
                 onClick={publish}
-                disabled={posting}
+                disabled={posting || (!text.trim() && !title.trim() && photos.length === 0)}
               >
                 <Send size={14} />
                 {posting ? 'Публикую…' : 'Опубликовать'}
@@ -187,7 +234,7 @@ export default function TeacherFeed() {
             </div>
           </div>
         </div>
-      </Card>
+      )}
 
       {/* Feed */}
       <div className="space-y-4">

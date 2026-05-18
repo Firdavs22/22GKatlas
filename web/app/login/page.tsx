@@ -141,6 +141,10 @@ export default function LoginPage() {
             >
               {loading ? 'Вход…' : (<>Войти <ArrowRight size={16} /></>)}
             </button>
+
+            <a href="/forgot" className="block text-center text-xs text-slate-500 hover:text-foreground mt-1">
+              Забыли пароль?
+            </a>
           </form>
         </div>
 

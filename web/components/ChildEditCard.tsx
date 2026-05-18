@@ -72,10 +72,12 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentQuery, setParentQuery] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstRunRef = useRef(true);
 
-  // Auto-save (debounced) once user is editing
+  // Auto-save (debounced) once user is editing.
+  // Persisting also runs from the «Готово» click — see finishEditing.
   useEffect(() => {
     if (!editing) return;
     if (firstRunRef.current) {
@@ -84,6 +86,10 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
     }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      // Only fire when there's a chance of success — silently skip when no
+      // valid parent yet, so the user isn't spammed with errors mid-typing.
+      const hasValidParent = parentLinks.some(p => p.name.trim() && (p.id || p.email.trim()));
+      if (!name.trim() || !hasValidParent) return;
       void persist();
     }, 700);
     return () => {
@@ -103,15 +109,20 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
     }).catch(() => {});
   }, [editing, availableParents.length]);
 
-  const persist = async () => {
-    if (!editing) return;
-    if (!name.trim()) return;
+  const persist = async (): Promise<boolean> => {
+    if (!name.trim()) {
+      setSaveError('Введите имя ребёнка');
+      setSaveStatus('error');
+      return false;
+    }
     const validParents = parentLinks.filter(p => p.name.trim() && (p.id || p.email.trim()));
     if (validParents.length === 0) {
+      setSaveError('Нужен хотя бы один родитель: укажите ФИО + email');
       setSaveStatus('error');
-      return;
+      return false;
     }
     setSaveStatus('saving');
+    setSaveError(null);
     try {
       const { data } = await api.put(`/admin/children/${child.id}`, {
         name: name.trim(),
@@ -133,9 +144,23 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1500);
       onUpdated?.(data);
-    } catch {
+      return true;
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSaveError(msg || 'Не удалось сохранить. Проверьте поля.');
       setSaveStatus('error');
+      return false;
     }
+  };
+
+  const finishEditing = async () => {
+    // Cancel any pending debounce and persist synchronously before closing.
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const ok = await persist();
+    if (ok) setEditing(false);
   };
 
   const addRow = (which: 'contacts' | 'representatives') => {
@@ -208,11 +233,17 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
               </>
             )}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+          <Button variant="ghost" size="sm" onClick={finishEditing} disabled={saveStatus === 'saving'}>
             Готово
           </Button>
         </div>
       </div>
+
+      {saveError && (
+        <div className="mb-4 rounded-xl border border-danger/30 bg-danger/10 text-red-900 px-3 py-2 text-xs">
+          {saveError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-5">
         {/* Avatar */}
