@@ -5,7 +5,14 @@ const COOKIE_OPTIONS = 'path=/; SameSite=Lax';
 
 export const api = axios.create({
   baseURL: `${API_URL}/api`,
+  withCredentials: true, // send/receive httpOnly auth cookies + XSRF-TOKEN
 });
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 // Track if we're currently refreshing to prevent multiple simultaneous refresh calls
 let isRefreshing = false;
@@ -37,8 +44,17 @@ export function clearAuthData() {
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
+    // Cookie-based auth comes for free via withCredentials. We keep the
+    // Authorization header for back-compat (legacy stored tokens, mobile clients).
     const token = localStorage.getItem('token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    // CSRF: echo XSRF-TOKEN cookie back as X-XSRF-TOKEN header for mutating ops.
+    const method = (config.method || 'get').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+      const xsrf = readCookie('XSRF-TOKEN');
+      if (xsrf) config.headers['X-XSRF-TOKEN'] = xsrf;
+    }
   }
   return config;
 });
@@ -82,7 +98,13 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
+        // Refresh works with either the cookie OR the body token; we always send body
+        // for safety, but withCredentials carries the cookie too.
+        const { data } = await axios.post(
+          `${API_URL}/api/auth/refresh`,
+          { refreshToken },
+          { withCredentials: true },
+        );
         storeAuthData(data);
 
         processQueue(null, data.token);

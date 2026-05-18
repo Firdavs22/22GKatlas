@@ -3,8 +3,10 @@ import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { SentryExceptionFilter } from './common/sentry-exception.filter';
+import { CsrfMiddleware } from './common/csrf.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +19,12 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
+
+  // Parse cookies (JWT может приходить из httpOnly cookie)
+  app.use(cookieParser());
+
+  // CSRF — double-submit cookie. Issues XSRF-TOKEN cookie, requires header on mutating requests.
+  app.use(new CsrfMiddleware().use);
 
   app.setGlobalPrefix('api');
 

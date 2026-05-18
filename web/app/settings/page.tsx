@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Loader2, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Trash2, Download } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, SectionLabel } from '@/components/ui';
 import FileUpload from '@/components/FileUpload';
@@ -268,6 +268,30 @@ export default function SettingsPage() {
             {pwdError}
           </div>
         )}
+      </Card>
+
+      {/* DATA EXPORT */}
+      <Card padding="md" className="mb-6">
+        <div className="flex items-center justify-between">
+          <div className="max-w-2xl">
+            <SectionLabel>Ваши данные</SectionLabel>
+            <h3 className="text-xl mt-0.5 mb-1">Экспорт персональных данных</h3>
+            <p className="text-sm text-slate-600">
+              Получите ZIP-архив со всеми данными, которые хранит о вас система: профиль,
+              данные ребёнка (для родителей), фото из ленты и портфолио, прогресс,
+              наблюдения, посещаемость. Право, гарантированное 152-ФЗ.
+            </p>
+          </div>
+          <a
+            href={`${process.env.NEXT_PUBLIC_API_URL || '/api'}/me/export?token=${typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''}`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 inline-flex items-center gap-2 h-10 px-4 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand/90 transition-colors"
+          >
+            <Download size={14} />
+            Скачать ZIP
+          </a>
+        </div>
       </Card>
 
       {/* DANGER ZONE */}

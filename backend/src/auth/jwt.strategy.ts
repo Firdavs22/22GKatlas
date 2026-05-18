@@ -3,6 +3,21 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Request } from 'express';
+
+/** Pull JWT from Authorization header, httpOnly cookie, or ?token= query. */
+function extractToken(req: Request): string | null {
+  // 1. Authorization: Bearer <token>
+  const fromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+  if (fromHeader) return fromHeader;
+  // 2. httpOnly cookie set by /auth/login
+  const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+  if (cookies?.access_token) return cookies.access_token;
+  // 3. ?token= — only for media/download endpoints that can't send headers (<img>, <a>)
+  const q = (req.query as Record<string, unknown>)?.token;
+  if (typeof q === 'string' && q.length > 0) return q;
+  return null;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -13,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const secret = config.get('JWT_SECRET');
     if (!secret) throw new Error('JWT_SECRET environment variable is required');
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: extractToken,
       secretOrKey: secret,
     });
   }

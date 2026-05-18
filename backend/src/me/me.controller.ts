@@ -1,13 +1,19 @@
-import { Body, Controller, Delete, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Put, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MeService } from './me.service';
+import { ExportService } from './export.service';
 import { UpdateMeDto, ChangePasswordDto, DeleteAccountDto } from './dto/me.dto';
+import type { Response } from 'express';
 
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class MeController {
-  constructor(private readonly svc: MeService) {}
+  constructor(
+    private readonly svc: MeService,
+    private readonly exportSvc: ExportService,
+  ) {}
 
   @Get()
   get(@CurrentUser() user: { id: string }) {
@@ -27,5 +33,15 @@ export class MeController {
   @Delete()
   deleteAccount(@CurrentUser() user: { id: string }, @Body() dto: DeleteAccountDto) {
     return this.svc.deleteAccount(user.id, dto.password, dto.confirmation);
+  }
+
+  /**
+   * Personal-data export (152-ФЗ). Streams a ZIP archive with profile + child data + photos.
+   * Throttled to avoid abuse — generation is expensive (downloads every photo).
+   */
+  @Get('export')
+  @Throttle({ default: { limit: 3, ttl: 3600_000 } }) // 3 exports / hour per user
+  exportData(@CurrentUser() user: { id: string }, @Res() res: Response) {
+    return this.exportSvc.streamExport(user.id, res);
   }
 }
