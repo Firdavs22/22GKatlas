@@ -15,7 +15,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.globokids.atlas"
+      "bundleIdentifier": "com.globokids.atlas",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Камера используется для фото- и видеоматериалов в ленте и портфолио ребёнка.",
+        "NSPhotoLibraryUsageDescription": "Доступ к галерее нужен для прикрепления фото к публикациям и портфолио.",
+        "NSPhotoLibraryAddUsageDescription": "ГлобоАтлас сохраняет скачанные фото ребёнка в галерею.",
+        "NSMicrophoneUsageDescription": "Микрофон используется при записи видеосообщений педагогу.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +31,14 @@
         "backgroundColor": "#0F5192"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.globokids.atlas"
+      "package": "com.globokids.atlas",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
