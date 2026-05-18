@@ -5,7 +5,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { fileTypeFromBuffer } from 'file-type';
+import { fromBuffer as detectFromBuffer } from 'file-type';
 import type { Request, Response } from 'express';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
@@ -32,7 +32,7 @@ async function assertSafeMime(file: Express.Multer.File): Promise<void> {
   // to client-supplied mime which we already whitelisted.
   if (file.mimetype === 'image/svg+xml') return;
 
-  const detected = await fileTypeFromBuffer(file.buffer);
+  const detected = await detectFromBuffer(file.buffer);
   if (!detected) {
     throw new BadRequestException(
       `Не удалось определить тип файла «${file.originalname}». Возможно, файл повреждён.`,

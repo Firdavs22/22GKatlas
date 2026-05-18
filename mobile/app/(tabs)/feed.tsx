@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../lib/api';
 import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../lib/theme';
 import type { FeedItem } from '../../lib/types';
 import MobileShell from '../../components/MobileShell';
+import PostMedia from '../../components/PostMedia';
 
 export default function FeedScreen() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -43,7 +45,7 @@ export default function FeedScreen() {
       ) : null}
 
       {feed.map((item) => (
-        <View key={item.id} style={styles.card}>
+        <Pressable key={item.id} style={styles.card} onPress={() => router.push(`/parent/feed/${item.id}`)}>
           <View style={styles.cardHeader}>
             <View style={styles.authorAvatar}>
               <Ionicons name={typeIcon(item.type)} size={18} color={colors.brand} />
@@ -58,12 +60,7 @@ export default function FeedScreen() {
           {item.title ? <Text style={styles.cardTitle}>{item.title}</Text> : null}
           {item.text ? <Text style={styles.cardText}>{item.text}</Text> : null}
 
-          {item.mediaUrls?.length > 0 ? (
-            <View style={styles.mediaPlaceholder}>
-              <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-              <Text style={styles.mediaCount}>{item.mediaUrls.length} фото</Text>
-            </View>
-          ) : null}
+          {item.mediaUrls?.length > 0 ? <PostMedia urls={item.mediaUrls} compact /> : null}
 
           <View style={styles.cardFooter}>
             <TouchableOpacity style={styles.footerButton} activeOpacity={0.7}>
@@ -71,7 +68,7 @@ export default function FeedScreen() {
               <Text style={styles.footerText}>{item._count?.likes || 0}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Pressable>
       ))}
     </MobileShell>
   );
@@ -102,16 +99,6 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: fontSize.xs, color: colors.textMuted },
   cardTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.textPrimary, marginBottom: spacing.sm },
   cardText: { fontSize: fontSize.md, color: colors.textSecondary, lineHeight: 22 },
-  mediaPlaceholder: {
-    backgroundColor: colors.borderLight,
-    borderRadius: radius.lg,
-    aspectRatio: 16 / 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  mediaCount: { fontSize: fontSize.sm, color: colors.textMuted },
   cardFooter: { flexDirection: 'row', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
   footerButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   footerText: { fontSize: fontSize.sm, color: colors.textSecondary },

@@ -34,7 +34,9 @@ function sanitize(value: unknown): unknown {
 }
 
 function truncate(obj: unknown): unknown {
+  if (obj === undefined || obj === null) return undefined;
   const json = JSON.stringify(obj);
+  if (typeof json !== 'string') return undefined;
   if (json.length <= MAX_BODY_BYTES) return obj;
   return { _truncated: true, _bytes: json.length, preview: json.slice(0, MAX_BODY_BYTES - 64) };
 }
