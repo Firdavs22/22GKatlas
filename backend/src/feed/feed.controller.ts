@@ -1,7 +1,9 @@
 import { Controller, Get, Post, Delete, Body, Param, UseGuards, Res, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FeedService } from './feed.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CreateFeedItemDto } from './dto/feed.dto';
 import type { Response } from 'express';
 
 @Controller('feed')
@@ -15,7 +17,10 @@ export class FeedController {
   }
 
   @Post()
-  create(@Body() dto: any, @CurrentUser() user: any) { return this.feedService.createFeedItem(dto, user); }
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 posts / min per IP
+  create(@Body() dto: CreateFeedItemDto, @CurrentUser() user: any) {
+    return this.feedService.createFeedItem(dto, user);
+  }
 
   @Get('download/:childId')
   download(@Param('childId') childId: string, @CurrentUser() user: any, @Res() res: Response) {

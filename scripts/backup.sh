@@ -19,18 +19,18 @@ docker exec "${COMPOSE_PROJECT}-postgres-1" pg_dump -U "$DB_USER" "$DB_NAME" \
   | gzip > "$BACKUP_DIR/db-$DATE.sql.gz"
 echo "  Postgres → db-$DATE.sql.gz ($(du -h "$BACKUP_DIR/db-$DATE.sql.gz" | cut -f1))"
 
-# ── MinIO volume ──
+# ── Object storage volume (SeaweedFS) ──
 docker run --rm \
-  -v "${COMPOSE_PROJECT}_miniodata:/data:ro" \
+  -v "${COMPOSE_PROJECT}_storagedata:/data:ro" \
   -v "$BACKUP_DIR:/backup" \
-  alpine tar czf "/backup/minio-$DATE.tar.gz" -C /data .
-echo "  MinIO → minio-$DATE.tar.gz ($(du -h "$BACKUP_DIR/minio-$DATE.tar.gz" | cut -f1))"
+  alpine tar czf "/backup/storage-$DATE.tar.gz" -C /data .
+echo "  Storage → storage-$DATE.tar.gz ($(du -h "$BACKUP_DIR/storage-$DATE.tar.gz" | cut -f1))"
 
 # ── Retention ──
 DELETED_DB=$(find "$BACKUP_DIR" -maxdepth 1 -name 'db-*.sql.gz' -mtime +$KEEP_DAYS -delete -print | wc -l)
-DELETED_MN=$(find "$BACKUP_DIR" -maxdepth 1 -name 'minio-*.tar.gz' -mtime +$KEEP_DAYS -delete -print | wc -l)
-if [ "$DELETED_DB" -gt 0 ] || [ "$DELETED_MN" -gt 0 ]; then
-  echo "  Cleaned ${DELETED_DB} old DB + ${DELETED_MN} old MinIO backups (>${KEEP_DAYS} days)"
+DELETED_ST=$(find "$BACKUP_DIR" -maxdepth 1 -name 'storage-*.tar.gz' -mtime +$KEEP_DAYS -delete -print | wc -l)
+if [ "$DELETED_DB" -gt 0 ] || [ "$DELETED_ST" -gt 0 ]; then
+  echo "  Cleaned ${DELETED_DB} old DB + ${DELETED_ST} old storage backups (>${KEEP_DAYS} days)"
 fi
 
 echo "[$(date)] Backup done"

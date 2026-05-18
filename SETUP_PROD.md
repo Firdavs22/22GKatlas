@@ -123,8 +123,9 @@ DB_PASSWORD=<openssl rand -hex 32>
 # === JWT ===
 JWT_SECRET=<openssl rand -base64 48>
 
-# === MinIO ===
-MINIO_USER=globoatlas-minio
+# === Object Storage (SeaweedFS S3 — open-source replacement for MinIO) ===
+# Env names kept as MINIO_* для совместимости с кодом
+MINIO_USER=globoatlas-storage
 MINIO_PASSWORD=<openssl rand -hex 32>
 
 # === URLs ===
@@ -303,9 +304,9 @@ DATE=$(date +%Y-%m-%d-%H%M)
 docker exec globoatlas-postgres-1 pg_dump -U globoatlas globoatlas \
   | gzip > "$BACKUP_DIR/db-$DATE.sql.gz"
 
-# MinIO (сжатый tar волюма)
-docker run --rm -v globoatlas_miniodata:/data -v "$BACKUP_DIR":/backup \
-  alpine tar czf "/backup/minio-$DATE.tar.gz" -C /data .
+# SeaweedFS data (сжатый tar волюма)
+docker run --rm -v globoatlas_storagedata:/data -v "$BACKUP_DIR":/backup \
+  alpine tar czf "/backup/storage-$DATE.tar.gz" -C /data .
 
 # Очистка старых
 find "$BACKUP_DIR" -name 'db-*.sql.gz' -mtime +$KEEP_DAYS -delete
@@ -336,11 +337,11 @@ crontab -e
 gunzip < /backup/db-2026-05-17-0300.sql.gz \
   | docker exec -i globoatlas-postgres-1 psql -U globoatlas globoatlas
 
-# MinIO
-docker compose stop minio
-docker run --rm -v globoatlas_miniodata:/data -v /backup:/backup \
-  alpine sh -c "rm -rf /data/* && tar xzf /backup/minio-2026-05-17-0300.tar.gz -C /data"
-docker compose start minio
+# SeaweedFS
+docker compose stop storage
+docker run --rm -v globoatlas_storagedata:/data -v /backup:/backup \
+  alpine sh -c "rm -rf /data/* && tar xzf /backup/storage-2026-05-17-0300.tar.gz -C /data"
+docker compose start storage
 ```
 
 > Внешнее хранилище бэкапов: после стабилизации настрой `rclone` на Selectel S3 / Yandex Object Storage для off-site копии.

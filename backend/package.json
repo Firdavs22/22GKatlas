@@ -38,6 +38,7 @@
     "helmet": "^8.0.0",
     "@sentry/node": "^8.45.0",
     "@sentry/profiling-node": "^8.45.0",
+    "file-type": "^19.6.0",
     "class-validator": "^0.15.1",
     "minio": "^8.0.7",
     "nodemailer": "^6.9.16",

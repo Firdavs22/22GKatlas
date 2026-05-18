@@ -32,13 +32,17 @@ export class FilesService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
+    // S3-compatible client — works against either MinIO or SeaweedFS S3.
+    // Region must be set for SeaweedFS signature validation.
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || 'localhost',
-      port: Number(process.env.MINIO_PORT) || 9000,
+      port: Number(process.env.MINIO_PORT) || 8333,
       useSSL: process.env.MINIO_USE_SSL === 'true',
       accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
       secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
-    });
+      region: process.env.S3_REGION || 'us-east-1',
+      pathStyle: true,
+    } as Minio.ClientOptions);
     await this.initBucket();
   }
 

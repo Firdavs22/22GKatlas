@@ -36,25 +36,30 @@ services:
       timeout: 3s
       retries: 5
 
-  minio:
-    image: minio/minio
+  # SeaweedFS — S3-compatible object storage. Replaced MinIO (Inc. closed-source from late 2025).
+  # Apache 2.0, actively maintained. Backend uses the same minio npm SDK pointed at this endpoint.
+  storage:
+    image: chrislusf/seaweedfs:3.96
     restart: unless-stopped
     logging: *default-logging
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+      S3_USER: ${MINIO_USER}
+      S3_PASS: ${MINIO_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - 'mkdir -p /etc/seaweedfs && printf ''{"identities":[{"name":"%s","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'' "$$S3_USER" "$$S3_USER" "$$S3_PASS" > /etc/seaweedfs/s3config.json && exec weed server -dir=/data -s3 -s3.config=/etc/seaweedfs/s3config.json -s3.port=8333 -master.volumeSizeLimitMB=1024 -ip.bind=0.0.0.0'
     volumes:
-      - miniodata:/data
+      - storagedata:/data
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:8333:8333"
+      - "127.0.0.1:9333:9333"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-qO-", "--spider", "http://127.0.0.1:9333/cluster/status"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 30s
 
   backend:
     build: ./backend
@@ -70,8 +75,9 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/globoatlas
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
+      # Object storage — SeaweedFS S3. Env names kept as MINIO_* so backend code stays unchanged.
+      MINIO_ENDPOINT: storage
+      MINIO_PORT: 8333
       MINIO_ACCESS_KEY: ${MINIO_USER}
       MINIO_SECRET_KEY: ${MINIO_PASSWORD}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080}
@@ -91,7 +97,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      minio:
+      storage:
         condition: service_started
     ports:
       - "127.0.0.1:3001:3001"
@@ -135,4 +141,4 @@ services:
 volumes:
   pgdata:
   redisdata:
-  miniodata:
+  storagedata:
