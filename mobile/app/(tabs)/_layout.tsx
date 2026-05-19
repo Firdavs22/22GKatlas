@@ -2,6 +2,7 @@ import { Tabs, Redirect, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Pressable, StyleSheet } from 'react-native';
+import OnboardingModal from '../../components/OnboardingModal';
 import { colors, fontSize, radius, shadows, spacing } from '../../lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Role } from '../../lib/types';
@@ -9,6 +10,7 @@ import type { Role } from '../../lib/types';
 // Define which tabs each role can see
 const ROLE_TABS: Record<Role, string[]> = {
   admin:        ['home', 'profile'],
+  superadmin:   ['home', 'profile'],
   teacher:      ['home', 'feed', 'post', 'chats', 'profile'],
   parent:       ['home', 'progress', 'feed', 'chats', 'profile'],
   psychologist: ['home', 'chats', 'profile'],
@@ -58,7 +60,8 @@ export default function TabLayout() {
   const visibleTabs = ROLE_TABS[user.role] || ['home', 'profile'];
 
   return (
-    <Tabs
+    <>
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.brand,
@@ -106,7 +109,9 @@ export default function TabLayout() {
           />
         );
       })}
-    </Tabs>
+      </Tabs>
+      <OnboardingModal />
+    </>
   );
 }
 

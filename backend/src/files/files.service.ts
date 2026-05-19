@@ -32,7 +32,7 @@ export class FilesService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
-    // S3-compatible client — works against either MinIO or SeaweedFS S3.
+    // S3-compatible client — currently pointed at SeaweedFS S3 in docker-compose.
     // Region must be set for SeaweedFS signature validation.
     this.minioClient = new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT || 'localhost',
@@ -114,7 +114,7 @@ export class FilesService implements OnModuleInit {
     const meta = await this.prisma.fileMeta.findUnique({ where: { filename } });
     if (!meta) return; // legacy file — fall through to permissive
     if (meta.scope === 'public') return;
-    if (requester.role === 'admin') return;
+    if (requester.role === 'admin' || requester.role === 'superadmin') return;
     if (meta.uploaderId === requester.id) return;
 
     if (!meta.uploaderId) return; // anonymous-origin file — permissive

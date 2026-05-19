@@ -18,9 +18,9 @@ function getDevApiUrl() {
     Constants.manifest2?.extra?.expoClient?.hostUri;
   const host = extractHost(hostUri);
   if (host?.endsWith('.exp.direct')) {
-    return 'http://192.168.0.124:3001';
+    return 'http://192.168.0.124:3002';
   }
-  return host ? `http://${host}:3001` : 'http://localhost:3001';
+  return host ? `http://${host}:3002` : 'http://localhost:3001';
 }
 
 // TODO: Change this to your VPS IP/domain in production
@@ -151,6 +151,54 @@ export default api;
 export async function getAuthMediaUrl(path: string): Promise<string> {
   if (!path) return '';
   const token = await getToken();
-  const url = path.startsWith('http') ? path : `${API_URL}${path}`;
-  return `${url}${url.includes('?') ? '&' : '?'}token=${token}`;
+  let url = path;
+
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try {
+      const parsed = new URL(path);
+      const apiParsed = new URL(API_URL);
+      if (
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1' ||
+        parsed.hostname === '0.0.0.0' ||
+        ((parsed.pathname.startsWith('/api/') || parsed.pathname.startsWith('/files/')) &&
+          parsed.hostname !== apiParsed.hostname)
+      ) {
+        url = `${API_URL}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      url = path;
+    }
+  } else if (path.startsWith('/api/')) {
+    url = `${API_URL}${path}`;
+  } else if (path.startsWith('/files/')) {
+    url = `${API_URL}/api${path}`;
+  } else if (path.startsWith('/')) {
+    url = `${API_URL}${path}`;
+  }
+
+  if (!token) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+}
+
+export function getPublicMediaUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try {
+      const parsed = new URL(path);
+      const apiParsed = new URL(API_URL);
+      if (
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1' ||
+        ((parsed.pathname.startsWith('/api/') || parsed.pathname.startsWith('/files/')) &&
+          parsed.hostname !== apiParsed.hostname)
+      ) {
+        return `${API_URL}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      return path;
+    }
+    return path;
+  }
+  return path.startsWith('/') ? `${API_URL}${path}` : path;
 }

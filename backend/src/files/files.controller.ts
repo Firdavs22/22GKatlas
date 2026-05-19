@@ -114,7 +114,7 @@ export class FilesController {
     return { files: results };
   }
 
-  // Proxy endpoint to read files from MinIO
+  // Proxy endpoint to read files from S3-compatible storage.
   // Supports auth via Authorization header OR ?token= query parameter
   // (browsers can't send Authorization headers in <img src> / <video src>)
   @Get('files/:filename')

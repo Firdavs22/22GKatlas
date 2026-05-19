@@ -1,22 +1,57 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, KeyboardAvoidingView,
+  View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Image,
   Platform, Alert, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, radius, fontSize, fontWeight } from '../lib/theme';
 import { useScreenLayout } from '../lib/layout';
-import { API_URL } from '../lib/api';
-import { Button, SectionLabel } from '../components/ui';
+import api, { API_URL, getPublicMediaUrl } from '../lib/api';
+import { Button } from '../components/ui';
+
+interface LoginBranding {
+  title: string;
+  titleSize: number;
+  subtitle: string;
+  subtitleSize: number;
+  hasLogo: boolean;
+  logoSize: number;
+}
+
+const DEFAULT_BRANDING: LoginBranding = {
+  title: 'ГлобоАтлас',
+  titleSize: 44,
+  subtitle: 'Среда, в которой ребенок ведет сам.',
+  subtitleSize: 14,
+  hasLogo: false,
+  logoSize: 86,
+};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [branding, setBranding] = useState<LoginBranding>(DEFAULT_BRANDING);
   const { login } = useAuth();
   const router = useRouter();
   const screen = useScreenLayout();
+
+  useEffect(() => {
+    api.get('/site-content/login')
+      .then(r => {
+        const data = r.data || {};
+        setBranding({
+          title: typeof data.title === 'string' ? data.title : DEFAULT_BRANDING.title,
+          titleSize: Math.min(Number(data.titleSize) || DEFAULT_BRANDING.titleSize, 48),
+          subtitle: typeof data.subtitle === 'string' ? data.subtitle : DEFAULT_BRANDING.subtitle,
+          subtitleSize: Number(data.subtitleSize) || DEFAULT_BRANDING.subtitleSize,
+          hasLogo: Boolean(data.logoUrl),
+          logoSize: Math.min(Number(data.logoSize) || DEFAULT_BRANDING.logoSize, 110),
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -26,7 +61,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email.trim().toLowerCase(), password);
-      router.replace('/(tabs)/home');
+      router.replace('/home');
     } catch (err: any) {
       const msg = err?.response?.data?.message ||
         (err?.code === 'ECONNABORTED' || !err?.response
@@ -48,16 +83,27 @@ export default function LoginScreen() {
           styles.inner,
           {
             paddingHorizontal: screen.isNarrow ? spacing.lg : spacing.xxl,
-            justifyContent: screen.width < 420 ? 'flex-start' : 'center',
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandBlock}>
-          <Text style={styles.title}>
-            Глобо<Text style={{ fontStyle: 'italic' }}>Атлас</Text>
-          </Text>
-          <Text style={styles.subtitle}>Среда, в которой ребёнок ведёт сам.</Text>
+          {branding.hasLogo ? (
+            <Image
+              source={{ uri: getPublicMediaUrl('/api/site-content/public/logo') }}
+              style={[styles.logo, { width: branding.logoSize, height: branding.logoSize }]}
+              resizeMode="contain"
+            />
+          ) : null}
+          {branding.title ? (
+            <Text style={[styles.title, { fontSize: branding.titleSize }]} numberOfLines={2}>
+              {branding.title}
+            </Text>
+          ) : null}
+          {branding.subtitle ? (
+            <Text style={[styles.subtitle, { fontSize: branding.subtitleSize }]}>{branding.subtitle}</Text>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -96,6 +142,7 @@ export default function LoginScreen() {
           >
             Войти
           </Button>
+          <Text style={styles.forgot}>Забыли пароль?</Text>
         </View>
 
         {__DEV__ && (
@@ -121,26 +168,33 @@ const styles = StyleSheet.create({
   },
   inner: {
     flexGrow: 1,
-    paddingVertical: spacing.xxxl,
+    minHeight: '100%',
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.xxl,
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
+    justifyContent: 'center',
   },
   brandBlock: {
     alignItems: 'center',
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xxl,
+  },
+  logo: {
+    marginBottom: spacing.md,
   },
   title: {
-    fontFamily: 'serif',
-    fontSize: 44,
     color: colors.textPrimary,
-    lineHeight: 50,
+    lineHeight: 52,
+    fontWeight: fontWeight.bold,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
+    lineHeight: 20,
   },
   card: {
     backgroundColor: colors.surface,
@@ -148,6 +202,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: spacing.xxl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   label: {
     fontSize: 11,
@@ -169,7 +228,8 @@ const styles = StyleSheet.create({
   },
   hint: {
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   apiHint: {
     fontSize: fontSize.xs,
@@ -188,5 +248,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  forgot: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
 });

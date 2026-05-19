@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Loader2, Trash2, Download } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Trash2, Download, BookOpen } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, SectionLabel } from '@/components/ui';
 import FileUpload from '@/components/FileUpload';
@@ -268,6 +268,32 @@ export default function SettingsPage() {
             {pwdError}
           </div>
         )}
+      </Card>
+
+      {/* ONBOARDING REPLAY */}
+      <Card padding="md" className="mb-6">
+        <div className="flex items-center justify-between">
+          <div className="max-w-2xl">
+            <SectionLabel>Подсказки</SectionLabel>
+            <h3 className="text-xl mt-0.5 mb-1">Тур по приложению</h3>
+            <p className="text-sm text-slate-600">
+              Повторно показать обзорные подсказки при следующем входе.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await api.post('/me/onboarding/reset');
+                alert('При следующем входе вы увидите тур');
+              } catch { alert('Не удалось'); }
+            }}
+          >
+            <BookOpen size={14} />
+            Посмотреть тур
+          </Button>
+        </div>
       </Card>
 
       {/* DATA EXPORT */}

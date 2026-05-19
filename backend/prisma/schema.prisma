@@ -21,6 +21,8 @@ model User {
   consentGivenAt  DateTime?
   // Soft-delete marker. Anonymized record kept for FK integrity until 30 days, then physical-delete by cron.
   deletedAt       DateTime?
+  // First-time onboarding tour completion. null = show modal on next dashboard view.
+  onboardingCompletedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -47,6 +49,7 @@ enum Role {
   parent
   psychologist
   pediatrician
+  superadmin
 }
 
 model Child {

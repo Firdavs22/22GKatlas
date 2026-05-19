@@ -21,7 +21,7 @@ export default function AdminScreen() {
   }
 
   if (!user) return <Redirect href="/login" />;
-  if (user.role !== 'admin') return <Redirect href="/(tabs)/home" />;
+  if (user.role !== 'admin') return <Redirect href="/home" />;
 
   return (
     <>

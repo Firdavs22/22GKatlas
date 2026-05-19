@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('admin/audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('superadmin')
 export class AuditController {
   constructor(private readonly prisma: PrismaService) {}
 

@@ -1,6 +1,6 @@
 // Types shared between web and mobile — kept in sync with web/lib/types.ts
 
-export type Role = 'admin' | 'teacher' | 'parent' | 'psychologist' | 'pediatrician';
+export type Role = 'admin' | 'teacher' | 'parent' | 'psychologist' | 'pediatrician' | 'superadmin';
 
 export interface User {
   id: string;

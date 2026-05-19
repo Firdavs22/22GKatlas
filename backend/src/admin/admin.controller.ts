@@ -84,19 +84,23 @@ export class AdminController {
     return this.adminService.reissueParentInvite(id, this.authService);
   }
 
-  // ── STAFF ─────────────────────────────────────────────────
+  // ── STAFF ── superadmin-only ─────────────────────────────
   @Get('staff')
+  @Roles('superadmin')
   getStaff() { return this.adminService.getStaff(); }
 
   @Get('staff/:id')
+  @Roles('superadmin')
   getStaffById(@Param('id') id: string) { return this.adminService.getStaffById(id); }
 
   @Post('staff/invite')
+  @Roles('superadmin')
   inviteStaff(@Body() dto: InviteStaffDto) {
     return this.adminService.inviteStaff(dto.email, dto.name, dto.role, this.authService);
   }
 
   @Put('staff/:id')
+  @Roles('superadmin')
   updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
     return this.adminService.updateStaff(id, dto);
   }
@@ -107,12 +111,15 @@ export class AdminController {
   getAreas() { return this.adminService.getAreas(); }
 
   @Post('areas')
+  @Roles('superadmin')
   createArea(@Body() dto: any) { return this.adminService.createArea(dto); }
 
   @Put('areas/:id')
+  @Roles('superadmin')
   updateArea(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateArea(id, dto); }
 
   @Delete('areas/:id')
+  @Roles('superadmin')
   deleteArea(@Param('id') id: string) { return this.adminService.deleteArea(id); }
 
   // ── SKILL GROUPS ──────────────────────────────────────────
@@ -121,34 +128,42 @@ export class AdminController {
   getSkillGroups() { return this.adminService.getSkillGroups(); }
 
   @Post('skill-groups')
+  @Roles('superadmin')
   createSkillGroup(@Body() dto: any) { return this.adminService.createSkillGroup(dto); }
 
   @Put('skill-groups/:id')
+  @Roles('superadmin')
   updateSkillGroup(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateSkillGroup(id, dto); }
 
   @Delete('skill-groups/:id')
+  @Roles('superadmin')
   deleteSkillGroup(@Param('id') id: string) { return this.adminService.deleteSkillGroup(id); }
 
-  // ── SKILLS ────────────────────────────────────────────────
+  // ── SKILLS — мутации только superadmin ────────────────────
   @Get('skills')
   @Roles('admin', 'teacher')
   getSkills() { return this.adminService.getSkills(); }
 
   @Post('skills')
+  @Roles('superadmin')
   createSkill(@Body() dto: any) { return this.adminService.createSkill(dto); }
 
   @Put('skills/:id')
+  @Roles('superadmin')
   updateSkill(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateSkill(id, dto); }
 
   @Delete('skills/:id')
+  @Roles('superadmin')
   deleteSkill(@Param('id') id: string) { return this.adminService.deleteSkill(id); }
 
   @Post('skills/reorder')
+  @Roles('superadmin')
   reorderSkills(@Body() dto: { items: { id: string; sortOrder: number }[] }) {
     return this.adminService.reorderSkills(dto.items);
   }
 
   @Post('skills/import')
+  @Roles('superadmin')
   @UseInterceptors(FileInterceptor('file'))
   importSkills(@UploadedFile() file: any) {
     return this.adminService.importSkillsFromExcel(file.buffer);
@@ -182,20 +197,23 @@ export class AdminController {
     return this.adminService.updatePayment(id, dto);
   }
 
-  // ── REPORTS ────────────────────────────────────────────
+  // ── REPORTS — superadmin-only ────────────────────────────
   @Get('reports/attendance')
+  @Roles('superadmin')
   async downloadAttendanceReport(@Query('month') month: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generateAttendanceReport(month);
     this.sendXlsx(res, buffer, `attendance_${month || 'current'}.xlsx`);
   }
 
   @Get('reports/progress')
+  @Roles('superadmin')
   async downloadProgressReport(@Query('groupId') groupId: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generateProgressReport(groupId);
     this.sendXlsx(res, buffer, `progress_${groupId || 'all'}.xlsx`);
   }
 
   @Get('reports/payments')
+  @Roles('superadmin')
   async downloadPaymentsReport(@Query('month') month: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generatePaymentsReport(month);
     this.sendXlsx(res, buffer, `payments_${month || 'current'}.xlsx`);

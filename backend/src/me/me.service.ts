@@ -14,10 +14,26 @@ export class MeService {
       select: {
         id: true, email: true, name: true, role: true,
         avatar: true, phone: true,
-        consentGivenAt: true, createdAt: true,
+        consentGivenAt: true, onboardingCompletedAt: true, createdAt: true,
       },
     });
     return u;
+  }
+
+  async completeOnboarding(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardingCompletedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  async resetOnboarding(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardingCompletedAt: null },
+    });
+    return { ok: true };
   }
 
   async update(userId: string, dto: { name?: string; email?: string; phone?: string; avatar?: string }) {

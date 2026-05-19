@@ -5,7 +5,7 @@ export const colors = {
   // Brand (тёмно-синий из прототипа)
   brand: '#0F5192',
   brandSoft: '#1B6BB8',
-  brandPale: '#E8EEF5',
+  brandPale: '#D0E3F4',
   brandPaleSoft: '#F4F8FB',
 
   // Status
@@ -13,19 +13,19 @@ export const colors = {
   successBg: '#EAF5EE',
   warn: '#F1C49E',
   warnBg: '#FBEFE3',
-  danger: '#E58E8E',
+  danger: '#E2977F',
   dangerBg: '#FBE9E9',
 
   // Surface / neutrals
-  background: '#F8F4ED',  // тёплый бежевый бэкграунд прототипа
+  background: '#F8FAFC',
   surface: '#FFFFFF',
-  surfaceAlt: '#F3EEE6',
-  border: '#E5E1D8',
-  borderLight: '#EFECE5',
+  surfaceAlt: '#F1F5F9',
+  border: '#E2E8F0',
+  borderLight: '#E2E8F0',
 
   // Text
-  foreground: '#1B1F2A',
-  textPrimary: '#1B1F2A',
+  foreground: '#0F172A',
+  textPrimary: '#0F172A',
   textSecondary: '#64748B',
   textMuted: '#94A3B8',
   textInverse: '#FFFFFF',
@@ -41,7 +41,7 @@ export const colors = {
   primary: '#0F5192',
   primaryDark: '#0A3C6B',
   primaryLight: '#7EB3E4',
-  primaryBg: '#E8EEF5',
+  primaryBg: '#D0E3F4',
   secondary: '#1B6BB8',
   secondaryLight: '#7EB3E4',
   warning: '#F1C49E',

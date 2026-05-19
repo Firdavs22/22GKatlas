@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Put, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, Put, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -33,6 +33,16 @@ export class MeController {
   @Delete()
   deleteAccount(@CurrentUser() user: { id: string }, @Body() dto: DeleteAccountDto) {
     return this.svc.deleteAccount(user.id, dto.password, dto.confirmation);
+  }
+
+  @Post('onboarding/complete')
+  completeOnboarding(@CurrentUser() user: { id: string }) {
+    return this.svc.completeOnboarding(user.id);
+  }
+
+  @Post('onboarding/reset')
+  resetOnboarding(@CurrentUser() user: { id: string }) {
+    return this.svc.resetOnboarding(user.id);
   }
 
   /**

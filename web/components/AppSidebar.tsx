@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { API_URL } from '@/lib/network';
 import { Child } from '@/lib/types';
+import OnboardingModal from '@/components/OnboardingModal';
 
 interface SidebarBranding {
   label: string;
@@ -33,6 +34,8 @@ interface NavItem {
   label: string;
   icon: typeof Home;
   badge?: number;
+  /** Hide this item from non-superadmin (regular admin role). */
+  superadminOnly?: boolean;
 }
 
 const NAV: Record<string, NavItem[]> = {
@@ -65,18 +68,18 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/groups', label: 'Группы', icon: Users },
     { href: '/admin/children', label: 'Дети', icon: GraduationCap },
     { href: '/admin/parents', label: 'Родители', icon: Users },
-    { href: '/admin/staff', label: 'Сотрудники', icon: Users },
-    { href: '/admin/skills', label: 'Навыки', icon: BookOpen },
+    { href: '/admin/staff', label: 'Сотрудники', icon: Users, superadminOnly: true },
+    { href: '/admin/skills', label: 'Навыки', icon: BookOpen, superadminOnly: true },
     { href: '/admin/schedule', label: 'Расписание', icon: Calendar },
     { href: '/admin/attendance', label: 'Посещаемость', icon: CalendarCheck },
     { href: '/admin/payments', label: 'Оплата', icon: Wallet },
-    { href: '/admin/reports', label: 'Отчёты', icon: BarChart3 },
+    { href: '/admin/reports', label: 'Отчёты', icon: BarChart3, superadminOnly: true },
     { href: '/admin/events', label: 'События', icon: Calendar },
     { href: '/admin/menu', label: 'Меню', icon: ChefHat },
     { href: '/admin/broadcasts', label: 'Рассылки', icon: Megaphone },
     { href: '/admin/knowledge', label: 'База знаний', icon: BookOpen },
-    { href: '/admin/site-content', label: 'О системе и логин', icon: Settings },
-    { href: '/admin/audit', label: 'Журнал действий', icon: BarChart3 },
+    { href: '/admin/site-content', label: 'Настройки системы', icon: Settings, superadminOnly: true },
+    { href: '/admin/audit', label: 'Журнал действий', icon: BarChart3, superadminOnly: true },
   ],
   psychologist: [
     { href: '/psychologist', label: 'Дети', icon: GraduationCap },
@@ -97,6 +100,7 @@ const ROLE_LABEL: Record<string, string> = {
   parent: 'Родитель',
   teacher: 'Педагог',
   admin: 'Администратор',
+  superadmin: 'Главный администратор',
   psychologist: 'Психолог',
   pediatrician: 'Педиатр',
 };
@@ -105,9 +109,13 @@ const ROLE_ICON: Record<string, typeof Home> = {
   parent: Home,
   teacher: GraduationCap,
   admin: Settings,
+  superadmin: Settings,
   psychologist: Brain,
   pediatrician: Stethoscope,
 };
+
+// Superadmin sees the full admin sidebar.
+NAV.superadmin = NAV.admin;
 
 function calcAgeYears(birthDate: string): number {
   const b = new Date(birthDate);
@@ -218,7 +226,9 @@ export default function AppSidebar() {
 
   if (!user) return null;
 
-  const items = NAV[user.role] || [];
+  const items = (NAV[user.role] || []).filter(
+    item => !item.superadminOnly || user.role === 'superadmin',
+  );
   const isActive = (href: string) =>
     pathname === href || (href !== `/${user.role}` && pathname.startsWith(href + '/'));
 
@@ -322,6 +332,8 @@ export default function AppSidebar() {
           <span className="flex-1 text-left truncate">{user.name}</span>
         </button>
       </div>
+
+      <OnboardingModal role={user.role} />
     </aside>
   );
 }

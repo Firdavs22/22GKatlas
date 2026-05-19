@@ -5,6 +5,7 @@ const PUBLIC_PATHS = ['/login', '/invite', '/forgot', '/reset', '/privacy'];
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   admin: ['/admin'],
+  superadmin: ['/admin'],
   teacher: ['/teacher'],
   parent: ['/parent'],
   psychologist: ['/psychologist'],
@@ -13,6 +14,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
 
 const ROLE_HOME: Record<string, string> = {
   admin: '/admin',
+  superadmin: '/admin',
   teacher: '/teacher',
   parent: '/parent',
   psychologist: '/psychologist',

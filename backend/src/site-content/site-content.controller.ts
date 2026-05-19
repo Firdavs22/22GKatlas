@@ -55,7 +55,7 @@ export class SiteContentController {
 
   @Put(':key')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('superadmin')
   upsert(@Param('key') key: string, @Body() body: { value: unknown }) {
     return this.svc.upsert(key, body.value);
   }

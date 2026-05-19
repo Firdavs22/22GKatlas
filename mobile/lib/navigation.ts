@@ -15,6 +15,7 @@ export interface MobileNavItem {
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Администратор',
+  superadmin: 'Главный администратор',
   teacher: 'Педагог',
   parent: 'Родитель',
   psychologist: 'Психолог',
@@ -23,6 +24,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_HOME_TITLE: Record<Role, string> = {
   admin: 'Дашборд',
+  superadmin: 'Дашборд',
   teacher: 'Матрица прогресса',
   parent: 'Главная',
   psychologist: 'Дети',
@@ -30,10 +32,11 @@ export const ROLE_HOME_TITLE: Record<Role, string> = {
 };
 
 export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
+  superadmin: [], // mirrored from admin after the record is constructed
   parent: [
     { label: 'Карта развития', description: 'Навыки, история и наблюдения', href: '/parent/progress', icon: 'map-outline', tone: 'brand', implemented: true },
-    { label: 'Лента группы', description: 'Новости и фотографии', href: '/(tabs)/feed', icon: 'newspaper-outline', tone: 'warn', implemented: true },
-    { label: 'Чаты', description: 'Педагог и специалисты', href: '/(tabs)/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
+    { label: 'Лента группы', description: 'Новости и фотографии', href: '/feed', icon: 'newspaper-outline', tone: 'warn', implemented: true },
+    { label: 'Чаты', description: 'Педагог и специалисты', href: '/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
     { label: 'Посещаемость', description: 'Дни присутствия и пропуски', href: '/parent/attendance', icon: 'checkbox-outline', tone: 'success', implemented: true },
     { label: 'Расписание', description: 'Режим дня группы', href: '/parent/schedule', icon: 'calendar-outline', tone: 'brand', implemented: true },
     { label: 'Оплата', description: 'Начисления и статус', href: '/parent/payments', icon: 'wallet-outline', tone: 'danger', implemented: true },
@@ -49,11 +52,11 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
     { label: 'Матрица прогресса', description: 'Навыки детей группы', href: '/teacher/progress', icon: 'grid-outline', tone: 'brand', implemented: true },
     { label: 'Тепловая карта', description: 'Динамика по зонам', href: '/teacher/heatmap', icon: 'analytics-outline', tone: 'warn', implemented: true },
     { label: 'Дневник', description: 'Наблюдения по детям', href: '/teacher/diary', icon: 'create-outline', tone: 'success', implemented: true },
-    { label: 'Лента группы', description: 'Публикации для родителей', href: '/(tabs)/feed', icon: 'newspaper-outline', tone: 'warn', implemented: true },
+    { label: 'Лента группы', description: 'Публикации для родителей', href: '/feed', icon: 'newspaper-outline', tone: 'warn', implemented: true },
     { label: 'Портфолио', description: 'Работы и фотографии', href: '/teacher/portfolio', icon: 'images-outline', tone: 'info', implemented: true },
     { label: 'Рекомендации', description: 'Домашние задания', href: '/teacher/home-tasks', icon: 'clipboard-outline', tone: 'success', implemented: true },
     { label: 'Расписание', description: 'Дневной план группы', href: '/teacher/schedule', icon: 'calendar-outline', tone: 'brand', implemented: true },
-    { label: 'Чаты', description: 'Родители и специалисты', href: '/(tabs)/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
+    { label: 'Чаты', description: 'Родители и специалисты', href: '/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
   ],
   admin: [
     { label: 'Группы', description: 'Состав и педагоги', href: '/admin/groups', icon: 'people-outline', tone: 'brand', implemented: true },
@@ -70,16 +73,20 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
     { label: 'Дети', description: 'Назначенные дети', href: '/psychologist', icon: 'school-outline', tone: 'brand', implemented: true },
     { label: 'Рекомендации', description: 'Задания для родителей', href: '/psychologist/recommendations', icon: 'clipboard-outline', tone: 'success', implemented: true },
     { label: 'Запись на прием', description: 'Свободные слоты', href: '/psychologist/slots', icon: 'calendar-number-outline', tone: 'warn', implemented: true },
-    { label: 'Чаты', description: 'Родители и педагоги', href: '/(tabs)/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
+    { label: 'Чаты', description: 'Родители и педагоги', href: '/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
   ],
   pediatrician: [
     { label: 'Дети', description: 'Назначенные дети', href: '/pediatrician', icon: 'school-outline', tone: 'brand', implemented: true },
     { label: 'Рекомендации', description: 'Назначения и советы', href: '/pediatrician/recommendations', icon: 'clipboard-outline', tone: 'success', implemented: true },
     { label: 'Запись на прием', description: 'Свободные слоты', href: '/pediatrician/slots', icon: 'calendar-number-outline', tone: 'warn', implemented: true },
     { label: 'Меню', description: 'Питание и ограничения', href: '/parent/menu', icon: 'restaurant-outline', tone: 'danger', implemented: true },
-    { label: 'Чаты', description: 'Родители и педагоги', href: '/(tabs)/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
+    { label: 'Чаты', description: 'Родители и педагоги', href: '/chats', icon: 'chatbubbles-outline', tone: 'info', implemented: true },
   ],
 };
+
+// Superadmin uses the same nav as admin — declared after the object literal to avoid
+// duplicating the long admin list.
+ROLE_NAV.superadmin = ROLE_NAV.admin;
 
 export function toneColors(tone: MobileNavItem['tone']) {
   const map = {

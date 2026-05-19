@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -44,9 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (__DEV__) console.log('[AUTH] login success', { email: data.user.email, role: data.user.role });
     await auth.setToken(data.token);
     await auth.setRefreshToken(data.refreshToken);
-    await auth.setUser(JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
+    // Login response carries only bare user fields — fetch /me for onboardingCompletedAt etc.
+    let fullUser = data.user;
+    try {
+      const me = await api.get('/me');
+      fullUser = { ...data.user, ...me.data };
+    } catch { /* */ }
+    await auth.setUser(JSON.stringify(fullUser));
+    setUser(fullUser);
+    return fullUser;
   }
 
   async function logout() {
@@ -62,8 +69,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  async function refreshUser() {
+    try {
+      const { data } = await api.get('/me');
+      if (data) {
+        setUser(prev => (prev ? { ...prev, ...data } : data));
+        await auth.setUser(JSON.stringify(data));
+      }
+    } catch { /* */ }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

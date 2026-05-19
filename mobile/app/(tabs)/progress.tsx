@@ -5,5 +5,5 @@ export default function ProgressTab() {
   const { user } = useAuth();
 
   if (user?.role === 'parent') return <Redirect href="/parent/progress" />;
-  return <Redirect href="/(tabs)/home" />;
+  return <Redirect href="/home" />;
 }
