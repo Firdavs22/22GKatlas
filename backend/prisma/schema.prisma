@@ -21,6 +21,8 @@ model User {
   consentGivenAt  DateTime?
   // Soft-delete marker. Anonymized record kept for FK integrity until 30 days, then physical-delete by cron.
   deletedAt       DateTime?
+  // Block marker — set by admin to suspend login without deleting data. Null = active.
+  blockedAt       DateTime?
   // First-time onboarding tour completion. null = show modal on next dashboard view.
   onboardingCompletedAt DateTime?
   createdAt       DateTime  @default(now())

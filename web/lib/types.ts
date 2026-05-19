@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   phone?: string;
   createdAt: string;
+  blockedAt?: string | null;
 }
 
 export interface Child {

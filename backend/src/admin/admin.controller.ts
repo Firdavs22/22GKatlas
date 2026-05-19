@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Res, UseGuards, UseInterceptors, UploadedFile, Req } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -103,6 +103,30 @@ export class AdminController {
   @Roles('superadmin')
   updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
     return this.adminService.updateStaff(id, dto);
+  }
+
+  @Patch('staff/:id/block')
+  @Roles('superadmin')
+  blockStaff(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.blockStaff(id, req.user.id);
+  }
+
+  @Patch('staff/:id/unblock')
+  @Roles('superadmin')
+  unblockStaff(@Param('id') id: string) {
+    return this.adminService.unblockStaff(id);
+  }
+
+  @Delete('staff/:id')
+  @Roles('superadmin')
+  deleteStaff(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.softDeleteStaff(id, req.user.id);
+  }
+
+  @Post('staff/:id/resend-invite')
+  @Roles('superadmin')
+  resendInvite(@Param('id') id: string) {
+    return this.adminService.resendInvite(id, this.authService);
   }
 
   // ── AREAS ─────────────────────────────────────────────────

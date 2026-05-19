@@ -1,17 +1,21 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Search } from 'lucide-react';
+import { Plus, Pencil, Search, Ban, Power, KeyRound, Trash2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { User } from '@/lib/types';
+import { useAuth } from '@/context/AuthContext';
 
 const ROLE_LABEL: Record<string, string> = {
+  superadmin: 'Суперадминистратор',
   admin: 'Администратор',
   teacher: 'Педагог',
   psychologist: 'Психолог',
   pediatrician: 'Педиатр',
 };
+
+const DELETE_CONFIRM_WORD = 'УДАЛИТЬ';
 
 const ROLE_ORDER: { id: string; label: string }[] = [
   { id: 'teacher', label: 'Педагоги' },
@@ -24,12 +28,16 @@ const inputCls =
   'w-full h-10 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
 
 export default function AdminStaff() {
+  const { user: me } = useAuth();
   const [staff, setStaff] = useState<User[]>([]);
   const [roleFilter, setRoleFilter] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ email: '', name: '', role: 'teacher' });
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleteWord, setDeleteWord] = useState('');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -86,6 +94,52 @@ export default function AdminStaff() {
     setFormOpen(false);
     setEditingId(null);
     setForm({ email: '', name: '', role: 'teacher' });
+  };
+
+  const toggleBlock = async (s: User) => {
+    setActionLoading(s.id);
+    try {
+      const action = s.blockedAt ? 'unblock' : 'block';
+      await api.patch(`/admin/staff/${s.id}/${action}`);
+      setStaff(prev =>
+        prev.map(u => (u.id === s.id ? { ...u, blockedAt: s.blockedAt ? null : new Date().toISOString() } : u)),
+      );
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const resendInvite = async (s: User) => {
+    if (!confirm(`Перевыпустить приглашение для ${s.name}?\nСтарый пароль перестанет работать. Сотрудник получит новую ссылку и заново примет 152-ФЗ.`)) {
+      return;
+    }
+    setActionLoading(s.id);
+    try {
+      const { data } = await api.post(`/admin/staff/${s.id}/resend-invite`);
+      alert(`Новый токен приглашения: ${data.inviteToken}\n\nПередайте сотруднику ссылку:\n${window.location.origin}/invite?token=${data.inviteToken}`);
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    if (deleteWord !== DELETE_CONFIRM_WORD) return;
+    setActionLoading(deleteTarget.id);
+    try {
+      await api.delete(`/admin/staff/${deleteTarget.id}`);
+      setStaff(prev => prev.filter(u => u.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setDeleteWord('');
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -202,32 +256,133 @@ export default function AdminStaff() {
             </div>
           </Card>
         ) : (
-          filtered.map(s => (
-            <Card key={s.id} padding="md">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-brand-pale flex items-center justify-center font-serif text-brand shrink-0">
-                    {s.name.charAt(0).toUpperCase()}
+          filtered.map(s => {
+            const isSelf = me?.id === s.id;
+            const isSuper = s.role === 'superadmin';
+            const isBlocked = !!s.blockedAt;
+            const busy = actionLoading === s.id;
+            return (
+              <Card key={s.id} padding="md" className={isBlocked ? 'opacity-60' : ''}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-full bg-brand-pale flex items-center justify-center font-serif text-brand shrink-0">
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm flex items-center gap-2">
+                        {s.name}
+                        {isBlocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-danger">
+                            <Ban size={11} /> Заблокирован
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-500 truncate">{s.email}</div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="font-medium text-sm">{s.name}</div>
-                    <div className="text-sm text-slate-500 truncate">{s.email}</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge tone="brand">{ROLE_LABEL[s.role] || s.role}</Badge>
+                    <button
+                      onClick={() => openForm(s)}
+                      disabled={busy || isSuper}
+                      title={isSuper ? 'Суперадминистратор не редактируется через UI' : 'Изменить имя и роль'}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Pencil size={13} /> Изменить
+                    </button>
+                    <button
+                      onClick={() => resendInvite(s)}
+                      disabled={busy || isSelf || isSuper}
+                      title={isSelf ? 'Себе не нужно' : isSuper ? 'Не для суперадмина' : 'Сбросить пароль и выслать новое приглашение'}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <KeyRound size={13} /> Сбросить
+                    </button>
+                    <button
+                      onClick={() => toggleBlock(s)}
+                      disabled={busy || isSelf || isSuper}
+                      title={
+                        isSelf ? 'Нельзя заблокировать себя'
+                          : isSuper ? 'Нельзя заблокировать суперадмина'
+                          : isBlocked ? 'Разблокировать вход' : 'Заблокировать вход'
+                      }
+                      className={`inline-flex items-center gap-1.5 text-xs px-3 h-8 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                        isBlocked
+                          ? 'text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                          : 'text-amber-700 border border-amber-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      {isBlocked ? (<><Power size={13} /> Разблок.</>) : (<><Ban size={13} /> Блок.</>)}
+                    </button>
+                    <button
+                      onClick={() => { setDeleteTarget(s); setDeleteWord(''); }}
+                      disabled={busy || isSelf || isSuper}
+                      title={
+                        isSelf ? 'Нельзя удалить себя'
+                          : isSuper ? 'Нельзя удалить суперадмина'
+                          : 'Удалить аккаунт (анонимизация ПДн, необратимо)'
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs text-red-700 border border-red-200 px-3 h-8 rounded-full hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={13} /> Удалить
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <Badge tone="brand">{ROLE_LABEL[s.role] || s.role}</Badge>
-                  <button
-                    onClick={() => openForm(s)}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors"
-                  >
-                    <Pencil size={13} /> Изменить
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setDeleteTarget(null); setDeleteWord(''); }}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-lg max-w-md w-full p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mb-3">
+              <Trash2 size={20} />
+            </div>
+            <h3 className="font-serif text-2xl mb-2">Удалить сотрудника</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Аккаунт <span className="font-medium text-foreground">{deleteTarget.name}</span> ({deleteTarget.email}) будет анонимизирован:
+              email, имя, телефон и пароль будут стёрты. Это необратимо.
+            </p>
+            <p className="text-xs text-slate-500 mb-3">
+              Связанные записи (наблюдения, портфолио, чаты) сохраняются для целостности — через 30 дней физически удаляются по расписанию.
+            </p>
+            <label className="block text-xs text-slate-600 mb-1.5">
+              Введите <span className="font-mono font-semibold text-red-700">{DELETE_CONFIRM_WORD}</span> для подтверждения:
+            </label>
+            <input
+              value={deleteWord}
+              onChange={e => setDeleteWord(e.target.value)}
+              autoFocus
+              className={`${inputCls} mb-4`}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setDeleteTarget(null); setDeleteWord(''); }}
+              >
+                Отмена
+              </Button>
+              <button
+                type="button"
+                disabled={deleteWord !== DELETE_CONFIRM_WORD || actionLoading === deleteTarget.id}
+                onClick={confirmDelete}
+                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 size={14} /> Удалить безвозвратно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }

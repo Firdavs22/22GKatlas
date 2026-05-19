@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
@@ -332,8 +332,14 @@ export class AdminService {
   // ── STAFF ─────────────────────────────────────────────────
   getStaff() {
     return this.prisma.user.findMany({
-      where: { role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin'] } },
-      select: { id: true, name: true, email: true, role: true, avatar: true, createdAt: true },
+      where: {
+        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin'] },
+        deletedAt: null,
+      },
+      select: {
+        id: true, name: true, email: true, role: true, avatar: true,
+        createdAt: true, blockedAt: true,
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -341,8 +347,9 @@ export class AdminService {
   getStaffById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { 
-        id: true, name: true, email: true, role: true, avatar: true, createdAt: true,
+      select: {
+        id: true, name: true, email: true, role: true, avatar: true,
+        createdAt: true, blockedAt: true, deletedAt: true,
         teacherGroup: { select: { id: true, name: true, ageRange: true, year: true } },
         specialistChildren: { include: { child: { select: { id: true, name: true, group: { select: { name: true } } } } } }
       },
@@ -365,6 +372,86 @@ export class AdminService {
       data: rest,
       select: { id: true, name: true, email: true, role: true, avatar: true },
     });
+  }
+
+  /** Block staff login — preserves all data, can be undone. */
+  async blockStaff(id: string, actingUserId: string) {
+    if (id === actingUserId) {
+      throw new ForbiddenException('Нельзя заблокировать самого себя');
+    }
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target || target.deletedAt) throw new NotFoundException();
+    if (target.role === 'superadmin') {
+      throw new ForbiddenException('Нельзя заблокировать суперадминистратора');
+    }
+    await this.prisma.user.update({
+      where: { id },
+      data: { blockedAt: new Date() },
+    });
+    // Revoke all sessions — force re-login attempt (which will be rejected).
+    await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+    return { ok: true };
+  }
+
+  async unblockStaff(id: string) {
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target || target.deletedAt) throw new NotFoundException();
+    await this.prisma.user.update({
+      where: { id },
+      data: { blockedAt: null },
+    });
+    return { ok: true };
+  }
+
+  /**
+   * Soft-delete + анонимизация ПДн: убирает email/имя/телефон/аватар, инвалидирует пароль,
+   * выставляет deletedAt. Запись остаётся для FK-целостности (наблюдения, портфолио),
+   * через 30 дней физически удаляется cron-скриптом.
+   */
+  async softDeleteStaff(id: string, actingUserId: string) {
+    if (id === actingUserId) {
+      throw new ForbiddenException('Нельзя удалить самого себя');
+    }
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target) throw new NotFoundException();
+    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    if (target.role === 'superadmin') {
+      throw new ForbiddenException('Нельзя удалить суперадминистратора');
+    }
+    const anonId = `deleted-${id.slice(0, 8)}`;
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id },
+        data: {
+          email: `${anonId}@deleted.local`,
+          name: 'Удалённый пользователь',
+          phone: null,
+          avatar: null,
+          password: 'INVALIDATED',
+          deletedAt: new Date(),
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+    ]);
+    return { ok: true };
+  }
+
+  /** Перевыпустить invite-токен для уже существующего сотрудника (например, если забыл пароль). */
+  async resendInvite(id: string, authService: any) {
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target || target.deletedAt) throw new NotFoundException();
+    // Сбрасываем consent, чтобы человек заново принял условия 152-ФЗ при активации.
+    // Пароль перезаписываем, чтобы старый перестал работать.
+    const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id },
+        data: { password: tempPassword, consentGivenAt: null },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+    ]);
+    const inviteToken = authService.generateInviteToken(id);
+    return { inviteToken };
   }
 
   getParents() {

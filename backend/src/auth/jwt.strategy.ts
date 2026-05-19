@@ -36,9 +36,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: { sub: string; email: string; role: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, name: true, role: true, phone: true },
+      select: {
+        id: true, email: true, name: true, role: true, phone: true,
+        deletedAt: true, blockedAt: true,
+      },
     });
     if (!user) throw new UnauthorizedException();
-    return user;
+    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удалён');
+    if (user.blockedAt) throw new UnauthorizedException('Доступ заблокирован администратором');
+    // Не возвращаем эти поля во всех консьюмерах — стрипаем
+    const { deletedAt: _d, blockedAt: _b, ...safe } = user;
+    return safe;
   }
 }

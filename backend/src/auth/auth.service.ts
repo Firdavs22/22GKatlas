@@ -19,6 +19,9 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Неверный email или пароль');
 
+    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удалён');
+    if (user.blockedAt) throw new UnauthorizedException('Доступ заблокирован администратором');
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedException('Неверный email или пароль');
 
@@ -39,6 +42,10 @@ export class AuthService {
       // Clean up expired token
       await this.prisma.refreshToken.delete({ where: { id: stored.id } });
       throw new UnauthorizedException('Refresh-токен истёк');
+    }
+    if (stored.user.deletedAt || stored.user.blockedAt) {
+      await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+      throw new UnauthorizedException('Доступ к аккаунту прекращён');
     }
 
     // Rotate: delete old refresh token and issue a new pair
