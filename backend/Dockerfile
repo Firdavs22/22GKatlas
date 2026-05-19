@@ -7,6 +7,7 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY . .
 RUN npm run build && ls -la dist/src/
+RUN npx tsc -p tsconfig.seed.json
 
 FROM node:20-alpine AS runner
 WORKDIR /app
