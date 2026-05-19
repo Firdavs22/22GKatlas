@@ -9,8 +9,7 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "noImplicitAny": false,
-    "outDir": "./",
-    "rootDir": "./"
+    "outDir": "./dist-seed"
   },
   "include": ["prisma/seed.ts"]
 }
