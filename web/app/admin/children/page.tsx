@@ -86,14 +86,33 @@ export default function AdminChildren() {
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [hardDeleteWord, setHardDeleteWord] = useState('');
+
+  const reloadChildren = (archived: boolean) =>
+    api.get('/admin/children', { params: archived ? { archived: 1 } : {} }).then(r => setChildren(r.data));
 
   useEffect(() => {
-    api.get('/admin/children').then(r => setChildren(r.data));
+    reloadChildren(showArchived);
     api.get('/admin/groups').then(r => setGroups(r.data));
     api.get('/admin/staff').then(r =>
       setStaff(r.data.filter((s: User) => ['psychologist', 'pediatrician', 'teacher'].includes(s.role))),
     );
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchived]);
+
+  const hardDelete = async () => {
+    if (!hardDeleteTarget || hardDeleteWord !== 'УДАЛИТЬ') return;
+    try {
+      await api.delete(`/admin/children/${hardDeleteTarget.id}/hard`);
+      setChildren(prev => prev.filter(c => c.id !== hardDeleteTarget.id));
+      setHardDeleteTarget(null);
+      setHardDeleteWord('');
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    }
+  };
 
   const openForm = (child?: ChildRow) => {
     if (child) {
@@ -130,7 +149,7 @@ export default function AdminChildren() {
       else await api.post('/admin/children', form);
       setFormOpen(false);
       setEditingId(null);
-      api.get('/admin/children').then(r => setChildren(r.data));
+      reloadChildren(showArchived);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       alert('Ошибка: ' + (msg || 'не удалось сохранить'));
@@ -139,7 +158,7 @@ export default function AdminChildren() {
 
   const enroll = async (childId: string, groupId: string) => {
     await api.post(`/admin/children/${childId}/enroll`, { groupId });
-    api.get('/admin/children').then(r => setChildren(r.data));
+    reloadChildren(showArchived);
   };
 
   const archive = async (childId: string) => {
@@ -251,6 +270,17 @@ export default function AdminChildren() {
               <option value="6-7">6–7</option>
             </select>
           </div>
+          <div className="md:col-span-3 flex items-center gap-2 pt-1">
+            <label className="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={e => setShowArchived(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              Показать архивных (отчисленных)
+            </label>
+          </div>
         </div>
       </Card>
 
@@ -321,13 +351,23 @@ export default function AdminChildren() {
                       >
                         <Pencil size={15} />
                       </button>
-                      <button
-                        onClick={() => archive(c.id)}
-                        className="p-1.5 text-slate-400 hover:text-danger transition-colors"
-                        title="Отчислить"
-                      >
-                        <UserMinus size={15} />
-                      </button>
+                      {c.status === 'active' ? (
+                        <button
+                          onClick={() => archive(c.id)}
+                          className="p-1.5 text-slate-400 hover:text-danger transition-colors"
+                          title="Отчислить (архивировать — можно вернуть через БД)"
+                        >
+                          <UserMinus size={15} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setHardDeleteTarget({ id: c.id, name: c.name }); setHardDeleteWord(''); }}
+                          className="p-1.5 text-red-500 hover:text-red-700 transition-colors"
+                          title="Удалить безвозвратно (право на забвение 152-ФЗ)"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -565,7 +605,7 @@ export default function AdminChildren() {
           onCreated={(child, invites) => {
             setWizardOpen(false);
             setCreatedChild({ name: child.name, invites });
-            api.get('/admin/children').then(r => setChildren(r.data));
+            reloadChildren(showArchived);
           }}
         />
       )}
@@ -576,6 +616,53 @@ export default function AdminChildren() {
           invites={createdChild.invites}
           onClose={() => setCreatedChild(null)}
         />
+      )}
+
+      {hardDeleteTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setHardDeleteTarget(null); setHardDeleteWord(''); }}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-lg max-w-md w-full p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mb-3">
+              <X size={20} />
+            </div>
+            <h3 className="font-serif text-2xl mb-2">Удалить безвозвратно</h3>
+            <p className="text-sm text-slate-600 mb-3">
+              Ребёнок <span className="font-medium text-foreground">{hardDeleteTarget.name}</span> и все связанные данные
+              (прогресс, наблюдения, портфолио, посещаемость, чаты, платежи) будут стёрты без возможности восстановления.
+            </p>
+            <p className="text-xs text-slate-500 mb-4">
+              Используйте только если родитель воспользовался правом на забвение по 152-ФЗ.
+              Для обычного отчисления — кнопка «Отчислить» (можно вернуть через БД).
+            </p>
+            <label className="block text-xs text-slate-600 mb-1.5">
+              Введите <span className="font-mono font-semibold text-red-700">УДАЛИТЬ</span> для подтверждения:
+            </label>
+            <input
+              value={hardDeleteWord}
+              onChange={e => setHardDeleteWord(e.target.value)}
+              autoFocus
+              className={`${inputCls} mb-4`}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => { setHardDeleteTarget(null); setHardDeleteWord(''); }}>
+                Отмена
+              </Button>
+              <button
+                type="button"
+                disabled={hardDeleteWord !== 'УДАЛИТЬ'}
+                onClick={hardDelete}
+                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <X size={14} /> Удалить безвозвратно
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   );

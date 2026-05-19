@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, FileSpreadsheet, RotateCcw } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
@@ -31,6 +31,9 @@ export default function AdminSkills() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetWord, setResetWord] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   const [areaFormOpen, setAreaFormOpen] = useState(false);
   const [areaForm, setAreaForm] = useState({ title: '', icon: 'A', color: '#0F5192' });
@@ -172,6 +175,21 @@ export default function AdminSkills() {
     }
   };
 
+  const resetAll = async () => {
+    if (resetWord !== 'СБРОСИТЬ') return;
+    setResetting(true);
+    try {
+      await api.post('/admin/skills/reset-all', { confirmation: resetWord });
+      setResetOpen(false);
+      setResetWord('');
+      reload();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <PageLayout
       eyebrow={`${areas.length} ${areas.length === 1 ? 'зона' : areas.length < 5 ? 'зоны' : 'зон'} развития`}
@@ -180,6 +198,14 @@ export default function AdminSkills() {
       actions={
         <>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={importExcel} className="hidden" />
+          <button
+            type="button"
+            onClick={() => { setResetOpen(true); setResetWord(''); }}
+            disabled={importing || resetting}
+            className="inline-flex items-center gap-1.5 h-10 px-4 text-sm rounded-full border border-red-200 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-40"
+          >
+            <RotateCcw size={16} /> Сбросить всё
+          </button>
           <Button
             variant="outline"
             size="sm"
@@ -477,6 +503,55 @@ export default function AdminSkills() {
           </Card>
         ))}
       </div>
+
+      {resetOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setResetOpen(false); setResetWord(''); }}
+        >
+          <div className="bg-white rounded-3xl shadow-lg max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mb-3">
+              <RotateCcw size={20} />
+            </div>
+            <h3 className="font-serif text-2xl mb-2">Сбросить всю карту развития</h3>
+            <p className="text-sm text-slate-600 mb-3">
+              Будут <span className="font-medium">удалены полностью</span>:
+            </p>
+            <ul className="text-sm text-slate-600 mb-4 list-disc list-inside space-y-1">
+              <li>Все зоны, группы и навыки</li>
+              <li>Весь прогресс детей по всем навыкам</li>
+              <li>История изменений прогресса</li>
+              <li>Все домашние задания</li>
+            </ul>
+            <p className="text-xs text-slate-500 mb-4">
+              Эта операция необратима. Используется при подготовке системы к боевому запуску
+              или при изменении методики. Перед повторной загрузкой через Excel — самое то.
+            </p>
+            <label className="block text-xs text-slate-600 mb-1.5">
+              Введите <span className="font-mono font-semibold text-red-700">СБРОСИТЬ</span> для подтверждения:
+            </label>
+            <input
+              value={resetWord}
+              onChange={e => setResetWord(e.target.value)}
+              autoFocus
+              className={`${inputCls} mb-4`}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => { setResetOpen(false); setResetWord(''); }}>
+                Отмена
+              </Button>
+              <button
+                type="button"
+                disabled={resetWord !== 'СБРОСИТЬ' || resetting}
+                onClick={resetAll}
+                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <RotateCcw size={14} /> {resetting ? 'Сброс…' : 'Сбросить всё'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }

@@ -36,7 +36,9 @@ export class AdminController {
 
   // ── CHILDREN ─────────────────────────────────────────────
   @Get('children')
-  getChildren() { return this.adminService.getChildren(); }
+  getChildren(@Query('archived') archived?: string) {
+    return this.adminService.getChildren(archived === '1' || archived === 'true');
+  }
 
   @Get('children/:id')
   getChild(@Param('id') id: string) { return this.adminService.getChild(id); }
@@ -49,6 +51,12 @@ export class AdminController {
 
   @Delete('children/:id')
   archiveChild(@Param('id') id: string) { return this.adminService.archiveChild(id); }
+
+  @Delete('children/:id/hard')
+  @Roles('superadmin')
+  hardDeleteChild(@Param('id') id: string) {
+    return this.adminService.hardDeleteChild(id);
+  }
 
   @Post('children/:id/enroll')
   enrollChild(@Param('id') id: string, @Body() dto: { groupId: string }) {
@@ -179,6 +187,12 @@ export class AdminController {
   @Delete('skills/:id')
   @Roles('superadmin')
   deleteSkill(@Param('id') id: string) { return this.adminService.deleteSkill(id); }
+
+  @Post('skills/reset-all')
+  @Roles('superadmin')
+  resetAllSkills(@Body() dto: { confirmation: string }) {
+    return this.adminService.resetAllSkillsAndProgress(dto?.confirmation || '');
+  }
 
   @Post('skills/reorder')
   @Roles('superadmin')

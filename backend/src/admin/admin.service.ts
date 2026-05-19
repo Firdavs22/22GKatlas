@@ -55,7 +55,7 @@ export class AdminService {
       where: { id },
       include: {
         teacher: { select: { id: true, name: true, email: true, avatar: true } },
-        children: { orderBy: { name: 'asc' }, include: { parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } } } },
+        children: { where: { status: 'active' }, orderBy: { name: 'asc' }, include: { parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } } } },
         schedules: { orderBy: [{ dayOfWeek: 'asc' }, { timeStart: 'asc' }] },
       },
     });
@@ -94,8 +94,9 @@ export class AdminService {
   }
 
   // ── CHILDREN ─────────────────────────────────────────────
-  getChildren() {
+  getChildren(includeArchived = false) {
     return this.prisma.child.findMany({
+      where: includeArchived ? {} : { status: 'active' },
       include: {
         group: { select: { id: true, name: true } },
         parents: { include: { parent: { select: { id: true, name: true, email: true, phone: true } } } },
@@ -213,6 +214,54 @@ export class AdminService {
     return invites;
   }
   archiveChild(id: string) { return this.prisma.child.update({ where: { id }, data: { status: 'left' } }); }
+
+  /**
+   * Полное удаление ребёнка и всех связанных данных (право на забвение 152-ФЗ).
+   * Необратимо — стирает прогресс, наблюдения, портфолио, посещаемость, чаты, платежи.
+   */
+  async hardDeleteChild(id: string) {
+    const child = await this.prisma.child.findUnique({ where: { id }, select: { id: true } });
+    if (!child) throw new NotFoundException();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Связи многие-ко-многим и зависимые сущности — сначала
+      await tx.progressHistory.deleteMany({ where: { progress: { childId: id } } });
+      await tx.progress.deleteMany({ where: { childId: id } });
+      await tx.attendance.deleteMany({ where: { childId: id } });
+      await tx.observation.deleteMany({ where: { childId: id } });
+      await tx.portfolioItem.deleteMany({ where: { childId: id } });
+      await tx.homeTask.deleteMany({ where: { childId: id } });
+      await tx.specialistNote.deleteMany({ where: { childId: id } });
+      await tx.payment.deleteMany({ where: { childId: id } });
+      await tx.childParent.deleteMany({ where: { childId: id } });
+      await tx.childSpecialist.deleteMany({ where: { childId: id } });
+      // Финал — сам ребёнок
+      await tx.child.delete({ where: { id } });
+    });
+
+    return { ok: true };
+  }
+
+  /**
+   * Полный сброс карты развития: удаляет ВСЕ навыки, группы навыков и зоны
+   * вместе со всем накопленным прогрессом и домашними заданиями.
+   * Используется на этапе пилота для повторной загрузки Excel.
+   * Только для superadmin'а.
+   */
+  async resetAllSkillsAndProgress(confirmation: string) {
+    if (confirmation !== 'СБРОСИТЬ') {
+      throw new BadRequestException('Введите слово СБРОСИТЬ для подтверждения');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.progressHistory.deleteMany({});
+      await tx.progress.deleteMany({});
+      await tx.homeTask.deleteMany({});
+      await tx.skill.deleteMany({});
+      await tx.skillGroup.deleteMany({});
+      await tx.area.deleteMany({});
+    });
+    return { ok: true };
+  }
   enrollChild(childId: string, groupId: string) {
     return this.prisma.child.update({ where: { id: childId }, data: { groupId } });
   }
@@ -758,8 +807,19 @@ export class AdminService {
       }
 
       // Create skill
-      await this.prisma.skill.create({
-        data: {
+      // Upsert навыка — детерминированный ID на основе groupId+title+ageRange,
+      // чтобы повторный импорт обновлял существующие записи, а не плодил дубликаты.
+      const skillKey = `${skillTitle}::${ageRange || ''}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-zа-я0-9-]/gi, '');
+      const skillId = `import-skill-${sgMap.get(sgKey)!.slice(-8)}-${skillKey}`.slice(0, 36);
+      await this.prisma.skill.upsert({
+        where: { id: skillId },
+        update: {
+          title: skillTitle,
+          description: finalDescription,
+          ageRange,
+        },
+        create: {
+          id: skillId,
           title: skillTitle,
           description: finalDescription,
           ageRange,

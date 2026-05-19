@@ -10,23 +10,26 @@ export class ChildrenService {
   ) {}
 
   async getChildrenForUser(user: any) {
+    // По умолчанию архивных детей (status != active) скрываем из всех ролей.
+    // Админ видит их через /admin/children?archived=1.
     switch (user.role) {
       case 'admin':
-        return this.prisma.child.findMany({ include: { group: true }, orderBy: { name: 'asc' } });
+      case 'superadmin':
+        return this.prisma.child.findMany({ where: { status: 'active' }, include: { group: true }, orderBy: { name: 'asc' } });
       case 'teacher': {
         const group = await this.prisma.group.findFirst({ where: { teacherId: user.id } });
         if (!group) return [];
-        return this.prisma.child.findMany({ where: { groupId: group.id }, include: { group: true }, orderBy: { name: 'asc' } });
+        return this.prisma.child.findMany({ where: { groupId: group.id, status: 'active' }, include: { group: true }, orderBy: { name: 'asc' } });
       }
       case 'parent':
         return this.prisma.child.findMany({
-          where: { parents: { some: { parentId: user.id } } },
+          where: { parents: { some: { parentId: user.id } }, status: 'active' },
           include: { group: true }, orderBy: { name: 'asc' },
         });
       case 'psychologist':
       case 'pediatrician':
         return this.prisma.child.findMany({
-          where: { specialists: { some: { specialistId: user.id } } },
+          where: { specialists: { some: { specialistId: user.id } }, status: 'active' },
           include: { group: true }, orderBy: { name: 'asc' },
         });
       default:
@@ -38,7 +41,7 @@ export class ChildrenService {
     const group = await this.prisma.group.findFirst({
       where: { teacherId: user.id },
       include: {
-        children: { orderBy: { name: 'asc' } },
+        children: { where: { status: 'active' }, orderBy: { name: 'asc' } },
       },
     });
     if (!group) return { children: [], areas: [], progress: {} };
