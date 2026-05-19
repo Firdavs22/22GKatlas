@@ -4,7 +4,7 @@ import { API_URL } from './network';
 const COOKIE_OPTIONS = 'path=/; SameSite=Lax';
 
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: `${API_URL.replace(/\/+$/, '')}/api`,
   withCredentials: true, // send/receive httpOnly auth cookies + XSRF-TOKEN
 });
 
