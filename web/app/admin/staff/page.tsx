@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Search, Ban, Power, KeyRound, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Search, Ban, Power, KeyRound, Trash2, Mail, Copy, Check } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge } from '@/components/ui';
 import api from '@/lib/api';
@@ -38,6 +38,7 @@ export default function AdminStaff() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleteWord, setDeleteWord] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState<{ email: string; name: string; inviteUrl: string; isResend: boolean } | null>(null);
 
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -88,7 +89,7 @@ export default function AdminStaff() {
       setStaff(prev => prev.map(s => (s.id === editingId ? { ...s, ...data } : s)));
     } else {
       const { data } = await api.post('/admin/staff/invite', form);
-      alert(`Токен приглашения: ${data.inviteToken}`);
+      setInviteSent({ email: form.email, name: form.name, inviteUrl: data.inviteUrl, isResend: false });
       api.get('/admin/staff').then(r => setStaff(r.data));
     }
     setFormOpen(false);
@@ -112,13 +113,13 @@ export default function AdminStaff() {
   };
 
   const resendInvite = async (s: User) => {
-    if (!confirm(`Перевыпустить приглашение для ${s.name}?\nСтарый пароль перестанет работать. Сотрудник получит новую ссылку и заново примет 152-ФЗ.`)) {
+    if (!confirm(`Перевыпустить приглашение для ${s.name}?\nСтарый пароль перестанет работать. Сотрудник получит новую ссылку на ${s.email} и заново примет 152-ФЗ.`)) {
       return;
     }
     setActionLoading(s.id);
     try {
       const { data } = await api.post(`/admin/staff/${s.id}/resend-invite`);
-      alert(`Новый токен приглашения: ${data.inviteToken}\n\nПередайте сотруднику ссылку:\n${window.location.origin}/invite?token=${data.inviteToken}`);
+      setInviteSent({ email: s.email, name: s.name, inviteUrl: data.inviteUrl, isResend: true });
     } catch (e: unknown) {
       alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
     } finally {
@@ -334,6 +335,10 @@ export default function AdminStaff() {
         )}
       </div>
 
+      {inviteSent && (
+        <InviteSentModal data={inviteSent} onClose={() => setInviteSent(null)} />
+      )}
+
       {deleteTarget && (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
@@ -384,5 +389,74 @@ export default function AdminStaff() {
         </div>
       )}
     </PageLayout>
+  );
+}
+
+function InviteSentModal({
+  data,
+  onClose,
+}: {
+  data: { email: string; name: string; inviteUrl: string; isResend: boolean };
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(data.inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback — выделить текст для ручного копирования
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-lg max-w-md w-full p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-12 h-12 rounded-full bg-brand-pale text-brand flex items-center justify-center mb-3">
+          <Mail size={20} />
+        </div>
+        <h3 className="font-serif text-2xl mb-2">
+          {data.isResend ? 'Пароль сброшен' : 'Приглашение отправлено'}
+        </h3>
+        <p className="text-sm text-slate-600 mb-4">
+          Письмо со ссылкой отправлено на <span className="font-medium text-foreground">{data.email}</span>.
+          {data.isResend
+            ? ' Старый пароль перестал работать.'
+            : ` ${data.name} получит инструкции по созданию пароля.`}
+        </p>
+        <p className="text-xs text-slate-500 mb-2">
+          Если письмо не пришло (попало в спам, неверный адрес) — скопируйте ссылку и передайте лично:
+        </p>
+        <div className="mb-4">
+          <div className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 break-all max-h-24 overflow-y-auto">
+            {data.inviteUrl}
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={copyUrl}
+            className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-full text-sm font-medium transition-colors ${
+              copied
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'border border-slate-200 text-slate-700 hover:border-brand hover:text-brand'
+            }`}
+          >
+            {copied ? <><Check size={14} /> Скопировано</> : <><Copy size={14} /> Скопировать ссылку</>}
+          </button>
+          <Button type="button" variant="primary" onClick={onClose}>
+            Понятно
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -100,6 +100,70 @@ export function parentInvite(vars: ParentInviteVars): { subject: string; html: s
   return { subject, html: shell(subject, body), text };
 }
 
+const ROLE_LABEL_RU: Record<string, string> = {
+  teacher: 'педагога',
+  psychologist: 'психолога',
+  pediatrician: 'педиатра',
+  admin: 'администратора',
+};
+
+export interface StaffInviteVars {
+  name: string;
+  role: string;          // 'teacher' | 'psychologist' | 'pediatrician' | 'admin'
+  inviteUrl: string;
+  isResend?: boolean;    // true = был сброс пароля, false = первое приглашение
+}
+
+export function staffInvite(vars: StaffInviteVars): { subject: string; html: string; text: string } {
+  const roleRu = ROLE_LABEL_RU[vars.role] || 'сотрудника';
+  const subject = vars.isResend
+    ? 'Сброс пароля в личном кабинете ГлобоАтлас'
+    : `Приглашение в команду ГлобоАтлас (${roleRu})`;
+
+  const greeting = vars.name ? `Здравствуйте, ${escapeHtml(vars.name)}!` : 'Здравствуйте!';
+
+  const intro = vars.isResend
+    ? `Администратор сбросил ваш пароль в системе ГлобоАтлас. Старый пароль больше не работает — установите новый по ссылке ниже.`
+    : `Вас пригласили в команду детского сада в роли <strong>${roleRu}</strong>. Чтобы получить доступ к личному кабинету — нажмите на кнопку ниже и создайте пароль.`;
+
+  const body = `
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.3;margin-bottom:16px;">
+      ${greeting}
+    </div>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:${FOREGROUND};">
+      ${intro}
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+      <tr>
+        <td style="border-radius:999px;background:${BRAND};">
+          <a href="${vars.inviteUrl}" target="_blank"
+             style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:500;">
+            ${vars.isResend ? 'Установить новый пароль' : 'Войти в личный кабинет'}
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 8px 0;font-size:12px;color:${MUTED};line-height:1.6;">
+      Если кнопка не работает — скопируйте ссылку в браузер:
+    </p>
+    <div style="padding:12px;background:${BRAND_PALE};border-radius:12px;font-family:'Courier New',monospace;font-size:12px;color:${BRAND};word-break:break-all;">
+      ${vars.inviteUrl}
+    </div>
+    <p style="margin:24px 0 0 0;font-size:12px;color:${MUTED};line-height:1.6;">
+      Ссылка действует 30 дней. После активации потребуется принять политику обработки персональных данных (152-ФЗ).
+    </p>
+  `;
+
+  const text =
+    `${vars.name ? `Здравствуйте, ${vars.name}!` : 'Здравствуйте!'}\n\n` +
+    (vars.isResend
+      ? `Администратор сбросил ваш пароль в системе ГлобоАтлас. Откройте ссылку, чтобы установить новый:\n${vars.inviteUrl}\n\n`
+      : `Вас пригласили в команду в роли ${roleRu}. Откройте ссылку, чтобы создать пароль:\n${vars.inviteUrl}\n\n`) +
+    `Ссылка действует 30 дней.\n\nГлобоАтлас`;
+
+  return { subject, html: shell(subject, body), text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, ConflictException, ForbiddenException,
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { parentInvite } from '../mail/mail.templates';
+import { parentInvite, staffInvite } from '../mail/mail.templates';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -362,7 +362,9 @@ export class AdminService {
     const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
     const user = await this.prisma.user.create({ data: { email, password: tempPassword, name, role } });
     const inviteToken = authService.generateInviteToken(user.id);
-    return { inviteToken, userId: user.id };
+    const inviteUrl = this.buildInviteUrl(inviteToken);
+    await this.sendStaffInviteEmail({ to: email, name, role, inviteUrl, isResend: false });
+    return { inviteToken, inviteUrl, userId: user.id };
   }
 
   updateStaff(id: string, dto: any) {
@@ -451,7 +453,40 @@ export class AdminService {
       this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
     ]);
     const inviteToken = authService.generateInviteToken(id);
-    return { inviteToken };
+    const inviteUrl = this.buildInviteUrl(inviteToken);
+    await this.sendStaffInviteEmail({
+      to: target.email,
+      name: target.name,
+      role: target.role,
+      inviteUrl,
+      isResend: true,
+    });
+    return { inviteToken, inviteUrl };
+  }
+
+  private buildInviteUrl(token: string): string {
+    const appUrl = (this.config.get<string>('PUBLIC_APP_URL') || 'http://localhost:3000').replace(/\/$/, '');
+    return `${appUrl}/invite?token=${encodeURIComponent(token)}`;
+  }
+
+  private async sendStaffInviteEmail(opts: {
+    to: string;
+    name: string;
+    role: string;
+    inviteUrl: string;
+    isResend: boolean;
+  }) {
+    const { subject, html, text } = staffInvite({
+      name: opts.name,
+      role: opts.role,
+      inviteUrl: opts.inviteUrl,
+      isResend: opts.isResend,
+    });
+    try {
+      await this.mail.send({ to: opts.to, subject, html, text });
+    } catch (err) {
+      this.logger.warn(`Не удалось отправить приглашение сотруднику ${opts.to}: ${(err as Error).message}`);
+    }
   }
 
   getParents() {
