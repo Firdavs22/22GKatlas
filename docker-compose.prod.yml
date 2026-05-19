@@ -1,0 +1,19 @@
+# Production override.
+# Используется поверх docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Что меняется по сравнению с базовым compose:
+#   web   — порт привязан к 127.0.0.1 (наружу через nginx, не напрямую)
+#   nginx — порты 80/443 (вместо dev 8080/8443) + prod-конфиг + SSL volume
+services:
+  web:
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  nginx:
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
