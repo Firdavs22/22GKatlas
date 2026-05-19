@@ -41,7 +41,7 @@ async function main() {
       email: 'admin@test.com',
       password: await passwordHash('admin123'),
       name: 'Администратор',
-      role: 'admin',
+      role: 'superadmin',
     },
   });
 
