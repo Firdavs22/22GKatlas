@@ -44,6 +44,10 @@
       "expo-router",
       "expo-secure-store",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "apiUrl": "https://lk.globokids.ru",
+      "wsUrl": "https://lk.globokids.ru"
+    }
   }
 }
