@@ -1,8 +1,9 @@
 # GloboAtlas — Production Deployment (Beget VPS)
 
-Пошаговая инструкция запуска на VPS Beget (Москва). Все команды для **Ubuntu 22.04 / 24.04**.
+Пошаговая инструкция запуска на VPS Beget. Все команды для **Ubuntu 22.04 / 24.04**.
 
-> Этот документ заменяет старый DEPLOY.md. Шаги идут от свежего сервера к работающему сервису с бэкапами, HTTPS и мониторингом.
+> Файл актуализирован под текущее состояние репо:
+> используются `docker-compose.prod.yml` (override) и `nginx/nginx.prod.conf` — в репо они уже есть, никаких ручных правок в dev-конфигах делать не нужно.
 
 ---
 
@@ -10,23 +11,27 @@
 
 | Что | Где брать |
 |---|---|
-| VPS Beget (≥ 4 vCPU / 8 ГБ RAM / 80 ГБ SSD) | beget.com/ru/services/vps |
+| VPS Beget (≥ 4 vCPU / 6 ГБ RAM / 80 ГБ SSD) | beget.com/ru/services/vps |
 | Домен или субдомен | beget.com/ru/services/domains или твой регистратор |
-| A-запись домена на IP VPS | панель регистратора |
-| SSH-доступ root | панель Beget |
+| A-запись домена `@` и `www` на IP VPS | панель регистратора |
+| SSH-доступ под `deploy` (см. раздел 1) | панель Beget — пароль root для первого захода |
 | SMTP (Yandex 360 / RU-CENTER / Mailgun) | для приглашений и сброса пароля |
+| Локальный SSH-ключ на твоей машине | `~/.ssh/id_ed25519` |
 
-**Минимальный тариф на 150–500 пользователей:** `VPS Comfort` (4 vCPU, 8 ГБ, 80 ГБ NVMe) ≈ 1200₽/мес.
+**Рекомендуемый тариф для пилота 50–150 пользователей:** 4 vCPU / 6–8 ГБ RAM / 80 ГБ NVMe (≈ 1000–1500₽/мес).
+Для закрытого демо до 10 человек хватит 2 vCPU / 4 ГБ / 40 ГБ, но билд Next.js на 4 ГБ требует обязательный swap (см. 1.8).
 
 ---
 
 ## 1. Подготовка VPS
 
-### 1.1. Подключиться по SSH
+### 1.1. Подключиться по SSH под root
 
 ```bash
 ssh root@<IP-VPS>
 ```
+
+(пароль root — из панели Beget при создании VPS)
 
 ### 1.2. Создать non-root пользователя
 
@@ -39,14 +44,95 @@ rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
 Дальше всё делать **под `deploy`** (не root):
 
 ```bash
-su - deploy
+exit
+ssh deploy@<IP-VPS>
 ```
 
-### 1.3. Системные обновления и Docker
+### 1.3. Поставить свой SSH-ключ (на локальной машине)
+
+На своём компьютере (Mac/Linux/Windows) проверь, есть ли у тебя ключ:
+
+```bash
+ls ~/.ssh/id_ed25519.pub
+```
+
+Если нет — сгенерируй:
+
+```bash
+ssh-keygen -t ed25519 -C "globoatlas-deploy"
+```
+
+Скопируй публичный ключ на сервер:
+
+```bash
+ssh-copy-id deploy@<IP-VPS>
+```
+
+Проверь, что вход работает по ключу без запроса пароля:
+
+```bash
+ssh deploy@<IP-VPS>
+```
+
+### 1.4. Отключить вход по паролю и root
+
+**⚠️ Только после того, как 1.3 точно работает.** Не закрывай текущую SSH-сессию до проверки.
+
+```bash
+sudo nano /etc/ssh/sshd_config
+```
+
+Изменить (раскомментировать и/или поправить значения):
+
+```
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+```
+
+На Ubuntu часто есть дополнительный файл, перебивающий основные настройки — проверь:
+
+```bash
+ls /etc/ssh/sshd_config.d/
+```
+
+Если есть, например, `50-cloud-init.conf` — открой и тоже поставь `PasswordAuthentication no`.
+
+Проверка синтаксиса перед рестартом:
+
+```bash
+sudo sshd -t
+```
+
+Применить:
+
+```bash
+sudo systemctl restart ssh
+```
+
+**В новом окне терминала** проверь, что вход по ключу ещё работает:
+
+```bash
+ssh deploy@<IP-VPS>
+```
+
+И что пароль действительно отключён:
+
+```bash
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no deploy@31.129.107.181
+# должно вернуть: Permission denied (publickey).
+```
+
+Если оба теста ✅ — старую сессию можно закрывать.
+
+### 1.5. Системные обновления и Docker
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl ufw fail2ban git
+sudo apt install -y curl ufw fail2ban git unattended-upgrades
+
+# Автоустановка security-патчей
+sudo dpkg-reconfigure -plow unattended-upgrades   # выбрать Yes
 
 # Docker (официальная инструкция)
 curl -fsSL https://get.docker.com | sudo sh
@@ -60,7 +146,7 @@ docker --version
 docker compose version
 ```
 
-### 1.4. Firewall
+### 1.6. Firewall
 
 ```bash
 sudo ufw default deny incoming
@@ -69,12 +155,32 @@ sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw enable
+sudo ufw status verbose
 ```
 
-### 1.5. fail2ban (защита SSH от перебора)
+### 1.7. fail2ban (защита SSH от перебора)
 
 ```bash
 sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd
+```
+
+### 1.8. Swap (страховка от OOM при билдах)
+
+На 4 ГБ RAM — обязательно. На 6+ ГБ — рекомендуется как защита от пиков.
+
+```bash
+sudo fallocate -l 2G /swapfile        # на 4GB RAM поставь -l 4G
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Использовать swap только при сильном дефиците RAM
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+free -h                                # проверка
 ```
 
 ---
@@ -83,11 +189,10 @@ sudo systemctl enable --now fail2ban
 
 ```bash
 mkdir -p ~/apps && cd ~/apps
-git clone <your-git-url> globoatlas
+git clone https://github.com/Firdavs22/22GKatlas.git globoatlas
 cd globoatlas
+git checkout master
 ```
-
-> Если код не в git — `scp -r ./globoatlas deploy@<IP>:~/apps/`.
 
 ---
 
@@ -96,8 +201,8 @@ cd globoatlas
 ### 3.1. Создать файл
 
 ```bash
-cp .env.example .env
-chmod 600 .env  # доступ только владельцу
+cp .env.production.example .env
+chmod 600 .env                          # доступ только владельцу
 ```
 
 ### 3.2. Сгенерировать секреты
@@ -109,11 +214,15 @@ openssl rand -base64 48
 # Пароль БД — 32 байта hex
 openssl rand -hex 32
 
-# Пароль MinIO — то же самое
+# Пароль object storage — то же самое
 openssl rand -hex 32
 ```
 
 ### 3.3. Заполнить `.env`
+
+```bash
+nano .env
+```
 
 ```ini
 # === Database ===
@@ -123,104 +232,68 @@ DB_PASSWORD=<openssl rand -hex 32>
 # === JWT ===
 JWT_SECRET=<openssl rand -base64 48>
 
-# === Object Storage (SeaweedFS S3 — open-source replacement for MinIO) ===
+# === Object Storage (SeaweedFS S3) ===
 # Env names kept as MINIO_* для совместимости с кодом
 MINIO_USER=globoatlas-storage
 MINIO_PASSWORD=<openssl rand -hex 32>
 
 # === URLs ===
-CORS_ORIGINS=https://app.example.com
-NEXT_PUBLIC_API_URL=https://app.example.com/api
-PUBLIC_APP_URL=https://app.example.com
+# NEXT_PUBLIC_API_URL — корневой URL без /api (фронт сам добавит /api).
+# Эти переменные вшиваются в бандл при build, изменение требует ребилд web.
+CORS_ORIGINS=https://your-domain.ru
+NEXT_PUBLIC_API_URL=https://your-domain.ru
+NEXT_PUBLIC_WS_URL=https://your-domain.ru
+PUBLIC_APP_URL=https://your-domain.ru
 
-# === SMTP (для приглашений и сброса паролей) ===
-# Yandex 360 пример:
+# === SMTP (Yandex 360 пример) ===
 SMTP_HOST=smtp.yandex.ru
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=noreply@yourdomain.ru
-SMTP_PASS=<пароль приложения из Яндекс ID>
-SMTP_FROM="ГлобоАтлас <noreply@yourdomain.ru>"
+SMTP_PASS=<пароль приложения из Яндекс ID, не основной>
+SMTP_FROM=ГлобоАтлас <noreply@yourdomain.ru>
 
 # === AI (опционально) ===
 AI_PROVIDER=stub
+
+# === Sentry — оставить пустым ===
+# Sentry-серверы вне РФ. Включать только после согласия субъектов
+# на трансграничную передачу ПДн (152-ФЗ).
+SENTRY_DSN=
+NEXT_PUBLIC_SENTRY_DSN=
+
+APP_VERSION=prod
 ```
 
-**Замени `app.example.com` на твой реальный домен.**
-
-> ⚠️ `.env` **никогда** не должен попасть в git. Проверь: `git status` — файл должен быть в `.gitignore`.
+> ⚠️ `.env` **никогда** не должен попасть в git. Проверь: файл в `.gitignore`.
 
 ---
 
 ## 4. SSL-сертификат (Let's Encrypt)
 
-### Вариант А — через сертификаты Beget (если домен куплен у них)
+Прод-конфиг nginx (`nginx/nginx.prod.conf`) и `docker-compose.prod.yml` уже в репо — ничего вручную править не нужно. Достаточно положить сертификаты в `nginx/ssl/`.
 
-В панели Beget: Домены → твой домен → SSL-сертификат → **Заказать Let's Encrypt бесплатно**.
-
-После выпуска скачать `fullchain.pem` и `privkey.pem`, положить:
-
-```bash
-mkdir -p ~/apps/globoatlas/nginx/ssl
-# Загрузить файлы через SCP с локального компа
-```
-
-### Вариант B — certbot на сервере (универсально)
+### 4.1. Получить сертификат через certbot
 
 ```bash
 sudo apt install -y certbot
-sudo systemctl stop docker  # или остановить только nginx-контейнер
-sudo certbot certonly --standalone -d app.example.com --agree-tos --email you@example.com
+sudo certbot certonly --standalone \
+  -d your-domain.ru \
+  --agree-tos -m you@email.ru
+```
 
+> Для корневого домена (например `example.com`) обычно добавляют второй флаг `-d www.example.com`, чтобы один сертификат покрывал и www-вариант. Для **поддомена** (например `lk.example.com`) этот флаг не нужен — запись `www.lk.example.com` обычно не существует, и Let's Encrypt свалится с NXDOMAIN.
+
+> Если у Beget стоит софт, занимающий порт 80, временно останови его перед certbot. Обычно на чистом VPS ничего на 80 не висит.
+
+### 4.2. Скопировать сертификаты в каталог проекта
+
+```bash
 sudo mkdir -p ~/apps/globoatlas/nginx/ssl
-sudo cp /etc/letsencrypt/live/app.example.com/fullchain.pem ~/apps/globoatlas/nginx/ssl/
-sudo cp /etc/letsencrypt/live/app.example.com/privkey.pem ~/apps/globoatlas/nginx/ssl/
+sudo cp /etc/letsencrypt/live/your-domain.ru/fullchain.pem ~/apps/globoatlas/nginx/ssl/
+sudo cp /etc/letsencrypt/live/your-domain.ru/privkey.pem  ~/apps/globoatlas/nginx/ssl/
 sudo chown -R deploy:deploy ~/apps/globoatlas/nginx/ssl
-```
-
-### 4.1. Обновить `nginx/nginx.conf` для HTTPS
-
-Заменить блок `server { listen 80 ... }` на:
-
-```nginx
-server {
-    listen 80;
-    server_name app.example.com;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name app.example.com;
-
-    ssl_certificate     /etc/nginx/ssl/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-    ssl_protocols       TLSv1.2 TLSv1.3;
-    ssl_ciphers         HIGH:!aNULL:!MD5;
-
-    client_max_body_size 50M;
-
-    # … остальное содержимое (location /api/, location /, и т.д.) …
-}
-```
-
-### 4.2. Подмонтировать сертификаты в docker-compose
-
-В `docker-compose.yml` обновить блок `nginx`:
-
-```yaml
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - web
-      - backend
+chmod 600 ~/apps/globoatlas/nginx/ssl/*.pem
 ```
 
 ### 4.3. Автообновление сертификата
@@ -232,8 +305,17 @@ sudo crontab -e
 Добавить:
 
 ```
-0 3 * * 1 certbot renew --quiet --pre-hook "docker compose -f /home/deploy/apps/globoatlas/docker-compose.yml stop nginx" --post-hook "cp /etc/letsencrypt/live/app.example.com/*.pem /home/deploy/apps/globoatlas/nginx/ssl/ && docker compose -f /home/deploy/apps/globoatlas/docker-compose.yml start nginx"
+0 3 * * 1 certbot renew --quiet --pre-hook "docker compose -f /home/deploy/apps/globoatlas/docker-compose.yml -f /home/deploy/apps/globoatlas/docker-compose.prod.yml stop nginx" --post-hook "cp /etc/letsencrypt/live/your-domain.ru/*.pem /home/deploy/apps/globoatlas/nginx/ssl/ && docker compose -f /home/deploy/apps/globoatlas/docker-compose.yml -f /home/deploy/apps/globoatlas/docker-compose.prod.yml start nginx"
 ```
+
+### 4.4. (Опционально) сделать алиас, чтобы не писать длинную команду
+
+```bash
+echo 'alias dcp="docker compose -f docker-compose.yml -f docker-compose.prod.yml"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Дальше в инструкции я буду писать полную форму. Если поставил алиас — заменяй `docker compose -f docker-compose.yml -f docker-compose.prod.yml` на `dcp`.
 
 ---
 
@@ -242,38 +324,40 @@ sudo crontab -e
 ```bash
 cd ~/apps/globoatlas
 
-# Сборка всех образов
-docker compose build
+# Сборка всех образов (5–15 мин)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 
 # Запуск
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # Применить миграции
 docker compose exec backend npx prisma migrate deploy
 
-# (опционально) Засеять минимальные данные
+# Засеять тестовые данные (создаст admin@test.com / admin123)
 docker compose exec backend npx prisma db seed
 ```
 
 Проверка:
 
 ```bash
-docker compose ps                 # все Up
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps   # все Up / healthy
 docker compose logs -f backend    # ищем "Nest application successfully started"
-curl -I https://app.example.com   # 200 / 307
+curl -I https://your-domain.ru    # 200 / 301
 ```
 
 ---
 
 ## 6. Первый вход и смена дефолтных паролей
 
-1. Открой `https://app.example.com/login`
+1. Открой `https://your-domain.ru/login`
 2. Войди как `admin@test.com / admin123`
-3. **СРАЗУ** в `/admin/staff` — поменяй пароль (через invite-токен на твоей реальной почте)
-4. Удали ВСЕ остальные тестовые аккаунты (`teacher@test.com`, `parent@test.com`, и т.д.) — если они не нужны
-5. Создай первого настоящего админа и **выйди** из тестового
+3. `/admin/staff` — создай своего настоящего админа на свой реальный email (придёт invite-ссылка)
+4. Выйди, войди под собой
+5. В `/settings` — смени пароль
+6. В `/admin/staff` удали все тестовые `*@test.com` (или хотя бы смени им пароли)
+7. В `/admin/site-content` залей настоящую политику конфиденциальности
 
-> Бэкенд автоматически создаёт `admin@test.com` через seed.ts только если БД пустая. После замены пароля seed его не перетрёт.
+> Бэкенд создаёт `admin@test.com` через `seed.ts` только если БД пустая. После замены пароля seed его не перетрёт.
 
 ---
 
@@ -288,9 +372,14 @@ sudo chown deploy:deploy /backup
 
 ### 7.2. Скрипт бэкапа
 
+В репо уже лежит `scripts/backup.sh`. Дай ему права и проверь содержимое:
+
 ```bash
-nano ~/apps/globoatlas/scripts/backup.sh
+chmod +x ~/apps/globoatlas/scripts/backup.sh
+cat ~/apps/globoatlas/scripts/backup.sh
 ```
+
+Если используешь собственную версию, скрипт должен делать:
 
 ```bash
 #!/bin/bash
@@ -309,15 +398,10 @@ docker run --rm -v globoatlas_storagedata:/data -v "$BACKUP_DIR":/backup \
   alpine tar czf "/backup/storage-$DATE.tar.gz" -C /data .
 
 # Очистка старых
-find "$BACKUP_DIR" -name 'db-*.sql.gz' -mtime +$KEEP_DAYS -delete
-find "$BACKUP_DIR" -name 'minio-*.tar.gz' -mtime +$KEEP_DAYS -delete
+find "$BACKUP_DIR" -name 'db-*.sql.gz'      -mtime +$KEEP_DAYS -delete
+find "$BACKUP_DIR" -name 'storage-*.tar.gz' -mtime +$KEEP_DAYS -delete
 
-echo "Backup done: db-$DATE.sql.gz, minio-$DATE.tar.gz"
-```
-
-```bash
-chmod +x ~/apps/globoatlas/scripts/backup.sh
-mkdir -p ~/apps/globoatlas/scripts
+echo "Backup done: db-$DATE.sql.gz, storage-$DATE.tar.gz"
 ```
 
 ### 7.3. Cron — каждую ночь в 3:00
@@ -330,46 +414,32 @@ crontab -e
 0 3 * * * /home/deploy/apps/globoatlas/scripts/backup.sh >> /backup/backup.log 2>&1
 ```
 
-### 7.4. Восстановление
+### 7.4. Тестовое восстановление (сделать ДО запуска пользователей)
 
 ```bash
 # БД
-gunzip < /backup/db-2026-05-17-0300.sql.gz \
+gunzip < /backup/db-2026-05-19-0300.sql.gz \
   | docker exec -i globoatlas-postgres-1 psql -U globoatlas globoatlas
 
 # SeaweedFS
-docker compose stop storage
+docker compose -f docker-compose.yml -f docker-compose.prod.yml stop storage
 docker run --rm -v globoatlas_storagedata:/data -v /backup:/backup \
-  alpine sh -c "rm -rf /data/* && tar xzf /backup/storage-2026-05-17-0300.tar.gz -C /data"
-docker compose start storage
+  alpine sh -c "rm -rf /data/* && tar xzf /backup/storage-2026-05-19-0300.tar.gz -C /data"
+docker compose -f docker-compose.yml -f docker-compose.prod.yml start storage
 ```
 
-> Внешнее хранилище бэкапов: после стабилизации настрой `rclone` на Selectel S3 / Yandex Object Storage для off-site копии.
+> **Off-site копия**: после стабилизации настрой `rclone` на Yandex Object Storage / Selectel S3 — храни вторую копию вне сервера.
 
 ---
 
 ## 8. Логи и ротация
 
-### 8.1. Лимит размера логов Docker
-
-В `docker-compose.yml` к каждому сервису добавить:
-
-```yaml
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "5"
-```
-
-Это сохраняет последние 250 МБ логов на сервис и автоматически ротирует.
-
-### 8.2. Просмотр
+Лимит логов уже включён в `docker-compose.yml` — 50 МБ × 5 файлов на сервис.
 
 ```bash
-docker compose logs -f backend           # текущие логи backend
-docker compose logs --tail 200 web       # последние 200 строк web
-docker compose logs --since 1h           # за последний час
+docker compose logs -f backend                  # текущие логи backend
+docker compose logs --tail 200 web              # последние 200 строк web
+docker compose logs --since 1h                  # за последний час
 ```
 
 ---
@@ -378,38 +448,19 @@ docker compose logs --since 1h           # за последний час
 
 ### 9.1. UptimeRobot (бесплатно)
 
-- Создать аккаунт на uptimerobot.com
-- Добавить монитор: `https://app.example.com/api/health` (HTTP-проверка каждые 5 мин)
-- Алерт на email или Telegram
+- Зарегистрироваться на uptimerobot.com
+- Add Monitor → HTTPS → URL: `https://your-domain.ru/api/health`, интервал 5 мин
+- Алерт на email или Telegram-бота
 
-### 9.2. Sentry (бесплатно до 5k событий/мес)
+### 9.2. Sentry (опционально, осторожно с ПДн)
 
-- Зарегистрироваться на sentry.io
-- Создать 2 проекта: `globoatlas-backend` (Node.js) и `globoatlas-web` (Next.js)
-- DSN положить в `.env`:
+Каркас в коде есть, но **отключён по умолчанию**.
 
-```ini
-SENTRY_DSN_BACKEND=https://xxx@sentry.io/yyy
-SENTRY_DSN_WEB=https://xxx@sentry.io/zzz
-```
-
-(Интеграция в коде — задача отдельного спринта, см. roadmap.)
+> **152-ФЗ**: Sentry-серверы в EU/US. Без явного согласия субъектов на трансграничную передачу ПДн — не включать. После запуска юр-блока согласовать с юристом, настроить scrubbing, и только тогда заполнить `SENTRY_DSN` в `.env`.
 
 ### 9.3. Disk-space алерт
 
-```bash
-nano ~/apps/globoatlas/scripts/disk-alert.sh
-```
-
-```bash
-#!/bin/bash
-USAGE=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
-if [ "$USAGE" -gt 80 ]; then
-  curl -s -X POST "https://api.telegram.org/bot<TG_BOT_TOKEN>/sendMessage" \
-    -d "chat_id=<YOUR_CHAT_ID>" \
-    -d "text=⚠ GloboAtlas: диск занят на $USAGE%"
-fi
-```
+Готовый скрипт лежит в `scripts/disk-alert.sh`. Подставь свои Telegram bot token и chat id, потом:
 
 ```bash
 chmod +x ~/apps/globoatlas/scripts/disk-alert.sh
@@ -426,18 +477,14 @@ crontab -e
 
 ```bash
 cd ~/apps/globoatlas
-git pull
-docker compose build
-docker compose up -d
-docker compose exec backend npx prisma migrate deploy
-```
 
-Если миграция изменяет схему — сначала бэкап:
-
-```bash
+# Бэкап перед обновлением (если миграция меняет схему)
 ./scripts/backup.sh
+
 git pull
-docker compose ...
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose exec backend npx prisma migrate deploy
 ```
 
 ---
@@ -446,10 +493,8 @@ docker compose ...
 
 | URL | Назначение |
 |---|---|
-| `https://app.example.com/api/health` | Backend жив (Nest + БД) |
-| `https://app.example.com/` | Web рендерится |
-
-(Endpoint `/api/health` — задача в Спринте 2.)
+| `https://your-domain.ru/api/health` | Backend жив (Nest + БД) |
+| `https://your-domain.ru/` | Web рендерится |
 
 ---
 
@@ -458,25 +503,34 @@ docker compose ...
 | Симптом | Решение |
 |---|---|
 | `Connection refused` к postgres | `docker compose ps` — postgres должен быть healthy. Проверь `.env.DB_PASSWORD`. |
-| Фото не открываются | `docker compose logs minio` — статус. Проверь `MINIO_*` в `.env`. |
-| WebSocket-чаты не работают | nginx должен пропускать Upgrade headers. См. `nginx/nginx.conf`. |
-| Cert expired | `certbot renew` вручную, перезапустить nginx. |
-| `Out of memory` | Увеличить swap: `sudo fallocate -l 2G /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
+| Фото не открываются | `docker compose logs storage` — статус. Проверь `MINIO_*` в `.env`. |
+| WebSocket-чаты не работают | nginx должен пропускать Upgrade headers. Проверь, что подгружен `nginx.prod.conf`. |
+| Cert expired | `certbot renew` вручную, перезапустить nginx через prod-compose. |
+| `Out of memory` при билде | Добавить swap (см. 1.8) или собирать с флагом `NODE_OPTIONS=--max-old-space-size=1024` |
+| После `systemctl restart ssh` не пускает | Beget панель → Терминал/VNC → откатить `sshd_config` |
 
 ---
 
 ## 13. Чек-лист перед публичным запуском
 
+- [ ] SSH ключи настроены, вход по паролю отключён (`PasswordAuthentication no`)
+- [ ] `PermitRootLogin no`
+- [ ] UFW активен, открыты только 22/80/443
+- [ ] fail2ban работает (`fail2ban-client status sshd`)
+- [ ] Swap создан, swappiness=10
 - [ ] Сильные секреты в `.env` (не `CHANGE_ME`)
+- [ ] `.env` имеет права 600 и в `.gitignore`
 - [ ] HTTPS работает, redirect 80→443
+- [ ] HSTS-заголовок отдаётся (проверь `curl -I https://your-domain.ru`)
 - [ ] Дефолтный admin-пароль сменён
 - [ ] Тестовые аккаунты (`*@test.com`) удалены или с реальными именами
-- [ ] Cron бэкапы запущены, проверены первое восстановление
-- [ ] Мониторинг подключён (UptimeRobot + Sentry)
-- [ ] Согласие на ПДн в форме инвайта (после Спринта 1)
-- [ ] Политика конфиденциальности на `/privacy`
-- [ ] Регистрация оператора ПДн в Роскомнадзоре (Р4) подана за 30 дней до запуска
-- [ ] Юр. лицо или ИП оформлено
+- [ ] Cron бэкапы запущены, тестовое восстановление пройдено
+- [ ] UptimeRobot подключён к `/api/health`
+- [ ] Согласие на ПДн в форме инвайта работает
+- [ ] Политика конфиденциальности залита в `/admin/site-content`
+- [ ] Sentry **выключен** (или включён только после согласия пользователей)
+- [ ] Юр.лицо или ИП оформлено
+- [ ] Регистрация оператора ПДн в Роскомнадзоре (форма Р4) подана за 30 дней до публичного запуска
 
 ---
 

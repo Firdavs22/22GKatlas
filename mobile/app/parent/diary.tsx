@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MobileShell from '../../components/MobileShell';
+import AuthImage from '../../components/AuthImage';
 import { Card } from '../../components/ui';
-import api, { API_URL } from '../../lib/api';
+import api from '../../lib/api';
 import { colors, fontSize, fontWeight, radius, spacing } from '../../lib/theme';
 import type { Child, Observation } from '../../lib/types';
-
-function mediaUrl(url: string) {
-  return url.startsWith('http') ? url : `${API_URL}${url}`;
-}
 
 export default function ParentDiaryScreen() {
   const [children, setChildren] = useState<Child[]>([]);
@@ -69,7 +66,7 @@ export default function ParentDiaryScreen() {
                     {item.photos?.length ? (
                       <View style={styles.photos}>
                         {item.photos.slice(0, 4).map(photo => (
-                          <Image key={photo} source={{ uri: mediaUrl(photo) }} style={styles.photo} />
+                          <AuthImage key={photo} sourcePath={photo} style={styles.photo} />
                         ))}
                       </View>
                     ) : null}

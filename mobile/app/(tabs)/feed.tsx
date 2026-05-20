@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../lib/api';
+import api, { API_URL } from '../../lib/api';
 import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../lib/theme';
 import type { FeedItem } from '../../lib/types';
 import MobileShell from '../../components/MobileShell';
 import PostMedia from '../../components/PostMedia';
+
+function avatarSrc(url?: string) {
+  if (!url) return undefined;
+  return url.startsWith('http') ? url : `${API_URL}${url}`;
+}
+
+function initial(name?: string) {
+  return (name?.trim().charAt(0) || '?').toUpperCase();
+}
 
 export default function FeedScreen() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -44,14 +53,21 @@ export default function FeedScreen() {
         </View>
       ) : null}
 
-      {feed.map((item) => (
+      {feed.map((item) => {
+        const author = (item as unknown as { author?: { name?: string; avatar?: string } }).author;
+        const authorAvatar = avatarSrc(author?.avatar);
+        return (
         <Pressable key={item.id} style={styles.card} onPress={() => router.push(`/parent/feed/${item.id}`)}>
           <View style={styles.cardHeader}>
-            <View style={styles.authorAvatar}>
-              <Ionicons name={typeIcon(item.type)} size={18} color={colors.brand} />
-            </View>
+            {authorAvatar ? (
+              <Image source={{ uri: authorAvatar }} style={styles.authorAvatarImg} />
+            ) : (
+              <View style={styles.authorAvatar}>
+                <Text style={styles.authorAvatarText}>{initial(author?.name)}</Text>
+              </View>
+            )}
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.authorName} numberOfLines={1}>{item.author?.name || 'Педагог'}</Text>
+              <Text style={styles.authorName} numberOfLines={1}>{author?.name || 'Педагог'}</Text>
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
             </View>
             {item.pinned ? <Ionicons name="pin" size={14} color={colors.warning} /> : null}
@@ -67,9 +83,13 @@ export default function FeedScreen() {
               <Ionicons name="heart-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.footerText}>{item._count?.likes || 0}</Text>
             </TouchableOpacity>
+            <View style={styles.typeChip}>
+              <Ionicons name={typeIcon(item.type)} size={12} color={colors.textMuted} />
+            </View>
           </View>
         </Pressable>
-      ))}
+        );
+      })}
     </MobileShell>
   );
 }
@@ -95,11 +115,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  authorAvatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.brandPale,
+  },
+  authorAvatarText: { color: colors.brand, fontSize: fontSize.md, fontWeight: fontWeight.bold },
   authorName: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textPrimary },
   cardDate: { fontSize: fontSize.xs, color: colors.textMuted },
   cardTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.textPrimary, marginBottom: spacing.sm },
   cardText: { fontSize: fontSize.md, color: colors.textSecondary, lineHeight: 22 },
-  cardFooter: { flexDirection: 'row', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
   footerButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   footerText: { fontSize: fontSize.sm, color: colors.textSecondary },
+  typeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.surfaceAlt },
 });
