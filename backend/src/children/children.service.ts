@@ -28,8 +28,12 @@ export class ChildrenService {
         });
       case 'psychologist':
       case 'pediatrician':
+        // Психолог и педиатр — штатные сотрудники. По умолчанию видят ВСЕХ активных
+        // детей сада. Связь ChildSpecialist используется как метка «приоритетный
+        // подопечный» (для подсказок, заметок, записи на приём), но не ограничивает
+        // видимость.
         return this.prisma.child.findMany({
-          where: { specialists: { some: { specialistId: user.id } }, status: 'active' },
+          where: { status: 'active' },
           include: { group: true }, orderBy: { name: 'asc' },
         });
       default:

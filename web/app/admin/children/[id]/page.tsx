@@ -2,10 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { Plus, X } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import ChildEditCard from '@/components/ChildEditCard';
-import { Card, SectionLabel } from '@/components/ui';
+import { Card, SectionLabel, Button } from '@/components/ui';
 import api from '@/lib/api';
+
+interface SpecialistUser { id: string; name: string; role: string }
+
+const ROLE_LABEL: Record<string, string> = {
+  psychologist: 'Психолог',
+  pediatrician: 'Педиатр',
+};
 
 interface AdminChild {
   id: string;
@@ -29,11 +37,44 @@ export default function AdminChildDetail() {
   const { id } = useParams<{ id: string }>();
   const [child, setChild] = useState<AdminChild | null>(null);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [allSpecialists, setAllSpecialists] = useState<SpecialistUser[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [pickedSpecialistId, setPickedSpecialistId] = useState('');
+
+  const reloadChild = () => api.get(`/admin/children/${id}`).then(r => setChild(r.data));
 
   useEffect(() => {
-    api.get(`/admin/children/${id}`).then(r => setChild(r.data));
+    reloadChild();
     api.get('/admin/groups').then(r => setGroups(r.data)).catch(() => {});
+    api.get('/admin/staff').then(r =>
+      setAllSpecialists(r.data.filter((u: SpecialistUser) => ['psychologist', 'pediatrician'].includes(u.role)))
+    ).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const assignSpecialist = async () => {
+    if (!pickedSpecialistId) return;
+    const spec = allSpecialists.find(s => s.id === pickedSpecialistId);
+    if (!spec) return;
+    try {
+      await api.post(`/admin/children/${id}/assign-specialist`, { specialistId: spec.id, role: spec.role });
+      setAssignOpen(false);
+      setPickedSpecialistId('');
+      reloadChild();
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось назначить');
+    }
+  };
+
+  const removeSpecialist = async (specialistId: string) => {
+    if (!confirm('Снять специалиста с ребёнка?')) return;
+    try {
+      await api.delete(`/admin/children/${id}/specialists/${specialistId}`);
+      reloadChild();
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    }
+  };
 
   if (!child) {
     return (
@@ -73,19 +114,76 @@ export default function AdminChildDetail() {
         </Card>
 
         <Card padding="md">
-          <SectionLabel>Специалисты</SectionLabel>
+          <div className="flex items-center justify-between">
+            <SectionLabel>Специалисты</SectionLabel>
+            <button
+              onClick={() => setAssignOpen(v => !v)}
+              className="inline-flex items-center gap-1 text-xs text-brand hover:underline"
+            >
+              <Plus size={13} /> Назначить
+            </button>
+          </div>
           {!child.specialists?.length ? (
             <div className="text-sm text-slate-400 mt-2">Не назначены</div>
           ) : (
             <ul className="mt-2 space-y-2">
               {child.specialists.map(link => (
-                <li key={link.specialist.id} className="text-sm">
-                  <div className="font-medium">{link.specialist.name}</div>
-                  <div className="text-xs text-slate-500">{link.specialist.role}</div>
+                <li key={link.specialist.id} className="text-sm flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{link.specialist.name}</div>
+                    <div className="text-xs text-slate-500">{ROLE_LABEL[link.specialist.role || ''] || link.specialist.role}</div>
+                  </div>
+                  <button
+                    onClick={() => removeSpecialist(link.specialist.id)}
+                    className="p-1 text-slate-400 hover:text-danger transition-colors shrink-0"
+                    title="Снять"
+                  >
+                    <X size={14} />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+
+          {assignOpen && (() => {
+            const assignedIds = new Set((child.specialists || []).map(s => s.specialist.id));
+            const available = allSpecialists.filter(s => !assignedIds.has(s.id));
+            return (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                {available.length === 0 ? (
+                  <div className="text-xs text-slate-400">Все специалисты уже назначены</div>
+                ) : (
+                  <>
+                    <select
+                      value={pickedSpecialistId}
+                      onChange={e => setPickedSpecialistId(e.target.value)}
+                      className="w-full h-9 px-3 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    >
+                      <option value="">— Выбрать —</option>
+                      {available.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} · {ROLE_LABEL[s.role] || s.role}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="primary" size="sm" onClick={assignSpecialist}>
+                        Назначить
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setAssignOpen(false); setPickedSpecialistId(''); }}
+                      >
+                        Отмена
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </Card>
       </div>
 

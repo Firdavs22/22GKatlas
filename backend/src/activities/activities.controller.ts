@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Delete, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, UseGuards, Request, Delete, Param } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -21,6 +21,12 @@ export class ActivitiesController {
   async createMenu(@Request() req, @Body() body: any) {
     const userId = req.user.id;
     return this.activitiesService.createMenu(userId, body);
+  }
+
+  @Put('menu/:id')
+  @Roles('admin', 'pediatrician')
+  async updateMenu(@Param('id') id: string, @Body() body: any) {
+    return this.activitiesService.updateMenu(id, body);
   }
 
   @Delete('menu/:id')

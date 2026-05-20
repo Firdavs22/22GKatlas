@@ -55,6 +55,7 @@ const NAV: Record<string, NavItem[]> = {
   ],
   teacher: [
     { href: '/teacher', label: 'Матрица прогресса', icon: Grid3x3 },
+    { href: '/teacher/children', label: 'Дети группы', icon: GraduationCap },
     { href: '/teacher/heatmap', label: 'Тепловая карта', icon: Flame },
     { href: '/teacher/diary', label: 'Дневник', icon: NotebookPen },
     { href: '/teacher/feed', label: 'Лента группы', icon: Newspaper },

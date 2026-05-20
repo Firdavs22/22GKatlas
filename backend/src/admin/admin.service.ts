@@ -274,6 +274,13 @@ export class AdminService {
     });
   }
 
+  async removeSpecialist(childId: string, specialistId: string) {
+    await this.prisma.childSpecialist.deleteMany({
+      where: { childId, specialistId },
+    });
+    return { ok: true };
+  }
+
   async inviteParent(childId: string, email: string, name: string | undefined, authService: any) {
     let user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {

@@ -68,6 +68,11 @@ export class AdminController {
     return this.adminService.assignSpecialist(id, dto.specialistId, dto.role);
   }
 
+  @Delete('children/:id/specialists/:specialistId')
+  removeSpecialist(@Param('id') id: string, @Param('specialistId') specialistId: string) {
+    return this.adminService.removeSpecialist(id, specialistId);
+  }
+
   @Post('children/:id/invite-parent')
   inviteParent(@Param('id') id: string, @Body() dto: { email: string; name?: string }) {
     return this.adminService.inviteParent(id, dto.email, dto.name, this.authService);

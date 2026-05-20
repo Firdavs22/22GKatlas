@@ -46,6 +46,22 @@ export class ActivitiesService {
     return menu;
   }
 
+  async updateMenu(id: string, data: any) {
+    const { title, content, startDate, endDate } = data;
+    if (!title || !content || !startDate || !endDate) {
+      throw new BadRequestException('Заполните все поля меню');
+    }
+    return this.prisma.menu.update({
+      where: { id },
+      data: {
+        title,
+        content,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      },
+    });
+  }
+
   async deleteMenu(id: string) {
     return this.prisma.menu.delete({ where: { id } });
   }

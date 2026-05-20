@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, Pencil } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
@@ -44,12 +44,47 @@ export default function MenuManager() {
   const [loading, setLoading] = useState(true);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [mealModalOpen, setMealModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [draftMeals, setDraftMeals] = useState<MenuMeal[]>([]);
   const [mealForm, setMealForm] = useState<MenuMeal>(emptyMealForm);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setStartDate('');
+    setEndDate('');
+    setDraftMeals([]);
+  };
+
+  const openEdit = (menu: MenuRow) => {
+    const parsed = parseMenuContent(menu.content || '');
+    const meals: MenuMeal[] = [];
+    MENU_DAY_NAMES.forEach((dayName, dayIndex) => {
+      parsed[dayName].forEach(m => {
+        meals.push({
+          id: makeId(),
+          dayIndex,
+          name: m.name,
+          time: m.time,
+          food: m.food,
+          alternative: m.alternative || '',
+        });
+      });
+    });
+    setEditingId(menu.id);
+    setTitle(menu.title);
+    setStartDate(menu.startDate.slice(0, 10));
+    setEndDate(menu.endDate.slice(0, 10));
+    setDraftMeals(meals);
+    setFormOpen(true);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const load = () => {
     setLoading(true);
@@ -92,12 +127,13 @@ export default function MenuManager() {
     if (!title || !startDate || !endDate) return alert('Заполните название и даты меню');
     const content = formatMenuContent(draftMeals);
     try {
-      await api.post('/activities/menu', { title, content, startDate, endDate });
+      if (editingId) {
+        await api.put(`/activities/menu/${editingId}`, { title, content, startDate, endDate });
+      } else {
+        await api.post('/activities/menu', { title, content, startDate, endDate });
+      }
       setFormOpen(false);
-      setTitle('');
-      setStartDate('');
-      setEndDate('');
-      setDraftMeals([]);
+      resetForm();
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -117,7 +153,19 @@ export default function MenuManager() {
       title="Меню"
       wide
       actions={
-        <Button variant="primary" size="sm" onClick={() => setFormOpen(v => !v)}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            if (formOpen) {
+              setFormOpen(false);
+              resetForm();
+            } else {
+              resetForm();
+              setFormOpen(true);
+            }
+          }}
+        >
           <Plus size={16} />
           {formOpen ? 'Закрыть' : 'Составить меню'}
         </Button>
@@ -214,7 +262,7 @@ export default function MenuManager() {
           </div>
 
           <Button type="button" variant="primary" onClick={submit} className="w-full">
-            Сохранить и отправить родителям
+            {editingId ? 'Сохранить изменения' : 'Сохранить и отправить родителям'}
           </Button>
         </Card>
       )}
@@ -245,13 +293,22 @@ export default function MenuManager() {
                       {menu.author?.name ? ` · ${menu.author.name}` : ''}
                     </div>
                   </div>
-                  <button
-                    onClick={() => del(menu.id)}
-                    className="p-1.5 text-slate-400 hover:text-danger transition-colors"
-                    title="Удалить"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => openEdit(menu)}
+                      className="p-1.5 text-slate-400 hover:text-brand transition-colors"
+                      title="Редактировать меню"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => del(menu.id)}
+                      className="p-1.5 text-slate-400 hover:text-danger transition-colors"
+                      title="Удалить"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
                 {hasParsed ? (
                   <div className="overflow-x-auto">

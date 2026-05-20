@@ -26,8 +26,19 @@ export class ChildAccessGuard implements CanActivate {
     if (!childId) return true;
     if (!user) throw new ForbiddenException();
 
-    // Admin has full access
-    if (user.role === 'admin') return true;
+    // Admin/superadmin — полный доступ
+    if (user.role === 'admin' || user.role === 'superadmin') return true;
+
+    // Психолог и педиатр — штатные сотрудники, видят всех активных детей сада.
+    // Связь ChildSpecialist остаётся как метка «подопечный», но не ограничивает доступ.
+    if (user.role === 'psychologist' || user.role === 'pediatrician') {
+      const child = await this.prisma.child.findFirst({
+        where: { id: childId, status: 'active' },
+        select: { id: true },
+      });
+      if (!child) throw new ForbiddenException('Ребёнок не найден или отчислен');
+      return true;
+    }
 
     // Teacher — only children in their group
     if (user.role === 'teacher') {
@@ -43,16 +54,6 @@ export class ChildAccessGuard implements CanActivate {
     if (user.role === 'parent') {
       const rel = await this.prisma.childParent.findUnique({
         where: { childId_parentId: { childId, parentId: user.id } },
-        select: { childId: true },
-      });
-      if (!rel) throw new ForbiddenException('Нет доступа к данным этого ребёнка');
-      return true;
-    }
-
-    // Specialist (psychologist, pediatrician) — only assigned children
-    if (user.role === 'psychologist' || user.role === 'pediatrician') {
-      const rel = await this.prisma.childSpecialist.findUnique({
-        where: { childId_specialistId: { childId, specialistId: user.id } },
         select: { childId: true },
       });
       if (!rel) throw new ForbiddenException('Нет доступа к данным этого ребёнка');
