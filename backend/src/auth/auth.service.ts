@@ -105,14 +105,18 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, name: true, email: true, role: true, password: true },
+      select: { id: true, name: true, email: true, role: true, consentGivenAt: true, deletedAt: true, blockedAt: true },
     });
     if (!user) throw new NotFoundException();
+    if (user.deletedAt) throw new BadRequestException('Аккаунт удалён');
+    if (user.blockedAt) throw new BadRequestException('Доступ заблокирован администратором');
     return {
       name: user.name,
       email: user.email,
       role: user.role,
-      alreadyActivated: !!user.password,
+      // Активирован = принял 152-ФЗ и установил свой пароль.
+      // (Просто наличие password — не индикатор, т.к. invite создаёт временный пароль.)
+      alreadyActivated: !!user.consentGivenAt,
     };
   }
 
