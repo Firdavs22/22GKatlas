@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Search, Users } from 'lucide-react';
+import { Search, Users, Sparkles, X } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
-import { Card } from '@/components/ui';
+import { Card, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
 
@@ -69,24 +69,62 @@ export default function TeacherChildren() {
       ) : (
         <div className="space-y-3">
           {filtered.map(c => (
-            <Link key={c.id} href={`/teacher/diary?childId=${c.id}`} className="group block">
-              <Card padding="md" className="hover:border-brand transition-colors cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-brand-pale flex items-center justify-center font-serif text-brand shrink-0">
-                    {c.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{c.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {calcAge(c.birthDate)} лет
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </Link>
+            <ChildRow key={c.id} c={c} onAdaptChange={(v) => setChildren(prev => prev.map(x => x.id === c.id ? { ...x, inAdaptation: v } : x))} />
           ))}
         </div>
       )}
     </PageLayout>
+  );
+}
+
+function ChildRow({ c, onAdaptChange }: { c: Child; onAdaptChange: (v: boolean) => void }) {
+  const [busy, setBusy] = useState(false);
+
+  const toggleAdaptation = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy) return;
+    const newVal = !c.inAdaptation;
+    if (c.inAdaptation && !confirm(`Снять метку адаптации с ${c.name}?`)) return;
+    setBusy(true);
+    try {
+      await api.patch(`/children/${c.id}/adaptation`, { value: newVal });
+      onAdaptChange(newVal);
+    } catch {
+      alert('Не удалось обновить');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card padding="md" className="hover:border-brand transition-colors">
+      <div className="flex items-center gap-3">
+        <Link href={`/teacher/diary?childId=${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-brand-pale flex items-center justify-center font-serif text-brand shrink-0">
+            {c.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+              {c.name}
+              {c.inAdaptation && <Badge tone="warn">Адаптация</Badge>}
+            </div>
+            <div className="text-xs text-slate-500">{calcAge(c.birthDate)} лет</div>
+          </div>
+        </Link>
+        <button
+          onClick={toggleAdaptation}
+          disabled={busy}
+          title={c.inAdaptation ? 'Снять метку адаптации' : 'Отметить как «в адаптации»'}
+          className={`inline-flex items-center gap-1.5 text-xs px-3 h-8 rounded-full border transition-colors disabled:opacity-40 shrink-0 ${
+            c.inAdaptation
+              ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+              : 'border-slate-200 text-slate-500 hover:border-brand hover:text-brand'
+          }`}
+        >
+          {c.inAdaptation ? <><X size={13} /> Снять адаптацию</> : <><Sparkles size={13} /> Адаптация</>}
+        </button>
+      </div>
+    </Card>
   );
 }

@@ -17,6 +17,7 @@ export interface Child {
   birthDate: string;
   photo?: string;
   status: 'active' | 'graduated' | 'left';
+  inAdaptation?: boolean;
   groupId?: string;
   group?: Group;
   parents?: { parent: User }[];

@@ -61,6 +61,9 @@ model Child {
   photo           String?
   enrolledAt      DateTime    @default(now())
   status          ChildStatus @default(active)
+  // Период адаптации новичка. true = ребёнок недавно поступил, выделен отдельным
+  // бейджем для педагогов и админа. Снимается вручную когда адаптация завершена.
+  inAdaptation    Boolean     @default(false)
   externalId      String?
   contacts        Json?       // [{name, phone, relation}]
   representatives Json?       // [{name, phone, relation}]

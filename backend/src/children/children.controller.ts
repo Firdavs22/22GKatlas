@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Res } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ChildAccessGuard } from '../common/guards/child-access.guard';
@@ -67,6 +67,12 @@ export class ChildrenController {
   @Roles('admin', 'teacher')
   updateProgress(@Param('id') id: string, @Body() dto: UpdateProgressDto, @CurrentUser() user: any) {
     return this.childrenService.updateProgress(id, dto, user);
+  }
+
+  @Patch(':id/adaptation')
+  @Roles('admin', 'superadmin', 'teacher')
+  setAdaptation(@Param('id') id: string, @Body() dto: { value: boolean }) {
+    return this.childrenService.setAdaptation(id, dto.value);
   }
 
   @Get(':id/observations')

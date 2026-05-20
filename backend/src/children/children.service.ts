@@ -295,6 +295,14 @@ export class ChildrenService {
     });
   }
 
+  setAdaptation(childId: string, value: boolean) {
+    return this.prisma.child.update({
+      where: { id: childId },
+      data: { inAdaptation: !!value },
+      select: { id: true, name: true, inAdaptation: true },
+    });
+  }
+
   async updateProgress(childId: string, dto: { skillId: string; stage: any; note?: string }, user: any) {
     const existing = await this.prisma.progress.findUnique({
       where: { childId_skillId: { childId, skillId: dto.skillId } },

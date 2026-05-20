@@ -119,7 +119,7 @@ export class AdminService {
   }
 
   async createChild(dto: any, authService?: any) {
-    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks, inAdaptation } = dto;
     const parents = this.normalizeParentLinks(parentLinks);
     if (!parents?.length) {
       throw new BadRequestException('Укажите хотя бы одного родителя ребёнка');
@@ -138,6 +138,7 @@ export class AdminService {
           ...(allergies ? { allergies } : {}),
           ...(documents ? { documents } : {}),
           ...(notes ? { notes } : {}),
+          ...(inAdaptation ? { inAdaptation: true } : {}),
         },
       });
       const synced = await this.syncChildParents(tx, child.id, parents);
@@ -158,7 +159,7 @@ export class AdminService {
   }
 
   async updateChild(id: string, dto: any, authService?: any) {
-    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks } = dto;
+    const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks, inAdaptation } = dto;
     const data: any = {};
     if (name !== undefined) data.name = name;
     if (birthDate !== undefined) data.birthDate = new Date(birthDate);
@@ -170,6 +171,7 @@ export class AdminService {
     if (allergies !== undefined) data.allergies = allergies;
     if (documents !== undefined) data.documents = documents;
     if (notes !== undefined) data.notes = notes;
+    if (inAdaptation !== undefined) data.inAdaptation = !!inAdaptation;
     const parents = parentLinks === undefined ? undefined : this.normalizeParentLinks(parentLinks);
     if (parentLinks !== undefined && !parents?.length) {
       throw new BadRequestException('У ребёнка должен быть хотя бы один родитель');
@@ -214,6 +216,15 @@ export class AdminService {
     return invites;
   }
   archiveChild(id: string) { return this.prisma.child.update({ where: { id }, data: { status: 'left' } }); }
+
+  /** Переключить флаг адаптации (доступно admin и педагогу группы — проверка в guard'е/контроллере). */
+  setAdaptation(id: string, value: boolean) {
+    return this.prisma.child.update({
+      where: { id },
+      data: { inAdaptation: value },
+      select: { id: true, name: true, inAdaptation: true },
+    });
+  }
 
   /**
    * Полное удаление ребёнка и всех связанных данных (право на забвение 152-ФЗ).

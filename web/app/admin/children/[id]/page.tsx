@@ -31,6 +31,7 @@ interface AdminChild {
   specialists?: { specialist: { id: string; name: string; role?: string } }[];
   attendance?: { id: string; date: string; status: string }[];
   status?: string;
+  inAdaptation?: boolean;
 }
 
 export default function AdminChildDetail() {
@@ -86,8 +87,32 @@ export default function AdminChildDetail() {
 
   const parents = (child.parents || []).map(link => link.parent).filter(Boolean);
 
+  const toggleAdaptation = async () => {
+    const newVal = !child.inAdaptation;
+    if (child.inAdaptation && !confirm(`Снять метку адаптации с ${child.name}?`)) return;
+    try {
+      await api.patch(`/admin/children/${id}/adaptation`, { value: newVal });
+      setChild(prev => prev ? { ...prev, inAdaptation: newVal } : prev);
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    }
+  };
+
   return (
     <PageLayout title={child.name} showBackButton>
+      <div className="mb-4">
+        <button
+          onClick={toggleAdaptation}
+          className={`inline-flex items-center gap-1.5 text-sm px-4 h-9 rounded-full border transition-colors ${
+            child.inAdaptation
+              ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+              : 'border-slate-200 text-slate-500 hover:border-brand hover:text-brand'
+          }`}
+        >
+          {child.inAdaptation ? <>В адаптации · снять</> : <>Отметить как «в адаптации»</>}
+        </button>
+      </div>
+
       <ChildEditCard
         child={child}
         groups={groups}

@@ -26,6 +26,7 @@ interface ChildRow {
   name: string;
   birthDate: string;
   status: string;
+  inAdaptation?: boolean;
   groupId?: string;
   contacts?: Contact[];
   representatives?: Contact[];
@@ -308,10 +309,15 @@ export default function AdminChildren() {
                 filtered.map(c => (
                   <tr key={c.id} className="hover:bg-slate-50/40">
                     <td className="px-4 py-3">
-                      <Link href={`/admin/children/${c.id}`} className="font-medium text-sm text-brand hover:underline">
-                        {c.name}
-                      </Link>
-                      <div className="text-xs text-slate-400">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/admin/children/${c.id}`} className="font-medium text-sm text-brand hover:underline">
+                          {c.name}
+                        </Link>
+                        {c.inAdaptation && (
+                          <Badge tone="warn">Адаптация</Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {new Date(c.birthDate).toLocaleDateString('ru-RU')}
                       </div>
                     </td>

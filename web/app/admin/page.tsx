@@ -12,6 +12,7 @@ import api from '@/lib/api';
 type DashboardStats = {
   children: number;
   activeChildren: number;
+  inAdaptation: number;
   groups: number;
   capacity: number;
   staff: number;
@@ -33,7 +34,7 @@ function formatToday(): string {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
-    children: 0, activeChildren: 0, groups: 0, capacity: 0, staff: 0,
+    children: 0, activeChildren: 0, inAdaptation: 0, groups: 0, capacity: 0, staff: 0,
     unpaidAmount: 0, pendingPayments: 0, overduePayments: 0,
     presentToday: 0, absentToday: 0, menus: 0, upcomingEvents: 0,
   });
@@ -59,6 +60,9 @@ export default function AdminDashboard() {
       setStats({
         children: children.length,
         activeChildren: children.filter((c: { status: string }) => c.status === 'active').length,
+        inAdaptation: children.filter(
+          (c: { status: string; inAdaptation?: boolean }) => c.status === 'active' && c.inAdaptation,
+        ).length,
         groups: groups.length,
         capacity: groups.reduce((s: number, g: { capacity?: number }) => s + Number(g.capacity || 0), 0),
         staff: staffRes.data.length,
@@ -83,6 +87,7 @@ export default function AdminDashboard() {
 
   const metrics: { label: string; value: string | number; hint: string; href: string; icon: typeof Users }[] = [
     { label: 'Активных детей', value: stats.activeChildren, hint: `Всего: ${stats.children}`, href: '/admin/children', icon: GraduationCap },
+    { label: 'В адаптации', value: stats.inAdaptation, hint: stats.inAdaptation ? 'Новички — нужен особый присмотр' : 'Все освоились', href: '/admin/children?adaptation=1', icon: GraduationCap },
     { label: 'Группы', value: stats.groups, hint: `Заполненность ${occupancy}%`, href: '/admin/groups', icon: Users },
     { label: 'Сотрудники', value: stats.staff, hint: 'Команда сада', href: '/admin/staff', icon: UserCog },
     { label: 'К оплате', value: fmtMoney(stats.unpaidAmount), hint: `${stats.pendingPayments} ожидают · ${stats.overduePayments} просрочены`, href: '/admin/payments', icon: Wallet },

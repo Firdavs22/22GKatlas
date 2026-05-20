@@ -58,6 +58,11 @@ export class AdminController {
     return this.adminService.hardDeleteChild(id);
   }
 
+  @Patch('children/:id/adaptation')
+  setAdaptation(@Param('id') id: string, @Body() dto: { value: boolean }) {
+    return this.adminService.setAdaptation(id, !!dto.value);
+  }
+
   @Post('children/:id/enroll')
   enrollChild(@Param('id') id: string, @Body() dto: { groupId: string }) {
     return this.adminService.enrollChild(id, dto.groupId);

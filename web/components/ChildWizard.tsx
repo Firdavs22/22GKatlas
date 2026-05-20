@@ -33,6 +33,7 @@ interface WizardData {
   contacts: ContactDraft[];
   representatives: ContactDraft[];
   notes: string;
+  inAdaptation: boolean;
 }
 
 interface InviteResult {
@@ -63,6 +64,9 @@ const emptyData = (): WizardData => ({
   contacts: [],
   representatives: [],
   notes: '',
+  // По умолчанию новые дети помечаются как «в адаптации» — администратор
+  // или педагог снимут тег когда ребёнок освоится в группе.
+  inAdaptation: true,
 });
 
 export default function ChildWizard({ groups, onClose, onCreated }: ChildWizardProps) {
@@ -100,6 +104,7 @@ export default function ChildWizard({ groups, onClose, onCreated }: ChildWizardP
         contacts: data.contacts.filter(c => c.name.trim() || c.phone.trim()),
         representatives: data.representatives.filter(c => c.name.trim() || c.phone.trim()),
         notes: data.notes || undefined,
+        inAdaptation: data.inAdaptation,
       });
       onCreated({ id: child.id, name: child.name }, child.invites || []);
     } catch (err: unknown) {
@@ -223,6 +228,20 @@ function Step1({ data, update }: { data: WizardData; update: <K extends keyof Wi
           className={inputCls}
         />
       </div>
+      <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-xl border border-slate-200 hover:border-brand transition-colors">
+        <input
+          type="checkbox"
+          checked={data.inAdaptation}
+          onChange={e => update('inAdaptation', e.target.checked)}
+          className="mt-0.5 w-4 h-4 rounded border-slate-300 text-brand focus:ring-brand shrink-0"
+        />
+        <div>
+          <div className="text-sm font-medium">Период адаптации</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            Новый ребёнок — выделим бейджем у педагога и админа. Снимется потом вручную, когда освоится.
+          </div>
+        </div>
+      </label>
     </div>
   );
 }
