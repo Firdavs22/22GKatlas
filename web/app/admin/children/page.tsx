@@ -363,7 +363,7 @@ export default function AdminChildren() {
                         <button
                           onClick={() => { setHardDeleteTarget({ id: c.id, name: c.name }); setHardDeleteWord(''); }}
                           className="p-1.5 text-red-500 hover:text-red-700 transition-colors"
-                          title="Удалить безвозвратно (право на забвение 152-ФЗ)"
+                          title="Удалить безвозвратно"
                         >
                           <X size={15} />
                         </button>
@@ -636,7 +636,7 @@ export default function AdminChildren() {
               (прогресс, наблюдения, портфолио, посещаемость, чаты, платежи) будут стёрты без возможности восстановления.
             </p>
             <p className="text-xs text-slate-500 mb-4">
-              Используйте только если родитель воспользовался правом на забвение по 152-ФЗ.
+              Используйте только если родитель воспользовался правом на удаление данных.
               Для обычного отчисления — кнопка «Отчислить» (можно вернуть через БД).
             </p>
             <label className="block text-xs text-slate-600 mb-1.5">

@@ -113,7 +113,7 @@ export default function AdminStaff() {
   };
 
   const resendInvite = async (s: User) => {
-    if (!confirm(`Перевыпустить приглашение для ${s.name}?\nСтарый пароль перестанет работать. Сотрудник получит новую ссылку на ${s.email} и заново примет 152-ФЗ.`)) {
+    if (!confirm(`Перевыпустить приглашение для ${s.name}?\nСтарый пароль перестанет работать. Сотрудник получит новую ссылку на ${s.email} и заново примет условия.`)) {
       return;
     }
     setActionLoading(s.id);

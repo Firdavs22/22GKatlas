@@ -426,7 +426,7 @@ export default function AdminParents() {
                   onChange={() => setDeleteTarget({ ...deleteTarget, mode: 'hard' })}
                   className="w-3.5 h-3.5"
                 />
-                Удалить полностью (право на забвение 152-ФЗ) — стираются и связи с детьми
+                Удалить полностью — стираются и связи с детьми
               </label>
             </div>
             <label className="block text-xs text-slate-600 mb-1.5">
