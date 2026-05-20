@@ -55,7 +55,7 @@ const DEFAULT_SIDEBAR: SidebarContent = {
 
 const DEFAULT_PRIVACY: PrivacyContent = {
   title: 'Политика конфиденциальности',
-  body: 'Сюда — текст политики (152-ФЗ). Согласуйте с юристом и опубликуйте.',
+  body: 'Сюда — текст политики конфиденциальности. Согласуйте с юристом и опубликуйте.',
   updatedLabel: 'Редакция от 17 мая 2026',
 };
 
@@ -550,7 +550,7 @@ export default function AdminSiteContent() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <SectionLabel>Политика конфиденциальности · /privacy</SectionLabel>
-            <h3 className="text-xl mt-0.5">Текст 152-ФЗ для родителей</h3>
+            <h3 className="text-xl mt-0.5">Политика конфиденциальности для родителей</h3>
           </div>
           <Button size="sm" onClick={() => save('privacy', privacy)} disabled={savingKey === 'privacy'}>
             <StatusIcon k="privacy" /> Сохранить
