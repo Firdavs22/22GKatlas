@@ -540,7 +540,7 @@ export class AdminService {
 
   getParents() {
     return this.prisma.user.findMany({
-      where: { role: 'parent' },
+      where: { role: 'parent', deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -548,6 +548,7 @@ export class AdminService {
         phone: true,
         avatar: true,
         createdAt: true,
+        blockedAt: true,
         parentChildren: {
           include: {
             child: { select: { id: true, name: true, status: true, group: { select: { id: true, name: true } } } },
@@ -556,6 +557,58 @@ export class AdminService {
       },
       orderBy: { name: 'asc' },
     });
+  }
+
+  /** Заблокировать родителя — вход запрещён, данные сохраняются. */
+  async blockParent(id: string) {
+    const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
+    if (!target) throw new NotFoundException('Родитель не найден');
+    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date() } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+    return { ok: true };
+  }
+
+  async unblockParent(id: string) {
+    const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
+    if (!target) throw new NotFoundException('Родитель не найден');
+    await this.prisma.user.update({ where: { id }, data: { blockedAt: null } });
+    return { ok: true };
+  }
+
+  /** Soft-delete родителя — анонимизация ПДн, deletedAt, сброс сессий. ChildParent-связи остаются (для истории). */
+  async softDeleteParent(id: string) {
+    const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
+    if (!target) throw new NotFoundException('Родитель не найден');
+    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    const anonId = `deleted-${id.slice(0, 8)}`;
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id },
+        data: {
+          email: `${anonId}@deleted.local`,
+          name: 'Удалённый родитель',
+          phone: null,
+          avatar: null,
+          password: 'INVALIDATED',
+          deletedAt: new Date(),
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId: id } }),
+    ]);
+    return { ok: true };
+  }
+
+  /** Полное удаление родителя и его связей с детьми (право на забвение 152-ФЗ). */
+  async hardDeleteParent(id: string) {
+    const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
+    if (!target) throw new NotFoundException('Родитель не найден');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.childParent.deleteMany({ where: { parentId: id } });
+      await tx.refreshToken.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+    return { ok: true };
   }
 
   async inviteParentAccount(dto: { email: string; name: string; phone?: string; childIds?: string[] }, authService: any) {

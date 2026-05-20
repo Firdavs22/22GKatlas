@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Pencil, Send } from 'lucide-react';
+import { Plus, Search, Pencil, Send, Ban, Power, Trash2 } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
 import InviteShareModal from '@/components/InviteShareModal';
@@ -12,6 +12,7 @@ type ParentUser = {
   name: string;
   email: string;
   phone?: string;
+  blockedAt?: string | null;
   parentChildren?: { child: { id: string; name: string; status: string; group?: { id?: string; name?: string } } }[];
 };
 
@@ -41,6 +42,40 @@ export default function AdminParents() {
   const [form, setForm] = useState(emptyForm);
 
   const [invite, setInvite] = useState<{ token: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ parent: ParentUser; mode: 'soft' | 'hard' } | null>(null);
+  const [deleteWord, setDeleteWord] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const toggleBlock = async (p: ParentUser) => {
+    setBusy(p.id);
+    try {
+      const action = p.blockedAt ? 'unblock' : 'block';
+      await api.patch(`/admin/parents/${p.id}/${action}`);
+      setParents(prev => prev.map(x => x.id === p.id ? { ...x, blockedAt: p.blockedAt ? null : new Date().toISOString() } : x));
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteWord !== 'УДАЛИТЬ') return;
+    setBusy(deleteTarget.parent.id);
+    try {
+      const url = deleteTarget.mode === 'hard'
+        ? `/admin/parents/${deleteTarget.parent.id}/hard`
+        : `/admin/parents/${deleteTarget.parent.id}`;
+      await api.delete(url);
+      setParents(prev => prev.filter(x => x.id !== deleteTarget.parent.id));
+      setDeleteTarget(null);
+      setDeleteWord('');
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const load = () => {
     Promise.all([
@@ -274,30 +309,62 @@ export default function AdminParents() {
             <div className="text-sm text-slate-400 py-12 text-center">Родители не найдены</div>
           </Card>
         ) : (
-          filtered.map(parent => (
-            <Card key={parent.id} padding="md">
+          filtered.map(parent => {
+            const isBlocked = !!parent.blockedAt;
+            const isBusy = busy === parent.id;
+            return (
+            <Card key={parent.id} padding="md" className={isBlocked ? 'opacity-60' : ''}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-sm">{parent.name}</div>
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    {parent.name}
+                    {isBlocked && (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-danger">
+                        <Ban size={11} /> Заблокирован
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-slate-500">{parent.email}</div>
                   {parent.phone && <div className="text-sm text-slate-500">{parent.phone}</div>}
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                   <button
                     onClick={async () => {
                       const { data } = await api.post(`/admin/parents/${parent.id}/invite-link`);
                       setInvite({ token: data.inviteToken, name: parent.name });
                     }}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors"
-                    title="Сгенерировать новую ссылку приглашения"
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-40"
+                    title="Сгенерировать новую ссылку приглашения (сброс пароля)"
                   >
                     <Send size={13} /> Ссылка
                   </button>
                   <button
                     onClick={() => openForm(parent)}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors"
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-40"
                   >
                     <Pencil size={13} /> Изменить
+                  </button>
+                  <button
+                    onClick={() => toggleBlock(parent)}
+                    disabled={isBusy}
+                    title={isBlocked ? 'Разблокировать вход' : 'Заблокировать вход'}
+                    className={`inline-flex items-center gap-1.5 text-xs px-3 h-8 rounded-full transition-colors disabled:opacity-40 ${
+                      isBlocked
+                        ? 'text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                        : 'text-amber-700 border border-amber-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    {isBlocked ? (<><Power size={13} /> Разблок.</>) : (<><Ban size={13} /> Блок.</>)}
+                  </button>
+                  <button
+                    onClick={() => { setDeleteTarget({ parent, mode: 'soft' }); setDeleteWord(''); }}
+                    disabled={isBusy}
+                    title="Удалить (анонимизировать ПДн, связи с детьми сохранятся)"
+                    className="inline-flex items-center gap-1.5 text-xs text-red-700 border border-red-200 px-3 h-8 rounded-full hover:bg-red-50 transition-colors disabled:opacity-40"
+                  >
+                    <Trash2 size={13} /> Удалить
                   </button>
                 </div>
               </div>
@@ -316,7 +383,8 @@ export default function AdminParents() {
                 )}
               </div>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -326,6 +394,65 @@ export default function AdminParents() {
           parentName={invite.name}
           onClose={() => setInvite(null)}
         />
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setDeleteTarget(null); setDeleteWord(''); }}
+        >
+          <div className="bg-white rounded-3xl shadow-lg max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mb-3">
+              <Trash2 size={20} />
+            </div>
+            <h3 className="font-serif text-2xl mb-2">Удалить родителя</h3>
+            <p className="text-sm text-slate-600 mb-3">
+              Аккаунт <span className="font-medium text-foreground">{deleteTarget.parent.name}</span> ({deleteTarget.parent.email}) будет анонимизирован: email, имя, телефон и пароль будут стёрты. Это необратимо.
+            </p>
+            <div className="mb-4 text-xs">
+              <label className="inline-flex items-center gap-2 cursor-pointer text-slate-700">
+                <input
+                  type="radio"
+                  checked={deleteTarget.mode === 'soft'}
+                  onChange={() => setDeleteTarget({ ...deleteTarget, mode: 'soft' })}
+                  className="w-3.5 h-3.5"
+                />
+                Анонимизировать (связи с детьми сохранятся для истории)
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer text-slate-700 mt-1">
+                <input
+                  type="radio"
+                  checked={deleteTarget.mode === 'hard'}
+                  onChange={() => setDeleteTarget({ ...deleteTarget, mode: 'hard' })}
+                  className="w-3.5 h-3.5"
+                />
+                Удалить полностью (право на забвение 152-ФЗ) — стираются и связи с детьми
+              </label>
+            </div>
+            <label className="block text-xs text-slate-600 mb-1.5">
+              Введите <span className="font-mono font-semibold text-red-700">УДАЛИТЬ</span> для подтверждения:
+            </label>
+            <input
+              value={deleteWord}
+              onChange={e => setDeleteWord(e.target.value)}
+              autoFocus
+              className={`${inputCls} mb-4`}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => { setDeleteTarget(null); setDeleteWord(''); }}>
+                Отмена
+              </Button>
+              <button
+                type="button"
+                disabled={deleteWord !== 'УДАЛИТЬ'}
+                onClick={confirmDelete}
+                className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 size={14} /> Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   );

@@ -87,6 +87,30 @@ export class AdminController {
     return this.adminService.updateParent(id, dto);
   }
 
+  @Patch('parents/:id/block')
+  @Roles('superadmin')
+  blockParent(@Param('id') id: string) {
+    return this.adminService.blockParent(id);
+  }
+
+  @Patch('parents/:id/unblock')
+  @Roles('superadmin')
+  unblockParent(@Param('id') id: string) {
+    return this.adminService.unblockParent(id);
+  }
+
+  @Delete('parents/:id')
+  @Roles('superadmin')
+  softDeleteParent(@Param('id') id: string) {
+    return this.adminService.softDeleteParent(id);
+  }
+
+  @Delete('parents/:id/hard')
+  @Roles('superadmin')
+  hardDeleteParent(@Param('id') id: string) {
+    return this.adminService.hardDeleteParent(id);
+  }
+
   @Post('parents/:id/invite-link')
   reissueParentInvite(@Param('id') id: string) {
     return this.adminService.reissueParentInvite(id, this.authService);
