@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../context/AuthContext';
 import api, { API_URL } from '../../lib/api';
+import { getSocket } from '../../lib/socket';
 import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../lib/theme';
-import type { ChatRoom } from '../../lib/types';
+import type { ChatRoom, ChatMessage } from '../../lib/types';
 import MobileShell from '../../components/MobileShell';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -30,12 +32,83 @@ export default function ChatsScreen() {
   const [chats, setChats] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
+
+  const reload = () => api.get('/chats').then((r) => setChats(r.data)).catch(() => {});
 
   useEffect(() => {
-    api.get('/chats')
-      .then((r) => setChats(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    reload().finally(() => setLoading(false));
+  }, []);
+
+  // Realtime: подписываемся на newMessage из всех своих чатов и обновляем список.
+  useEffect(() => {
+    let active = true;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      const socket = await getSocket();
+      if (!socket || !active) return;
+
+      // Заходим во все свои комнаты, чтобы получать newMessage от каждой.
+      const joinAll = (rooms: ChatRoom[]) => {
+        rooms.forEach((r) => socket.emit('joinRoom', r.id));
+      };
+      // Текущий список — войти в комнаты
+      api.get('/chats').then((r) => {
+        if (!active) return;
+        const list = (r.data || []) as ChatRoom[];
+        setChats(list);
+        joinAll(list);
+      });
+
+      const onNewMessage = (msg: ChatMessage) => {
+        // Обновляем последнее сообщение и unreadCount у нужного чата
+        setChats((prev) => {
+          const idx = prev.findIndex((c) => c.id === msg.chatRoomId);
+          if (idx < 0) {
+            // Новый чат — перезагружаем список
+            reload();
+            return prev;
+          }
+          const updated = [...prev];
+          const cur = { ...updated[idx] };
+          cur.lastMessage = msg;
+          cur.messages = [msg];
+          if (msg.senderId !== userIdRef.current) {
+            cur.unreadCount = (cur.unreadCount || 0) + 1;
+          }
+          // Поднимаем чат наверх списка
+          updated.splice(idx, 1);
+          updated.unshift(cur);
+          return updated;
+        });
+        // Виброотклик только для входящих
+        if (msg.senderId !== userIdRef.current) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        }
+      };
+
+      socket.on('newMessage', onNewMessage);
+      socket.on('connect', () => {
+        // После реконнекта — войти заново во все комнаты и обновить список
+        api.get('/chats').then((r) => {
+          if (!active) return;
+          const list = (r.data || []) as ChatRoom[];
+          setChats(list);
+          joinAll(list);
+        });
+      });
+
+      cleanup = () => {
+        socket.off('newMessage', onNewMessage);
+      };
+    })();
+
+    return () => {
+      active = false;
+      cleanup?.();
+    };
   }, []);
 
   const formatTime = (d?: string) => {
