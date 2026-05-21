@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import MobileShell from '../../../components/MobileShell';
 import PostMedia from '../../../components/PostMedia';
 import api from '../../../lib/api';
@@ -25,31 +24,12 @@ function formatDateTime(iso: string) {
 export default function ParentFeedDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [items, setItems] = useState<FeedItem[]>([]);
-  const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
 
   useEffect(() => {
     api.get('/feed').then(r => setItems(r.data)).catch(() => {});
   }, []);
 
   const item = useMemo(() => items.find(post => post.id === id), [items, id]);
-
-  useEffect(() => {
-    if (!item) return;
-    setLiked(Boolean((item as any).likes?.length));
-    setLikesCount(item._count?.likes || 0);
-  }, [item]);
-
-  const toggleLike = async () => {
-    if (!item) return;
-    try {
-      const { data } = await api.post(`/feed/${item.id}/like`);
-      setLiked(Boolean(data.liked));
-      setLikesCount(prev => prev + (data.liked ? 1 : -1));
-    } catch {
-      Alert.alert('Лента', 'Не удалось обновить лайк');
-    }
-  };
 
   return (
     <>
@@ -78,11 +58,6 @@ export default function ParentFeedDetailScreen() {
 
             {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
             <PostMedia urls={item.mediaUrls || []} />
-
-            <TouchableOpacity style={styles.likeButton} activeOpacity={0.75} onPress={toggleLike}>
-              <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color={liked ? colors.danger : colors.textSecondary} />
-              <Text style={[styles.likeText, liked && { color: colors.danger }]}>{likesCount}</Text>
-            </TouchableOpacity>
           </View>
         )}
       </MobileShell>
@@ -100,8 +75,6 @@ const styles = StyleSheet.create({
   typeBadge: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: 5, backgroundColor: colors.brandPale },
   typeText: { color: colors.brand, fontSize: fontSize.xs, fontWeight: fontWeight.medium },
   text: { color: colors.textSecondary, fontSize: fontSize.md, lineHeight: 23 },
-  likeButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderLight },
-  likeText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: fontWeight.medium },
   empty: { alignItems: 'center', paddingVertical: 64 },
   emptyText: { color: colors.textMuted, fontSize: fontSize.md },
 });

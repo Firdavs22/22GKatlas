@@ -46,6 +46,7 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
     { label: 'База знаний', description: 'Материалы для родителей', href: '/parent/knowledge', icon: 'book-outline', tone: 'info', implemented: true },
     { label: 'Запись на прием', description: 'Психолог и педиатр', href: '/parent/appointments', icon: 'medkit-outline', tone: 'brand', implemented: true },
     { label: 'О системе', description: 'Описание и материалы сада', href: '/parent/about', icon: 'information-circle-outline', tone: 'neutral', implemented: true },
+    { label: 'Настройки', description: 'Пароль, экспорт данных, удаление аккаунта', href: '/parent/settings', icon: 'settings-outline', tone: 'neutral', implemented: true },
   ],
   teacher: [
     { label: 'Дети группы', description: 'Список и карточки детей', href: '/teacher', icon: 'school-outline', tone: 'brand', implemented: true },

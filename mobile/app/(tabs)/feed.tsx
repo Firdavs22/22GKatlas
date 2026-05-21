@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api, { API_URL } from '../../lib/api';
@@ -7,6 +7,26 @@ import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../../li
 import type { FeedItem } from '../../lib/types';
 import MobileShell from '../../components/MobileShell';
 import PostMedia from '../../components/PostMedia';
+
+type Period = 'all' | 'today' | 'week' | 'month';
+type Sort = 'newest' | 'oldest';
+
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: 'all', label: 'Всё' },
+  { value: 'today', label: 'Сегодня' },
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+];
+
+function inPeriod(d: Date, period: Period): boolean {
+  if (period === 'all') return true;
+  const now = new Date();
+  const diff = (now.getTime() - d.getTime()) / 86400000; // days
+  if (period === 'today') return now.toDateString() === d.toDateString();
+  if (period === 'week') return diff <= 7;
+  if (period === 'month') return diff <= 31;
+  return true;
+}
 
 function avatarSrc(url?: string) {
   if (!url) return undefined;
@@ -20,6 +40,8 @@ function initial(name?: string) {
 export default function FeedScreen() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>('all');
+  const [sort, setSort] = useState<Sort>('newest');
 
   useEffect(() => {
     api.get('/feed')
@@ -27,6 +49,15 @@ export default function FeedScreen() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const filtered = useMemo(() => {
+    const visible = feed.filter((item) => inPeriod(new Date(item.createdAt), period));
+    const ordered = [...visible].sort((a, b) => {
+      const t = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sort === 'newest' ? -t : t;
+    });
+    return ordered;
+  }, [feed, period, sort]);
 
   const formatDate = (d: string) => {
     const date = new Date(d);
@@ -45,15 +76,40 @@ export default function FeedScreen() {
 
   return (
     <MobileShell eyebrow="Группа" title="Лента">
+      {/* Фильтры */}
+      <View style={styles.filtersWrap}>
+        <View style={styles.filterRow}>
+          {PERIOD_OPTIONS.map((opt) => {
+            const active = period === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setPeriod(opt.value)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Pressable
+          onPress={() => setSort((s) => (s === 'newest' ? 'oldest' : 'newest'))}
+          style={styles.sortBtn}
+        >
+          <Ionicons name={sort === 'newest' ? 'arrow-down-outline' : 'arrow-up-outline'} size={14} color={colors.textSecondary} />
+          <Text style={styles.sortText}>{sort === 'newest' ? 'Сначала новые' : 'Сначала старые'}</Text>
+        </Pressable>
+      </View>
+
       {loading ? <Text style={styles.emptyText}>Загрузка...</Text> : null}
-      {!loading && feed.length === 0 ? (
+      {!loading && filtered.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="newspaper-outline" size={42} color={colors.textMuted} />
-          <Text style={styles.emptyText}>Записей пока нет</Text>
+          <Text style={styles.emptyText}>{feed.length === 0 ? 'Записей пока нет' : 'Нет записей за выбранный период'}</Text>
         </View>
       ) : null}
 
-      {feed.map((item) => {
+      {filtered.map((item) => {
         const author = (item as unknown as { author?: { name?: string; avatar?: string } }).author;
         const authorAvatar = avatarSrc(author?.avatar);
         return (
@@ -79,10 +135,6 @@ export default function FeedScreen() {
           {item.mediaUrls?.length > 0 ? <PostMedia urls={item.mediaUrls} compact /> : null}
 
           <View style={styles.cardFooter}>
-            <TouchableOpacity style={styles.footerButton} activeOpacity={0.7}>
-              <Ionicons name="heart-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.footerText}>{item._count?.likes || 0}</Text>
-            </TouchableOpacity>
             <View style={styles.typeChip}>
               <Ionicons name={typeIcon(item.type)} size={12} color={colors.textMuted} />
             </View>
@@ -126,8 +178,15 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: fontSize.xs, color: colors.textMuted },
   cardTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.textPrimary, marginBottom: spacing.sm },
   cardText: { fontSize: fontSize.md, color: colors.textSecondary, lineHeight: 22 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  footerButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  footerText: { fontSize: fontSize.sm, color: colors.textSecondary },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: spacing.md },
   typeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.surfaceAlt },
+
+  filtersWrap: { gap: spacing.sm, marginBottom: spacing.md },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chip: { paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.borderLight, justifyContent: 'center', backgroundColor: colors.surface },
+  chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipText: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: fontWeight.medium },
+  chipTextActive: { color: colors.textInverse },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: colors.surfaceAlt },
+  sortText: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: fontWeight.medium },
 });

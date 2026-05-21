@@ -68,6 +68,8 @@ export default function FeedPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
   const [active, setActive] = useState<Set<FilterKey>>(() => new Set<FilterKey>(['all']));
+  const [period, setPeriod] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [downloading, setDownloading] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -107,15 +109,32 @@ export default function FeedPage() {
   };
 
   const filtered = useMemo(() => {
-    if (active.has('all')) return feed;
-    return feed.filter(item => {
+    const byType = active.has('all') ? feed : feed.filter(item => {
       if (active.has('photo') && item.type === 'child_photo') return true;
       if (active.has('achievement') && item.type === 'child_achievement') return true;
       if (active.has('school') && (item.type === 'school_news' || item.scope === 'school')) return true;
       if (active.has('group') && item.scope === 'group') return true;
       return false;
     });
-  }, [feed, active]);
+    const now = Date.now();
+    const byPeriod = byType.filter(item => {
+      if (period === 'all') return true;
+      const t = new Date(item.createdAt).getTime();
+      const ageDays = (now - t) / 86400000;
+      if (period === 'today') {
+        const d = new Date(item.createdAt);
+        return new Date().toDateString() === d.toDateString();
+      }
+      if (period === 'week') return ageDays <= 7;
+      if (period === 'month') return ageDays <= 31;
+      return true;
+    });
+    const ordered = [...byPeriod].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sort === 'newest' ? -diff : diff;
+    });
+    return ordered;
+  }, [feed, active, period, sort]);
 
   const upcomingEvent = useMemo(() => {
     const now = Date.now();
@@ -200,6 +219,37 @@ export default function FeedPage() {
         </>
       }
     >
+      {/* Период + сортировка */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mr-1">Период</span>
+        {([
+          { value: 'all', label: 'Всё' },
+          { value: 'today', label: 'Сегодня' },
+          { value: 'week', label: 'Неделя' },
+          { value: 'month', label: 'Месяц' },
+        ] as const).map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setPeriod(opt.value)}
+            className={`px-3 h-7 text-xs rounded-full transition-colors ${
+              period === opt.value
+                ? 'bg-brand text-white'
+                : 'border border-slate-200 text-slate-600 hover:border-brand'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setSort(s => (s === 'newest' ? 'oldest' : 'newest'))}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 h-7 text-xs rounded-full border border-slate-200 text-slate-600 hover:border-brand"
+        >
+          {sort === 'newest' ? '↓ Сначала новые' : '↑ Сначала старые'}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         {/* Posts */}
         <div className="space-y-4">

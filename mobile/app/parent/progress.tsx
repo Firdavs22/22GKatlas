@@ -104,7 +104,7 @@ export default function ParentProgressScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Stack.Screen options={{ headerShown: true, title: 'Прогресс', headerTintColor: colors.brand }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { padding: screen.horizontalPadding }]}
@@ -114,22 +114,22 @@ export default function ParentProgressScreen() {
         {!loading && !child ? <Text style={styles.muted}>Ребенок не найден</Text> : null}
         {child ? (
           <>
-            {/* Главный круг прогресса */}
+            {/* Главный блок прогресса */}
             <View style={styles.summary}>
-              <View style={styles.summaryHeader}>
-                <View>
-                  <Text style={styles.caption}>{child.name}</Text>
-                  <Text style={styles.title}>{pct}% освоено</Text>
-                  <Text style={styles.summarySub}>{mastered} из {total} навыков</Text>
-                </View>
-                <ProgressRing percent={pct} size={92} stroke={9} color={colors.textInverse} />
+              <Text style={styles.caption}>{child.name}</Text>
+              <Text style={styles.title}>{pct}% освоено</Text>
+              <Text style={styles.summarySub}>{mastered} из {total} навыков</Text>
+
+              {/* Полоса прогресса */}
+              <View style={styles.summaryBarBg}>
+                <View style={[styles.summaryBarFill, { width: `${pct}%` }]} />
               </View>
-              {/* Стэйджи: discrete-bar */}
-              <View style={styles.stageRow}>
-                <StageChunk count={mastered} total={total} color="#7FE2A5" label="Усвоено" />
-                <StageChunk count={practicing} total={total} color="#A7C8F4" label="Повторение" />
-                <StageChunk count={presented} total={total} color="#F8DBA3" label="Знакомство" />
-                <StageChunk count={total - mastered - practicing - presented} total={total} color="rgba(255,255,255,0.15)" label="Не начат" />
+
+              {/* Стэйджи: легенда */}
+              <View style={styles.legendRow}>
+                <LegendDot color="#7FE2A5" label={`Усвоено · ${mastered}`} />
+                <LegendDot color="#A7C8F4" label={`Повторение · ${practicing}`} />
+                <LegendDot color="#F8DBA3" label={`Знакомство · ${presented}`} />
               </View>
             </View>
 
@@ -207,37 +207,11 @@ export default function ParentProgressScreen() {
   );
 }
 
-/** CSS-only круговой прогресс без SVG. Использует кольцо из двух полукругов. */
-function ProgressRing({ percent, size, stroke, color }: { percent: number; size: number; stroke: number; color: string }) {
-  const safePercent = Math.max(0, Math.min(100, percent));
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <View style={[ringStyles.wrap, { width: size, height: size }]}>
-      <View style={[
-        ringStyles.bg,
-        { width: size, height: size, borderRadius: size / 2, borderWidth: stroke, borderColor: 'rgba(255,255,255,0.18)' },
-      ]} />
-      <View style={[
-        ringStyles.fg,
-        {
-          width: size, height: size, borderRadius: size / 2, borderWidth: stroke, borderColor: color,
-          opacity: safePercent > 0 ? 1 : 0,
-          transform: [{ rotate: `${(safePercent / 100) * 360 - 90}deg` }],
-          borderRightColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'transparent',
-        },
-      ]} />
-      <View style={[ringStyles.label, { width: size, height: size }]}>
-        <Text style={ringStyles.labelText}>{safePercent}%</Text>
-      </View>
-    </View>
-  );
-}
-
-function StageChunk({ count, total, color, label }: { count: number; total: number; color: string; label: string }) {
-  const w = total ? `${(count / total) * 100}%` as const : '0%' as const;
-  if (count === 0) return null;
-  return (
-    <View style={{ flexBasis: w, minWidth: 8 }}>
-      <View style={{ height: 6, backgroundColor: color, borderRadius: 3 }} />
+    <View style={legendStyles.item}>
+      <View style={[legendStyles.dot, { backgroundColor: color }]} />
+      <Text style={legendStyles.text}>{label}</Text>
     </View>
   );
 }
@@ -247,12 +221,13 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center', paddingBottom: spacing.xxxl },
 
-  summary: { backgroundColor: colors.brand, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg, ...shadows.md },
-  summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  summary: { backgroundColor: colors.brand, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg, ...shadows.md, marginTop: spacing.md },
   caption: { color: 'rgba(255,255,255,0.75)', fontSize: fontSize.sm },
   title: { color: colors.textInverse, fontSize: fontSize.xxxl, fontWeight: fontWeight.bold, marginTop: spacing.xs },
   summarySub: { color: 'rgba(255,255,255,0.85)', fontSize: fontSize.sm, marginTop: 2 },
-  stageRow: { flexDirection: 'row', gap: 4, marginTop: spacing.lg },
+  summaryBarBg: { height: 10, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 5, marginTop: spacing.lg, overflow: 'hidden' },
+  summaryBarFill: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 5 },
+  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
 
   sectionLabel: { color: colors.textSecondary, fontSize: fontSize.xs, textTransform: 'uppercase', fontWeight: fontWeight.medium, marginTop: spacing.md, marginBottom: spacing.sm, letterSpacing: 0.5 },
 
@@ -285,10 +260,8 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
 });
 
-const ringStyles = StyleSheet.create({
-  wrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  bg: { position: 'absolute' },
-  fg: { position: 'absolute' },
-  label: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  labelText: { color: '#FFFFFF', fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+const legendStyles = StyleSheet.create({
+  item: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  text: { color: 'rgba(255,255,255,0.9)', fontSize: fontSize.xs },
 });
