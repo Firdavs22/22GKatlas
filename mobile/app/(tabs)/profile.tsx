@@ -40,7 +40,7 @@ export default function MoreScreen() {
         </View>
       </View>
 
-      <NavList items={ROLE_NAV[user.role]} />
+      <NavList items={ROLE_NAV[user.role]} userRole={user.role} />
 
       <TouchableOpacity
         style={styles.replayTour}

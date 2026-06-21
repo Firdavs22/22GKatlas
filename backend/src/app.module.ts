@@ -20,6 +20,7 @@ import { SiteContentModule } from './site-content/site-content.module';
 import { MeModule } from './me/me.module';
 import { HealthModule } from './health/health.module';
 import { AuditModule } from './audit/audit.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditInterceptor } from './audit/audit.interceptor';
@@ -48,6 +49,7 @@ import { AuditInterceptor } from './audit/audit.interceptor';
     MeModule,
     HealthModule,
     AuditModule,
+    FeedbackModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

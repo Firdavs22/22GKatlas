@@ -7,7 +7,7 @@ import {
   UtensilsCrossed, Wallet, ListChecks, BookOpen, Bell, LogOut,
   Grid3x3, Flame, NotebookPen, Images, ClipboardList, Users,
   Stethoscope, Brain, Megaphone, BarChart3, ChefHat, GraduationCap,
-  Settings,
+  Settings, MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -51,6 +51,7 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/parent/home-tasks', label: 'Рекомендации', icon: ListChecks },
     { href: '/parent/knowledge', label: 'База знаний', icon: BookOpen },
     { href: '/parent/appointments', label: 'Запись на приём', icon: CalendarCheck },
+    { href: '/parent/feedback', label: 'Обратная связь', icon: MessageSquare },
     { href: '/parent/about', label: 'О системе', icon: BookOpen },
   ],
   teacher: [
@@ -81,6 +82,7 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/knowledge', label: 'База знаний', icon: BookOpen },
     { href: '/admin/site-content', label: 'Настройки системы', icon: Settings, superadminOnly: true },
     { href: '/admin/audit', label: 'Журнал действий', icon: BarChart3, superadminOnly: true },
+    { href: '/admin/feedback', label: 'Обратная связь', icon: MessageSquare, superadminOnly: true },
   ],
   psychologist: [
     { href: '/psychologist', label: 'Дети', icon: GraduationCap },

@@ -11,6 +11,8 @@ export interface MobileNavItem {
   icon: IconName;
   tone: 'brand' | 'success' | 'warn' | 'danger' | 'info' | 'neutral';
   implemented?: boolean;
+  /** Hide from regular admin — only superadmin sees this item. */
+  superadminOnly?: boolean;
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -45,6 +47,7 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
     { label: 'Дневник', description: 'Записи от педагогов', href: '/parent/diary', icon: 'journal-outline', tone: 'brand', implemented: true },
     { label: 'База знаний', description: 'Материалы для родителей', href: '/parent/knowledge', icon: 'book-outline', tone: 'info', implemented: true },
     { label: 'Запись на прием', description: 'Психолог и педиатр', href: '/parent/appointments', icon: 'medkit-outline', tone: 'brand', implemented: true },
+    { label: 'Обратная связь', description: 'Сообщение заведующей, можно анонимно', href: '/parent/feedback', icon: 'chatbox-ellipses-outline', tone: 'info', implemented: true },
     { label: 'О системе', description: 'Описание и материалы сада', href: '/parent/about', icon: 'information-circle-outline', tone: 'neutral', implemented: true },
     { label: 'Настройки', description: 'Пароль, экспорт данных, удаление аккаунта', href: '/parent/settings', icon: 'settings-outline', tone: 'neutral', implemented: true },
   ],
@@ -68,6 +71,7 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
     { label: 'Оплата', description: 'Начисления и статусы', icon: 'wallet-outline', tone: 'danger' },
     { label: 'События', description: 'Праздники и объявления', href: '/admin/events', icon: 'calendar-outline', tone: 'warn', implemented: true },
     { label: 'Рассылки', description: 'Объявления для групп', href: '/admin/broadcasts', icon: 'megaphone-outline', tone: 'brand', implemented: true },
+    { label: 'Обратная связь', description: 'Сообщения от родителей', href: '/admin/feedback', icon: 'chatbox-ellipses-outline', tone: 'info', implemented: true, superadminOnly: true },
     { label: 'Контент', description: 'Логин, sidebar и about', icon: 'settings-outline', tone: 'neutral' },
   ],
   psychologist: [

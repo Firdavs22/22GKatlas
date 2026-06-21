@@ -43,6 +43,7 @@ model User {
   feedLikes          FeedLike[]
   refreshTokens      RefreshToken[]
   chatParticipants   ChatParticipant[]
+  feedbacks          Feedback[]
 }
 
 enum Role {
@@ -644,4 +645,20 @@ model FileMeta {
   @@index([uploaderId])
   @@index([childId])
   @@index([groupId])
+}
+
+// Обратная связь от родителей superadmin'у. Может быть подписанной (authorId установлен)
+// или анонимной (authorId = null). Для анонимной POST /feedback пропускается в AuditInterceptor,
+// чтобы userId не сохранился в AuditLog и анонимность была настоящей.
+model Feedback {
+  id          String    @id @default(uuid())
+  message     String
+  isAnonymous Boolean   @default(false)
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId    String?
+  read        Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([read, createdAt(sort: Desc)])
 }

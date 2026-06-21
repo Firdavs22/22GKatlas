@@ -3,11 +3,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, radius, shadows, spacing } from '../lib/theme';
 import { MobileNavItem, toneColors } from '../lib/navigation';
+import type { Role } from '../lib/types';
 
-export default function NavList({ items }: { items: MobileNavItem[] }) {
+export default function NavList({ items, userRole }: { items: MobileNavItem[]; userRole?: Role }) {
+  const visible = items.filter(item => !item.superadminOnly || userRole === 'superadmin');
   return (
     <View style={styles.list}>
-      {items.map((item) => {
+      {visible.map((item) => {
         const tone = toneColors(item.tone);
         const disabled = !item.href;
         return (

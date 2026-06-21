@@ -27,7 +27,7 @@ export default function AdminScreen() {
     <>
       <Stack.Screen options={{ headerShown: true, title: 'Админка', headerTintColor: colors.primary }} />
       <MobileShell eyebrow="Администратор" title="Быстрый доступ">
-        <NavList items={ROLE_NAV.admin} />
+        <NavList items={ROLE_NAV.admin} userRole={user.role} />
       </MobileShell>
     </>
   );

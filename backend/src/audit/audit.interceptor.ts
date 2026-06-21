@@ -11,12 +11,16 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 // Paths we don't want to log (too noisy or contain only secrets).
+// /feedback is here so an "anonymous" submission doesn't leak the userId via AuditLog.
+// Matched as exact "/api/<path>" — POST /feedback/:id/read is NOT excluded
+// (it's a superadmin action and should be auditable).
 const SKIP_PATHS = [
   '/auth/login',
   '/auth/refresh',
   '/auth/logout',
   '/auth/forgot',
   '/auth/reset',
+  '/feedback',
 ];
 
 function sanitize(value: unknown): unknown {

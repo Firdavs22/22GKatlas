@@ -61,6 +61,7 @@ function StatCard({ label, value, unit }: { label: string; value: string | numbe
 }
 
 function AdminHome() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({ children: 0, groups: 0, staff: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -87,7 +88,7 @@ function AdminHome() {
         <StatCard label="Сотрудники" value={stats.staff} />
       </View>
       <Text style={styles.sectionTitle}>Управление как в web</Text>
-      <NavList items={ROLE_NAV.admin} />
+      <NavList items={ROLE_NAV.admin} userRole={user?.role} />
     </MobileShell>
   );
 }
