@@ -5,6 +5,10 @@ import Link from "next/link";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import PageLayout from "@/components/PageLayout";
+import TildaSubmission, {
+  leadContact,
+  type IntakeDetails,
+} from "@/components/TildaSubmission";
 import {
   Field,
   Notice,
@@ -35,6 +39,7 @@ type Lead = {
   stageId: string;
   state: string;
   revision: number;
+  intakeDetails?: IntakeDetails | null;
 };
 type Detail = Lead & {
   relatedLeads: {
@@ -337,8 +342,8 @@ export default function CrmPage() {
   const filtered = leads.filter(
     (l) =>
       (!owner || l.ownerId === owner) &&
-      [l.parentName, l.phone, l.childName, l.direction].some((s) =>
-        s.toLowerCase().includes(search.toLowerCase()),
+      [l.parentName, l.phone, leadContact(l), l.childName, l.direction].some(
+        (s) => s.toLowerCase().includes(search.toLowerCase()),
       ),
   );
   const overdue = filtered.filter(
@@ -427,7 +432,9 @@ export default function CrmPage() {
             <span className="text-rose-700 text-xs">Высокий</span>
           )}
         </div>
-        <p className="text-sm text-slate-500 mt-1">{lead.phone}</p>
+        <p className="text-sm text-slate-500 mt-1 break-words">
+          {leadContact(lead)}
+        </p>
         <p className="text-sm mt-3">
           {lead.childName || "Имя ребёнка пока не указано"}
         </p>
@@ -599,9 +606,15 @@ export default function CrmPage() {
         <Modal title={detail.parentName} close={() => setDetail(null)}>
           <Notice error={modalError} />
           <div className="flex flex-wrap gap-3 text-sm">
-            <a className="text-brand" href={"tel:" + detail.phone}>
-              {detail.phone}
-            </a>
+            {detail.phone ? (
+              <a className="text-brand" href={"tel:" + detail.phone}>
+                {detail.phone}
+              </a>
+            ) : (
+              <span className="text-slate-500">
+                Телефон нужно уточнить перед зачислением
+              </span>
+            )}
             {detail.email && (
               <a className="text-brand" href={"mailto:" + detail.email}>
                 {detail.email}
@@ -633,6 +646,9 @@ export default function CrmPage() {
                 </button>
               ))}
             </div>
+          )}
+          {detail.intakeDetails && (
+            <TildaSubmission details={detail.intakeDetails} />
           )}
           {detail.notes && (
             <p className="whitespace-pre-wrap bg-slate-50 rounded-xl p-4 my-4 text-sm">
@@ -858,7 +874,11 @@ export default function CrmPage() {
                   label={
                     {
                       parentName: "Имя родителя *",
-                      phone: "Телефон *",
+                      phone:
+                        editing?.intakeDetails?.contactMethod &&
+                        editing.intakeDetails.contactMethod !== "phone"
+                          ? "Телефон (нужен перед зачислением)"
+                          : "Телефон *",
                       email: "Email родителя",
                       childName: "Имя ребёнка",
                       birthDate: "Дата рождения",
@@ -878,7 +898,14 @@ export default function CrmPage() {
                             : "text"
                     }
                     maxLength={k === "phone" ? 40 : 120}
-                    required={k === "parentName" || k === "phone"}
+                    required={
+                      k === "parentName" ||
+                      (k === "phone" &&
+                        !(
+                          editing?.intakeDetails?.contactMethod &&
+                          editing.intakeDetails.contactMethod !== "phone"
+                        ))
+                    }
                     value={form[k]}
                     onChange={(e) => setForm({ ...form, [k]: e.target.value })}
                   />

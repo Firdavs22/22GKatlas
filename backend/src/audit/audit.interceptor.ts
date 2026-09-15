@@ -66,7 +66,10 @@ export class AuditInterceptor implements NestInterceptor {
 
     const start = Date.now();
     const cleanPath = path.replace(/^\/api/, '');
-    const sanitizedBody = truncate(sanitize(req.body));
+    // Tilda can forward site cookies and arbitrary custom fields. The CRM adapter
+    // stores only recognized fields; the audit keeps status/IP without the raw form.
+    const sanitizedBody = /^\/api\/crm\/tilda\/?$/i.test(path)
+      ? undefined : truncate(sanitize(req.body));
     const ip = req.ip || req.socket?.remoteAddress
       || null;
     const userAgent = (req.headers['user-agent'] as string)?.slice(0, 300) || null;

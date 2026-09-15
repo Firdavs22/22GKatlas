@@ -248,6 +248,7 @@ model CrmLead {
   nextAction   String        @default("")
   enrollmentId String?       @unique
   externalKey  String?       @unique
+  intakeDetails Json?
   revision     Int           @default(1)
   history      CrmActivity[]
   createdAt    DateTime      @default(now())

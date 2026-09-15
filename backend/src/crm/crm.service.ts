@@ -25,6 +25,8 @@ import {
   EnrollmentCheckDto,
 } from './crm.dto';
 import type { Actor } from '../team/team.service';
+import { hasMessengerContact } from './intake-details';
+import type { IntakeDetails } from './intake-details';
 
 export function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, '');
@@ -214,6 +216,12 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
                 { parentName: { contains: q.search, mode: 'insensitive' } },
                 { phone: { contains: q.search.replace(/[ ()-]/g, '') } },
                 { childName: { contains: q.search, mode: 'insensitive' } },
+                {
+                  intakeDetails: {
+                    path: ['contactSearch'],
+                    string_contains: q.search.toLowerCase(),
+                  },
+                },
               ],
             }
           : {}),
@@ -233,14 +241,16 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           include: { child: { select: { id: true, name: true } } },
         })
       : null;
-    const relatedLeads = await this.prisma.crmLead.findMany({
-      where: { phone: lead.phone, id: { not: lead.id } },
-      select: { id: true, parentName: true, childName: true, state: true },
-      take: 20,
-    });
+    const relatedLeads = lead.phone
+      ? await this.prisma.crmLead.findMany({
+          where: { phone: lead.phone, id: { not: lead.id } },
+          select: { id: true, parentName: true, childName: true, state: true },
+          take: 20,
+        })
+      : [];
     return { ...lead, enrollment, relatedLeads };
   }
-  private async leadData(dto: LeadDto) {
+  private async leadData(dto: LeadDto, allowMissingPhone = false) {
     if (!dto.parentName.trim())
       throw new BadRequestException('Укажите родителя');
     const birthDate = dto.birthDate
@@ -267,7 +277,8 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Выберите действующего администратора');
     return {
       parentName: dto.parentName.trim(),
-      phone: normalizePhone(dto.phone),
+      phone:
+        !dto.phone.trim() && allowMissingPhone ? '' : normalizePhone(dto.phone),
       email: dto.email?.trim().toLowerCase() || null,
       childName: dto.childName.trim(),
       birthDate,
@@ -297,8 +308,13 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('Заявка изменена. Обновите карточку');
     return lead;
   }
-  async create(dto: LeadDto, actor: Actor | null, externalKey?: string) {
-    const data = await this.leadData(dto);
+  async create(
+    dto: LeadDto,
+    actor: Actor | null,
+    externalKey?: string,
+    intakeDetails?: IntakeDetails,
+  ) {
+    const data = await this.leadData(dto, hasMessengerContact(intakeDetails));
     return this.prisma.$transaction(async (tx) => {
       if (externalKey) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'intake:' + externalKey}))`;
@@ -315,6 +331,15 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           ...data,
           stageId: stage.id,
           externalKey,
+          ...(intakeDetails
+            ? {
+                intakeDetails: {
+                  ...intakeDetails,
+                  contactSearch: intakeDetails.contactValue.toLowerCase(),
+                  receivedAt: new Date().toISOString(),
+                },
+              }
+            : {}),
           history: {
             create: {
               kind: 'created',
@@ -327,9 +352,12 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     });
   }
   async update(id: string, dto: LeadDto, actor: Actor) {
-    const data = await this.leadData(dto);
     return this.prisma.$transaction(async (tx) => {
       const lead = await this.lock(tx, id, dto.revision ?? -1);
+      const data = await this.leadData(
+        dto,
+        hasMessengerContact(lead.intakeDetails),
+      );
       const changedReminder =
         lead.nextActionAt?.getTime() !== data.nextActionAt?.getTime() ||
         lead.ownerId !== data.ownerId;
@@ -443,6 +471,10 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           });
         if (lead.revision !== dto.revision)
           throw new ConflictException('Заявка изменена. Обновите карточку');
+        if (!lead.phone)
+          throw new BadRequestException(
+            'Перед зачислением добавьте телефон родителя в данные заявки',
+          );
         const enrollment = await this.admissions.enroll(
           tx,
           {
