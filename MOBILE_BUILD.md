@@ -11,7 +11,7 @@ cd mobile
 npm install
 ```
 
-Если ещё нет — установить EAS CLI:
+Если еще нет — установить EAS CLI:
 
 ```bash
 npm i -g eas-cli
@@ -66,7 +66,7 @@ cd android && ./gradlew assembleRelease
 
 ### Главная сложность для РФ
 
-С 2022 года **Apple не выдаёт новые Developer-аккаунты разработчикам из РФ**. Существующие аккаунты до санкций — продолжают работать. Варианты:
+С 2022 года **Apple не выдает новые Developer-аккаунты разработчикам из РФ**. Существующие аккаунты до санкций — продолжают работать. Варианты:
 
 | Вариант | Цена | Сложность |
 |---|---|---|
@@ -109,7 +109,7 @@ open globoatlas.xcworkspace
 2. Заполнить: описание, скриншоты (требуют 6.7", 5.5", iPad), privacy policy URL, age rating (4+)
 3. Загрузить `.ipa` через EAS или Transporter
 4. Подача на review — **обычно 1-2 дня**
-5. **Срок жизни review** — Apple может запросить демо-аккаунт (вы создаёте test-учётку и указываете в metadata)
+5. **Срок жизни review** — Apple может запросить демо-аккаунт (вы создаете test-учетку и указываете в metadata)
 
 **Ключевое:** Apple требует URL политики конфиденциальности → у нас уже есть `/privacy` ✓ (заполнить юр. текст до подачи).
 
@@ -160,7 +160,7 @@ open globoatlas.xcworkspace
 EXPO_PUBLIC_API_URL=https://app.example.com
 ```
 
-Передаётся через `extra` в `app.json` или в момент сборки:
+Передается через `extra` в `app.json` или в момент сборки:
 
 ```bash
 EXPO_PUBLIC_API_URL=https://app.example.com eas build --platform ios --profile production

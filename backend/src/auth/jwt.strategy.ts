@@ -30,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     });
     if (!user) throw new UnauthorizedException();
-    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удалён');
+    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удален');
     if (user.blockedAt) throw new UnauthorizedException('Доступ заблокирован администратором');
     // Не возвращаем эти поля во всех консьюмерах — стрипаем
     const { deletedAt: _d, blockedAt: _b, ...safe } = user;

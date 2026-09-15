@@ -15,9 +15,9 @@ export async function checkAdmission(
   };
   const birth = date(dto.birthDate),
     start = date(dto.startsOn);
-  if (!dto.childName?.trim()) missing.push('Имя ребёнка');
+  if (!dto.childName?.trim()) missing.push('Имя ребенка');
   if (!birth || birth > new Date())
-    missing.push('Корректная дата рождения ребёнка');
+    missing.push('Корректная дата рождения ребенка');
   if (!start || (birth && birth > start))
     missing.push('Корректная дата начала посещения');
   if (!dto.parentName?.trim()) missing.push('Имя родителя');
@@ -48,7 +48,7 @@ export async function checkAdmission(
     dto.childId &&
     (!child || !parent || !child.parents.some((p) => p.parentId === parent.id))
   )
-    missing.push('Ребёнок, связанный с выбранным родителем');
+    missing.push('Ребенок, связанный с выбранным родителем');
   if (
     !dto.childId &&
     parent &&
@@ -63,7 +63,7 @@ export async function checkAdmission(
     }))
   )
     missing.push(
-      'Ребёнок уже есть: выберите его в поле «Существующий ребёнок»',
+      'Ребенок уже есть: выберите его в поле «Существующий ребенок»',
     );
   const group = dto.groupId
     ? await db.group.findUnique({ where: { id: dto.groupId } })
@@ -89,8 +89,8 @@ export async function checkAdmission(
     missing,
     parentAccess: parent?.consentGivenAt ? 'active' : 'invite',
     afterEnrollment: [
-      'Фото ребёнка',
-      'Представители, которые могут забирать ребёнка',
+      'Фото ребенка',
+      'Представители, которые могут забирать ребенка',
       'Сведения о документах и особенностях — по правилам сада',
     ],
   };

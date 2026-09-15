@@ -126,14 +126,14 @@ export default function ProgressPage() {
       eyebrow={
         child
           ? `${child.name.toUpperCase()}${child.group?.name ? ` · ${child.group.name.toUpperCase()}` : ''}${child.group?.ageRange ? ` · ${child.group.ageRange.toUpperCase()}` : ''}`
-          : 'Профиль ребёнка'
+          : 'Профиль ребенка'
       }
       title="Карта развития"
       actions={
         <>
           <Button variant="outline" size="sm" onClick={handleDownloadReport}>
             <Download size={16} />
-            Отчёт PDF
+            Отчет PDF
           </Button>
           <Button variant="primary" size="sm">
             <Share2 size={16} />
@@ -383,7 +383,7 @@ export default function ProgressPage() {
         <div className="space-y-4">
           {feed.length === 0 ? (
             <Card padding="md">
-              <div className="text-sm text-slate-400 py-6 text-center">Публикаций про ребёнка пока нет</div>
+              <div className="text-sm text-slate-400 py-6 text-center">Публикаций про ребенка пока нет</div>
             </Card>
           ) : (
             feed.map(item => (

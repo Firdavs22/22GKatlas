@@ -5,6 +5,7 @@ import { Card, Button, SectionLabel } from '@/components/ui';
 import api from '@/lib/api';
 import AuthMedia from '@/components/AuthMedia';
 import FileUpload from '@/components/FileUpload';
+import ChildContactsSummary, { FAMILY_RELATIONS } from '@/components/ChildContactsSummary';
 
 const EXTRA_SERVICES = ['Логопед', 'Хореография', 'Музыка', 'Английский', 'Рисование', 'Плавание', 'Шахматы', 'Робототехника'];
 
@@ -15,6 +16,7 @@ interface ContactDraft {
   name: string;
   phone: string;
   relation: string;
+  email?: string;
 }
 
 interface ParentLinkDraft {
@@ -39,7 +41,7 @@ interface ChildEditCardProps {
     parents?: { parent: { id: string; name: string; email?: string; phone?: string } }[];
   };
   groups?: { id: string; name: string }[];
-  /** Когда удалось сохранить — отдадим обновлённого ребёнка. */
+  /** Когда удалось сохранить — отдадим обновленного ребенка. */
   onUpdated?: (child: unknown) => void;
 }
 
@@ -111,7 +113,7 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
 
   const persist = async (): Promise<boolean> => {
     if (!name.trim()) {
-      setSaveError('Введите имя ребёнка');
+      setSaveError('Введите имя ребенка');
       setSaveStatus('error');
       return false;
     }
@@ -132,8 +134,8 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
         extraServices,
         notes: notes || null,
         groupId: groupId || null,
-        contacts: contacts.filter(c => c.name || c.phone),
-        representatives: representatives.filter(c => c.name || c.phone),
+        contacts: contacts.filter(c => c.name || c.phone || c.email),
+        representatives: representatives.filter(c => c.name || c.phone || c.email),
         parentLinks: validParents.map(p => ({
           id: p.id,
           name: p.name.trim(),
@@ -163,9 +165,9 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
     if (ok) setEditing(false);
   };
 
-  const addRow = (which: 'contacts' | 'representatives') => {
+  const addRow = (which: 'contacts' | 'representatives', relation = '') => {
     const setter = which === 'contacts' ? setContacts : setRepresentatives;
-    setter(prev => [...prev, { name: '', phone: '', relation: '' }]);
+    setter(prev => [...prev, { name: '', phone: '', email: '', relation }]);
   };
   const updateRow = (which: 'contacts' | 'representatives', i: number, patch: Partial<ContactDraft>) => {
     const setter = which === 'contacts' ? setContacts : setRepresentatives;
@@ -201,6 +203,13 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
             Редактировать
           </Button>
         </div>
+        <div className="mt-5"><ChildContactsSummary contacts={contacts} representatives={representatives} /></div>
+        <section className="mt-4 text-sm"><SectionLabel>Кто может забирать</SectionLabel>
+          {representatives.length ? representatives.map((c, i) => <p className="mt-2 break-words" key={i}>{[c.relation, c.name, c.phone, c.email].filter(Boolean).join(' · ')}</p>) : <p className="text-slate-400 mt-2">Не указано</p>}
+        </section>
+        {allergies && <section className="rounded-xl border border-red-300 bg-red-50 text-red-900 p-3 mt-4 text-sm"><h3 className="font-medium">Аллергии / особенности питания</h3><p className="whitespace-pre-wrap mt-2">{allergies}</p></section>}
+        {!!extraServices.length && <p className="text-sm mt-4">Дополнительные услуги: {extraServices.join(', ')}</p>}
+        {notes && <section className="mt-4 text-sm"><SectionLabel>Заметки</SectionLabel><p className="mt-2 whitespace-pre-wrap">{notes}</p></section>}
       </Card>
     );
   }
@@ -357,7 +366,7 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
             )}
             {parentLinks.length === 0 && (
               <div className="text-[11px] text-danger mt-1">
-                У ребёнка должен быть хотя бы один родитель.
+                У ребенка должен быть хотя бы один родитель.
               </div>
             )}
           </div>
@@ -407,7 +416,7 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-                Экстренные контакты
+                Семья и контакты
               </label>
               <button
                 type="button"
@@ -417,6 +426,8 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
                 <Plus size={12} /> Добавить
               </button>
             </div>
+            <div className="flex flex-wrap gap-2 mb-3">{FAMILY_RELATIONS.map(relation => <button key={relation} type="button" className="text-xs border border-slate-200 rounded-full px-3 py-1.5 hover:border-brand" onClick={() => addRow('contacts', relation)}>+ {relation}</button>)}</div>
+            <p className="text-xs text-slate-500 mb-3">Контакты для связи. Разрешение забирать ребенка укажите отдельно ниже.</p>
             <ContactList
               rows={contacts}
               onUpdate={(i, patch) => updateRow('contacts', i, patch)}
@@ -644,7 +655,7 @@ function ContactList({
   return (
     <div className="space-y-2">
       {rows.map((r, i) => (
-        <div key={i} className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr_auto] gap-2 items-center">
+        <div key={i} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1fr_auto] gap-2 items-center">
           <input
             placeholder="Имя"
             value={r.name}
@@ -657,6 +668,7 @@ function ContactList({
             onChange={e => onUpdate(i, { phone: e.target.value })}
             className={inputCls}
           />
+          <input placeholder="Почта" aria-label="Почта контакта" type="email" value={r.email || ''} onChange={e => onUpdate(i, { email: e.target.value })} className={inputCls} />
           <input
             placeholder="Кто (бабушка, отец…)"
             value={r.relation}

@@ -65,7 +65,7 @@ const emptyData = (): WizardData => ({
   representatives: [],
   notes: '',
   // По умолчанию новые дети помечаются как «в адаптации» — администратор
-  // или педагог снимут тег когда ребёнок освоится в группе.
+  // или педагог снимут тег когда ребенок освоится в группе.
   inAdaptation: true,
 });
 
@@ -109,7 +109,7 @@ export default function ChildWizard({ groups, onClose, onCreated }: ChildWizardP
       onCreated({ id: child.id, name: child.name }, child.invites || []);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Не удалось создать карточку ребёнка');
+      setError(msg || 'Не удалось создать карточку ребенка');
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +126,7 @@ export default function ChildWizard({ groups, onClose, onCreated }: ChildWizardP
       >
         <div className="p-6 border-b border-slate-100 flex items-start justify-between">
           <div className="flex-1">
-            <SectionLabel>Зачисление ребёнка</SectionLabel>
+            <SectionLabel>Зачисление ребенка</SectionLabel>
             <h3 className="font-serif text-2xl mt-1">Шаг {step} из {TOTAL_STEPS}</h3>
             {/* Progress bar */}
             <div className="mt-3 flex gap-1">
@@ -184,7 +184,7 @@ export default function ChildWizard({ groups, onClose, onCreated }: ChildWizardP
           ) : (
             <Button variant="primary" onClick={submit} disabled={submitting}>
               <Check size={16} />
-              {submitting ? 'Создаём…' : 'Создать и пригласить'}
+              {submitting ? 'Создаем…' : 'Создать и пригласить'}
             </Button>
           )}
         </div>
@@ -201,12 +201,12 @@ function Step1({ data, update }: { data: WizardData; update: <K extends keyof Wi
   return (
     <div className="space-y-5">
       <div>
-        <h4 className="font-serif text-2xl mb-1">О ребёнке</h4>
+        <h4 className="font-serif text-2xl mb-1">О ребенке</h4>
         <p className="text-sm text-slate-500">Основные данные для зачисления.</p>
       </div>
       <div>
         <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
-          ФИО ребёнка
+          ФИО ребенка
         </label>
         <input
           value={data.name}
@@ -238,7 +238,7 @@ function Step1({ data, update }: { data: WizardData; update: <K extends keyof Wi
         <div>
           <div className="text-sm font-medium">Период адаптации</div>
           <div className="text-xs text-slate-500 mt-0.5">
-            Новый ребёнок — выделим бейджем у педагога и админа. Снимется потом вручную, когда освоится.
+            Новый ребенок — выделим бейджем у педагога и админа. Снимется потом вручную, когда освоится.
           </div>
         </div>
       </label>
@@ -261,7 +261,7 @@ function Step2({ data, update }: { data: WizardData; update: <K extends keyof Wi
       <div>
         <h4 className="font-serif text-2xl mb-1">Родители</h4>
         <p className="text-sm text-slate-500">
-          Каждому родителю с email автоматически придёт ссылка для входа в личный кабинет.
+          Каждому родителю с email автоматически придет ссылка для входа в личный кабинет.
         </p>
       </div>
       <div className="space-y-3">
@@ -490,16 +490,16 @@ function Step5({ data, groups }: { data: WizardData; groups: Group[] }) {
       <div>
         <h4 className="font-serif text-2xl mb-1">Проверка данных</h4>
         <p className="text-sm text-slate-500">
-          Убедитесь что всё верно. Родителям с email{' '}
+          Убедитесь что все верно. Родителям с email{' '}
           <span className="inline-flex items-center gap-1 text-foreground">
             <Mail size={12} /> {validParents.length}
           </span>{' '}
-          сразу уйдёт ссылка для входа.
+          сразу уйдет ссылка для входа.
         </p>
       </div>
 
       <Card padding="md">
-        <SectionLabel>Ребёнок</SectionLabel>
+        <SectionLabel>Ребенок</SectionLabel>
         <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
           <div>
             <div className="text-xs text-slate-500">ФИО</div>

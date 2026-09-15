@@ -40,7 +40,7 @@ export class AuditController {
     const byId = new Map(users.map(u => [u.id, u]));
     return rows.map(r => ({
       ...r,
-      actor: r.actorId ? byId.get(r.actorId) || { id: r.actorId, name: '(удалён)', email: null } : null,
+      actor: r.actorId ? byId.get(r.actorId) || { id: r.actorId, name: '(удален)', email: null } : null,
     }));
   }
 }

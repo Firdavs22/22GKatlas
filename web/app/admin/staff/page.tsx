@@ -300,7 +300,7 @@ export default function AdminStaff() {
                     <button
                       onClick={() => resendInvite(s)}
                       disabled={busy || isSelf || isSuper}
-                      title={isSelf ? 'Себе не нужно' : isSuper ? 'Этот аккаунт защищён' : 'Сбросить пароль и выслать новое приглашение'}
+                      title={isSelf ? 'Себе не нужно' : isSuper ? 'Этот аккаунт защищен' : 'Сбросить пароль и выслать новое приглашение'}
                       className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <KeyRound size={13} /> Сбросить
@@ -310,7 +310,7 @@ export default function AdminStaff() {
                       disabled={busy || isSelf || isSuper}
                       title={
                         isSelf ? 'Нельзя заблокировать себя'
-                          : isSuper ? 'Этот аккаунт защищён'
+                          : isSuper ? 'Этот аккаунт защищен'
                           : isBlocked ? 'Разблокировать вход' : 'Заблокировать вход'
                       }
                       className={`inline-flex items-center gap-1.5 text-xs px-3 h-8 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
@@ -326,7 +326,7 @@ export default function AdminStaff() {
                       disabled={busy || isSelf || isSuper}
                       title={
                         isSelf ? 'Нельзя удалить себя'
-                          : isSuper ? 'Этот аккаунт защищён'
+                          : isSuper ? 'Этот аккаунт защищен'
                           : 'Удалить аккаунт (анонимизация ПДн, необратимо)'
                       }
                       className="inline-flex items-center gap-1.5 text-xs text-red-700 border border-red-200 px-3 h-8 rounded-full hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
@@ -360,7 +360,7 @@ export default function AdminStaff() {
             <h3 className="font-serif text-2xl mb-2">Удалить сотрудника</h3>
             <p className="text-sm text-slate-600 mb-4">
               Аккаунт <span className="font-medium text-foreground">{deleteTarget.name}</span> ({deleteTarget.email}) будет анонимизирован:
-              email, имя, телефон и пароль будут стёрты. Это необратимо.
+              email, имя, телефон и пароль будут стерты. Это необратимо.
             </p>
             <p className="text-xs text-slate-500 mb-3">
               Связанные записи (наблюдения, портфолио, чаты) сохраняются для целостности — через 30 дней физически удаляются по расписанию.

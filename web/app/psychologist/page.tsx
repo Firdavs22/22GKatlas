@@ -65,7 +65,7 @@ export default function PsychologistChildren() {
       eyebrow={
         groupFilter.size > 0 || search
           ? `Найдено: ${filtered.length} из ${children.length}`
-          : `${children.length} ${children.length === 1 ? 'ребёнок' : children.length < 5 ? 'ребёнка' : 'детей'}`
+          : `${children.length} ${children.length === 1 ? 'ребенок' : children.length < 5 ? 'ребенка' : 'детей'}`
       }
       title="Мои подопечные"
     >
@@ -75,7 +75,7 @@ export default function PsychologistChildren() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Имя ребёнка…"
+            placeholder="Имя ребенка…"
             className={`${inputCls} pl-9`}
           />
         </div>

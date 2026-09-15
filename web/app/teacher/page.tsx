@@ -212,7 +212,7 @@ export default function TeacherMatrix() {
 
   return (
     <PageLayout
-      eyebrow={`Группа ${groupName} · ${ageRange} · ${childrenCount} ${childrenCount === 1 ? 'ребёнок' : childrenCount < 5 ? 'ребёнка' : 'детей'}`}
+      eyebrow={`Группа ${groupName} · ${ageRange} · ${childrenCount} ${childrenCount === 1 ? 'ребенок' : childrenCount < 5 ? 'ребенка' : 'детей'}`}
       title="Матрица прогресса"
       full
       actions={
@@ -226,11 +226,11 @@ export default function TeacherMatrix() {
               )
             }
           >
-            {collapsedAreas.size === data.areas.length ? 'Развернуть всё' : 'Свернуть всё'}
+            {collapsedAreas.size === data.areas.length ? 'Развернуть все' : 'Свернуть все'}
           </Button>
           <Button variant="outline" size="sm">
             <Download size={16} />
-            Отчёт
+            Отчет
           </Button>
           <span className="inline-flex items-center gap-1.5 text-xs px-3 h-9 rounded-full bg-slate-50 text-slate-500 min-w-[120px] justify-center">
             {saveStatus === 'saving' || pending.size > 0 ? (
@@ -282,7 +282,7 @@ export default function TeacherMatrix() {
                   rowSpan={2}
                   className="sticky left-0 z-30 bg-white border-b border-r border-slate-100 px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 min-w-[180px] align-bottom"
                 >
-                  Ребёнок
+                  Ребенок
                 </th>
                 {areaColumns.map(({ area, collapsed, skillCount }) => (
                   <th

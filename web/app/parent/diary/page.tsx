@@ -45,7 +45,7 @@ export default function ParentDiary() {
       {sorted.length === 0 ? (
         <Card padding="md">
           <div className="text-sm text-slate-400 py-12 text-center">
-            Записи ещё не появились
+            Записи еще не появились
           </div>
         </Card>
       ) : (

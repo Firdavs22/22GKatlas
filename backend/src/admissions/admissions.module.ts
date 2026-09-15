@@ -90,7 +90,7 @@ export class AdmissionsService {
       (!child || !child.parents.some((p) => p.parentId === parent!.id))
     )
       throw new BadRequestException(
-        'Выбранный ребёнок не связан с этим родителем',
+        'Выбранный ребенок не связан с этим родителем',
       );
     if (
       !child &&
@@ -103,7 +103,7 @@ export class AdmissionsService {
       }))
     )
       throw new ConflictException(
-        'Ребёнок уже есть. Выберите его при зачислении',
+        'Ребенок уже есть. Выберите его при зачислении',
       );
     const occupied = await tx.child.count({
       where: {
@@ -115,7 +115,7 @@ export class AdmissionsService {
     if (occupied >= group.capacity)
       throw new ConflictException('В группе нет свободных мест');
     if (!dto.childName.trim())
-      throw new BadRequestException('Укажите имя ребёнка');
+      throw new BadRequestException('Укажите имя ребенка');
     const monthlyFee = dto.monthlyFee ?? group.monthlyFee;
     const data = {
       groupId: group.id,
@@ -165,7 +165,7 @@ export class AdmissionsService {
       if (!group) throw new NotFoundException('Группа не найдена');
       await tx.$queryRaw`SELECT id FROM "Child" WHERE id = ${childId} FOR UPDATE`;
       const child = await tx.child.findUnique({ where: { id: childId } });
-      if (!child) throw new NotFoundException('Ребёнок не найден');
+      if (!child) throw new NotFoundException('Ребенок не найден');
       if (
         child.groupId !== groupId &&
         (await tx.child.count({ where: { groupId, status: 'active' } })) >=

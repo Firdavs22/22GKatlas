@@ -100,7 +100,7 @@ export class AppointmentsService {
         data: {
           userId: slot.staffId,
           type: 'appointment',
-          title: 'Новая запись на приём',
+          title: 'Новая запись на прием',
           body: `${parent?.name || 'Родитель'} · ${slot.startsAt.toLocaleString('ru-RU')}`,
           data: { bookingId: booking.id, slotId },
         },

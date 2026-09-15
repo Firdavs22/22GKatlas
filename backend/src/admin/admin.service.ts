@@ -8,6 +8,7 @@ import { AdmissionsService } from '../admissions/admissions.module';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as XLSX from 'xlsx';
+import { ChildSafetyDto } from './dto/child-safety.dto';
 
 /** Strong random temporary password — used as placeholder until the invitee sets their own. */
 function strongTempPassword(): string {
@@ -124,7 +125,7 @@ export class AdminService {
     const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks, inAdaptation } = dto;
     const parents = this.normalizeParentLinks(parentLinks);
     if (!parents?.length) {
-      throw new BadRequestException('Укажите хотя бы одного родителя ребёнка');
+      throw new BadRequestException('Укажите хотя бы одного родителя ребенка');
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -160,6 +161,18 @@ export class AdminService {
     return { ...result.child, invites };
   }
 
+  async updateChildSafety(id: string, dto: ChildSafetyDto) {
+    return this.prisma.$transaction(async tx => {
+      const { safetyRevision, ...fields } = dto;
+      const result = await tx.child.updateMany({
+        where: { id, safetyRevision },
+        data: { ...fields, contactEmail: fields.contactEmail.trim(), safetyRevision: { increment: 1 } },
+      });
+      if (!result.count) throw new ConflictException('Карточка изменена другим сотрудником или удалена. Обновите страницу перед сохранением.');
+      return tx.child.findUniqueOrThrow({ where: { id } });
+    });
+  }
+
   async updateChild(id: string, dto: any, authService?: any) {
     const { name, birthDate, contacts, representatives, extraServices, allergies, documents, notes, groupId, photo, parentLinks, inAdaptation } = dto;
     const data: any = {};
@@ -176,7 +189,7 @@ export class AdminService {
     if (inAdaptation !== undefined) data.inAdaptation = !!inAdaptation;
     const parents = parentLinks === undefined ? undefined : this.normalizeParentLinks(parentLinks);
     if (parentLinks !== undefined && !parents?.length) {
-      throw new BadRequestException('У ребёнка должен быть хотя бы один родитель');
+      throw new BadRequestException('У ребенка должен быть хотя бы один родитель');
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -229,7 +242,7 @@ export class AdminService {
   }
 
   /**
-   * Полное удаление ребёнка и всех связанных данных (право на забвение 152-ФЗ).
+   * Полное удаление ребенка и всех связанных данных (право на забвение 152-ФЗ).
    * Необратимо — стирает прогресс, наблюдения, портфолио, посещаемость, чаты, платежи.
    */
   async hardDeleteChild(id: string) {
@@ -248,7 +261,7 @@ export class AdminService {
       await tx.payment.deleteMany({ where: { childId: id } });
       await tx.childParent.deleteMany({ where: { childId: id } });
       await tx.childSpecialist.deleteMany({ where: { childId: id } });
-      // Финал — сам ребёнок
+      // Финал — сам ребенок
       await tx.child.delete({ where: { id } });
     });
 
@@ -490,7 +503,7 @@ export class AdminService {
 
   /**
    * Soft-delete + анонимизация ПДн: убирает email/имя/телефон/аватар, инвалидирует пароль,
-   * выставляет deletedAt. Запись остаётся для FK-целостности (наблюдения, портфолио),
+   * выставляет deletedAt. Запись остается для FK-целостности (наблюдения, портфолио),
    * через 30 дней физически удаляется cron-скриптом.
    */
   async softDeleteStaff(id: string, actor: { id: string; role: string }) {
@@ -499,7 +512,7 @@ export class AdminService {
     }
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target) throw new NotFoundException();
-    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    if (target.deletedAt) throw new BadRequestException('Уже удален');
     if (target.role === 'superadmin') {
       throw new ForbiddenException('Нельзя удалить суперадминистратора');
     }
@@ -509,7 +522,7 @@ export class AdminService {
         where: this.manageableStaff(id, actor),
         data: {
           email: `${anonId}@deleted.local`,
-          name: 'Удалённый пользователь',
+          name: 'Удаленный пользователь',
           phone: null,
           avatar: null,
           password: 'INVALIDATED',
@@ -593,11 +606,11 @@ export class AdminService {
     });
   }
 
-  /** Заблокировать родителя — вход запрещён, данные сохраняются. */
+  /** Заблокировать родителя — вход запрещен, данные сохраняются. */
   async blockParent(id: string) {
     const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
     if (!target) throw new NotFoundException('Родитель не найден');
-    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    if (target.deletedAt) throw new BadRequestException('Уже удален');
     await this.prisma.user.update({ where: { id }, data: { blockedAt: new Date() } });
     await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
     return { ok: true };
@@ -614,14 +627,14 @@ export class AdminService {
   async softDeleteParent(id: string) {
     const target = await this.prisma.user.findFirst({ where: { id, role: 'parent' } });
     if (!target) throw new NotFoundException('Родитель не найден');
-    if (target.deletedAt) throw new BadRequestException('Уже удалён');
+    if (target.deletedAt) throw new BadRequestException('Уже удален');
     const anonId = `deleted-${id.slice(0, 8)}`;
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id },
         data: {
           email: `${anonId}@deleted.local`,
-          name: 'Удалённый родитель',
+          name: 'Удаленный родитель',
           phone: null,
           avatar: null,
           password: 'INVALIDATED',
@@ -1017,7 +1030,7 @@ export class AdminService {
     });
 
     const data = progress.map(p => ({
-      'Ребёнок': p.child.name,
+      'Ребенок': p.child.name,
       'Группа': p.child.group?.name || '-',
       'Зона': p.skill.group.area.title,
       'Категория': p.skill.group.title,
@@ -1044,7 +1057,7 @@ export class AdminService {
     });
 
     const data = payments.map(p => ({
-      'Ребёнок': p.child.name,
+      'Ребенок': p.child.name,
       'Группа': p.child.group?.name || '-',
       'Месяц': p.month.toISOString().split('T')[0].substring(0, 7),
       'Сумма начислено': p.amount,

@@ -59,14 +59,16 @@ export class FilesService implements OnModuleInit {
     }
   }
 
-  async uploadFile(file: Express.Multer.File, uploaderId?: string): Promise<UploadResult> {
+  async uploadFile(file: Express.Multer.File, uploaderId?: string, documentChildId?: string): Promise<UploadResult> {
     if (!file) throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
 
     const isImage = IMAGE_MIMETYPES.has(file.mimetype);
     const baseId = crypto.randomUUID();
 
     try {
-      const result = isImage
+      // Child documents preserve original bytes (including scans); their dedicated
+      // endpoint checks MIME and never allows SVG. Mark them private immediately.
+      const result = isImage && !documentChildId
         ? await this.uploadImage(baseId, file)
         : await this.uploadRaw(baseId, file);
 
@@ -81,7 +83,7 @@ export class FilesService implements OnModuleInit {
             this.prisma.fileMeta.upsert({
               where: { filename },
               update: {},
-              create: { filename, scope: 'uploader', uploaderId },
+              create: { filename, scope: documentChildId ? 'child-document' : 'uploader', uploaderId, childId: documentChildId },
             }),
           ),
         );
@@ -170,6 +172,7 @@ export class FilesService implements OnModuleInit {
   /** Video / pdf / docs go straight to MinIO unchanged. */
   private async uploadRaw(baseId: string, file: Express.Multer.File): Promise<UploadResult> {
     const ext = ({ 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
       'application/pdf': 'pdf', 'application/msword': 'doc',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',

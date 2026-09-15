@@ -436,7 +436,7 @@ export default function CrmPage() {
           {leadContact(lead)}
         </p>
         <p className="text-sm mt-3">
-          {lead.childName || "Имя ребёнка пока не указано"}
+          {lead.childName || "Имя ребенка пока не указано"}
         </p>
         {lead.direction && (
           <p className="text-xs text-slate-500">{lead.direction}</p>
@@ -498,7 +498,7 @@ export default function CrmPage() {
         <input
           aria-label="Поиск заявок"
           className={inputClass + " sm:!w-64"}
-          placeholder="Родитель, ребёнок, телефон"
+          placeholder="Родитель, ребенок, телефон"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -622,7 +622,7 @@ export default function CrmPage() {
             )}
           </div>
           <p className="mt-4 text-lg">
-            {detail.childName || "Ребёнок не указан"}
+            {detail.childName || "Ребенок не указан"}
           </p>
           <p className="text-sm text-slate-500">
             {detail.birthDate &&
@@ -632,7 +632,7 @@ export default function CrmPage() {
           {!!detail.relatedLeads?.length && (
             <div className="bg-amber-50 rounded-xl p-3 my-3 text-sm">
               <p className="font-medium">
-                С этим телефоном уже есть заявки. Проверьте ребёнка перед
+                С этим телефоном уже есть заявки. Проверьте ребенка перед
                 зачислением:
               </p>
               {detail.relatedLeads.map((l) => (
@@ -641,7 +641,7 @@ export default function CrmPage() {
                   className="block text-brand underline mt-1"
                   onClick={() => openLead(l.id)}
                 >
-                  {l.parentName} · {l.childName || "Ребёнок не указан"} ·{" "}
+                  {l.parentName} · {l.childName || "Ребенок не указан"} ·{" "}
                   {l.state === "won" ? "Зачислен" : "В работе"}
                 </button>
               ))}
@@ -670,7 +670,7 @@ export default function CrmPage() {
                   className="text-brand underline block mt-2"
                   href={"/admin/children/" + detail.enrollment.child.id}
                 >
-                  Открыть ребёнка в портале
+                  Открыть ребенка в портале
                 </Link>
               )}
               <button
@@ -687,7 +687,7 @@ export default function CrmPage() {
                         ? "У родителя уже есть доступ. Он входит со своим паролем."
                         : "Приглашение отправлено на " +
                             data.email +
-                            ". Родитель задаёт пароль по ссылке из письма.",
+                            ". Родитель задает пароль по ссылке из письма.",
                     );
                   })
                 }
@@ -779,7 +779,7 @@ export default function CrmPage() {
                   required
                   maxLength={5000}
                   aria-label="Результат контакта"
-                  placeholder="О чём договорились"
+                  placeholder="О чем договорились"
                   className={inputClass}
                   rows={3}
                   value={activity.text}
@@ -840,7 +840,7 @@ export default function CrmPage() {
                 <p className="text-xs text-slate-400">
                   {actionLabels[h.kind] || h.kind} · {dateTime(h.createdAt)} ·{" "}
                   {lookups.owners.find((o) => o.id === h.actorId)?.name ||
-                    (h.actorId ? "Администратор" : "Приём заявок")}
+                    (h.actorId ? "Администратор" : "Прием заявок")}
                 </p>
                 <p className="text-sm mt-1 whitespace-pre-wrap">{h.text}</p>
               </li>
@@ -880,7 +880,7 @@ export default function CrmPage() {
                           ? "Телефон (нужен перед зачислением)"
                           : "Телефон *",
                       email: "Email родителя",
-                      childName: "Имя ребёнка",
+                      childName: "Имя ребенка",
                       birthDate: "Дата рождения",
                       direction: "Направление",
                     }[k]
@@ -1050,7 +1050,7 @@ export default function CrmPage() {
             }}
           >
             <p className="text-sm text-slate-500">
-              Ребёнок появится в выбранной группе основного портала. Заявка
+              Ребенок появится в выбранной группе основного портала. Заявка
               сохранится в разделе «Зачислены».
             </p>
             <Field label="Группа *">
@@ -1137,7 +1137,7 @@ export default function CrmPage() {
               </Field>
             )}
             {enroll.parentId && (
-              <Field label="Ребёнок в портале">
+              <Field label="Ребенок в портале">
                 <select
                   className={inputClass}
                   value={enroll.childId}
@@ -1157,7 +1157,7 @@ export default function CrmPage() {
                     });
                   }}
                 >
-                  <option value="">Добавить нового ребёнка</option>
+                  <option value="">Добавить нового ребенка</option>
                   {lookups.children
                     .filter((c) =>
                       c.parents.some((p) => p.parentId === enroll.parentId),
@@ -1170,7 +1170,7 @@ export default function CrmPage() {
                 </select>
               </Field>
             )}
-            <Field label="Имя ребёнка *">
+            <Field label="Имя ребенка *">
               <input
                 required
                 disabled={!!enroll.childId}
@@ -1219,11 +1219,11 @@ export default function CrmPage() {
                   )}
                   <p className="mt-2">
                     {enrollmentCheck.parentAccess === "active"
-                      ? "Родитель войдёт с существующим паролем."
+                      ? "Родитель войдет с существующим паролем."
                       : "После зачисления отправьте родителю приглашение: он задаст пароль по ссылке."}
                   </p>
                   <p className="mt-2 text-slate-500">
-                    Затем в карточке ребёнка:{" "}
+                    Затем в карточке ребенка:{" "}
                     {enrollmentCheck.afterEnrollment.join("; ")}.
                   </p>
                 </>

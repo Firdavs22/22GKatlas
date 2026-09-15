@@ -99,7 +99,7 @@ export default function AdminFeedbackScreen() {
                         </View>
                       ) : (
                         <Text style={styles.authorName} numberOfLines={1}>
-                          {item.author?.name || 'Удалённый пользователь'}
+                          {item.author?.name || 'Удаленный пользователь'}
                         </Text>
                       )}
                       {!item.read ? (

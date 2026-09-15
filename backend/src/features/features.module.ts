@@ -31,7 +31,7 @@ export class FeatureGuard implements CanActivate {
       context.getClass(),
     ]);
     if (name && !enabledFeatures()[name])
-      throw new NotFoundException('Модуль отключён');
+      throw new NotFoundException('Модуль отключен');
     return true;
   }
 }

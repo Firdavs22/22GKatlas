@@ -85,7 +85,7 @@ export default function ParentAppointments() {
   return (
     <PageLayout
       eyebrow="К психологу, педиатру, педагогу"
-      title="Запись на приём"
+      title="Запись на прием"
     >
       {bookings.length > 0 && (
         <div className="mb-6">
@@ -180,7 +180,7 @@ export default function ParentAppointments() {
             onClick={e => e.stopPropagation()}
           >
             <div className="p-5 border-b border-slate-100">
-              <SectionLabel>Запись на приём</SectionLabel>
+              <SectionLabel>Запись на прием</SectionLabel>
               <div className="font-serif text-2xl mt-1">
                 {new Date(booking.slot.startsAt).toLocaleString('ru-RU', {
                   day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
@@ -195,7 +195,7 @@ export default function ParentAppointments() {
               {children.length > 1 && (
                 <div>
                   <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
-                    Ребёнок
+                    Ребенок
                   </label>
                   <select
                     value={booking.childId}

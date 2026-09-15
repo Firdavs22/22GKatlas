@@ -40,6 +40,7 @@ export class FileAccessService {
     const references = await this.prisma.$queryRaw<Reference[]>`
       SELECT kind, data FROM (
         SELECT 'child' AS kind, jsonb_build_object('id', id, 'url', photo) AS data FROM "Child"
+        UNION ALL SELECT 'child-document', jsonb_build_object('childId', "childId", 'deleted', "deletedAt" IS NOT NULL, 'url', '/api/files/' || filename) FROM "ChildDocument"
         UNION ALL SELECT 'observation', jsonb_build_object('childId', "childId", 'authorId', "userId", 'visible', visible, 'urls', photos) FROM "Observation"
         UNION ALL SELECT 'portfolio', jsonb_build_object('childId', "childId", 'url', "fileUrl") FROM "PortfolioItem"
         UNION ALL SELECT 'note', jsonb_build_object('childId', "childId", 'authorId', "specialistId", 'visibility', visibility, 'urls', attachments) FROM "SpecialistNote"
@@ -53,6 +54,18 @@ export class FileAccessService {
         UNION ALL SELECT 'library', jsonb_build_object('audience', audience, 'published', published, 'urls', attachments, 'body', body) FROM "MethodicalDocument"
       ) refs WHERE data::text ~ ${pattern}
     `;
+    // Child documents keep their stricter ACL even when copied into a public
+    // post/avatar. Removed documents and orphaned uploads must not fall back to
+    // uploader access. Teachers and specialists never inherit child-file access.
+    const childDocuments = references.filter(reference => reference.kind === 'child-document');
+    if (childDocuments.length || meta?.scope === 'child-document') {
+      if (user.role === 'parent') {
+        for (const reference of childDocuments) {
+          if (!reference.data.deleted && await this.childAccess(reference.data.childId, user)) return;
+        }
+      }
+      throw new ForbiddenException('Нет доступа к документам ребенка');
+    }
     // Library attachments retain document permissions even if their URL is copied elsewhere.
     const documents = references.filter(reference => reference.kind === 'library');
     if (documents.length) {

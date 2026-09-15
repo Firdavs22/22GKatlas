@@ -12,7 +12,7 @@ type Period = 'all' | 'today' | 'week' | 'month';
 type Sort = 'newest' | 'oldest';
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
-  { value: 'all', label: 'Всё' },
+  { value: 'all', label: 'Все' },
   { value: 'today', label: 'Сегодня' },
   { value: 'week', label: 'Неделя' },
   { value: 'month', label: 'Месяц' },

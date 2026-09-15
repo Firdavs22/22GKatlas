@@ -31,7 +31,7 @@ async function getCsrfToken(): Promise<string> {
   if (!csrfRequest) {
     csrfRequest = transport.get('/auth/csrf').then(({ data }) => {
       csrfToken = data.csrfToken;
-      if (!csrfToken) throw new Error('Не удалось подготовить защищённый запрос');
+      if (!csrfToken) throw new Error('Не удалось подготовить защищенный запрос');
       return csrfToken;
     }).finally(() => { csrfRequest = null; });
   }

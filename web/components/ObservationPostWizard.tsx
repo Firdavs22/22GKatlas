@@ -291,7 +291,7 @@ function Step1Media({
           <div>
             <h4 className="font-serif text-2xl mb-1">Добавьте фото</h4>
             <p className="text-sm text-slate-500">
-              Снимите момент работы ребёнка или выберите из галереи.
+              Снимите момент работы ребенка или выберите из галереи.
             </p>
           </div>
 
@@ -340,7 +340,7 @@ function Step1Media({
           )}
 
           <div className="text-center text-xs text-slate-400">
-            Можно пропустить этот шаг — текстовое наблюдение тоже подойдёт.
+            Можно пропустить этот шаг — текстовое наблюдение тоже подойдет.
           </div>
         </>
       ) : (
@@ -348,7 +348,7 @@ function Step1Media({
           <div>
             <h4 className="font-serif text-2xl mb-1">{photos.length} фото</h4>
             <p className="text-sm text-slate-500">
-              Можно добавить ещё или удалить лишние.
+              Можно добавить еще или удалить лишние.
             </p>
           </div>
 
@@ -429,7 +429,7 @@ function Step2Context({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
-            Ребёнок
+            Ребенок
           </label>
           <select
             value={childId}
@@ -484,7 +484,7 @@ function Step2Context({
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="Что развивает упражнение, как ребёнок с ним работал…"
+          placeholder="Что развивает упражнение, как ребенок с ним работал…"
           rows={6}
           className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
         />

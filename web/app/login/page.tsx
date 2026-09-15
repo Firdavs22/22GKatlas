@@ -23,7 +23,7 @@ interface LoginBranding {
 const DEFAULT_BRANDING: LoginBranding = {
   title: 'ГлобоАтлас',
   titleSize: 48,
-  subtitle: 'Среда, в которой ребёнок ведёт сам.',
+  subtitle: 'Среда, в которой ребенок ведет сам.',
   subtitleSize: 14,
   hasLogo: false,
   logoSize: 96,

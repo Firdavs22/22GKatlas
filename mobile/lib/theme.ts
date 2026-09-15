@@ -2,7 +2,7 @@
 // Никакого indigo/purple — только brand/brand-pale/success/warn/danger.
 
 export const colors = {
-  // Brand (тёмно-синий из прототипа)
+  // Brand (темно-синий из прототипа)
   brand: '#0F5192',
   brandSoft: '#1B6BB8',
   brandPale: '#D0E3F4',

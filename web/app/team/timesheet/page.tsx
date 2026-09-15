@@ -226,14 +226,14 @@ export default function TimesheetPage() {
               ).toFixed(2)}{" "}
               ч
             </span>
-            <span>{sheet.approvedAt ? "✓ Утверждён" : "Не утверждён"}</span>
+            <span>{sheet.approvedAt ? "✓ Утвержден" : "Не утвержден"}</span>
           </div>
           <p className="text-xs text-slate-500 mb-3">
-            График задаёт руководитель.{" "}
+            График задает руководитель.{" "}
             {sheet.clockEnabled
               ? "Часы считаются по отметкам начала и окончания работы, за вычетом заданного перерыва. Исправления вносит руководитель."
               : "Фактические часы заполняет сотрудник или руководитель."}{" "}
-            Невнесённые дни не считаются отработанными.
+            Невнесенные дни не считаются отработанными.
           </p>
           <div className="overflow-x-auto rounded-2xl bg-white border border-slate-200">
             <table className="w-full text-sm">

@@ -123,7 +123,7 @@ export default function MenuManager() {
   };
 
   const submit = async () => {
-    if (draftMeals.length === 0) return alert('Добавьте хотя бы один приём пищи');
+    if (draftMeals.length === 0) return alert('Добавьте хотя бы один прием пищи');
     if (!title || !startDate || !endDate) return alert('Заполните название и даты меню');
     const content = formatMenuContent(draftMeals);
     try {
@@ -419,7 +419,7 @@ export default function MenuManager() {
               </div>
               <div>
                 <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
-                  Приём пищи
+                  Прием пищи
                 </label>
                 <select
                   value={

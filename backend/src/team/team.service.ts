@@ -114,7 +114,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
       });
       if (sheet.approvedAt)
         throw new ConflictException(
-          'Табель утверждён. Руководитель должен открыть его для исправления',
+          'Табель утвержден. Руководитель должен открыть его для исправления',
         );
       const current = await tx.staffTimeEntry.findUnique({
         where: { sheetId_date: { sheetId: sheet.id, date: dto.date } },
@@ -155,7 +155,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
           dto.plannedEnd !== undefined ||
           dto.breakMinutes !== undefined)
       )
-        throw new ForbiddenException('График задаёт руководитель');
+        throw new ForbiddenException('График задает руководитель');
       const start = dto.clearPlan
         ? null
         : (dto.plannedStart ?? current?.plannedStart);
@@ -204,7 +204,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
         }))
       )
         throw new ConflictException(
-          'Есть незавершённая смена. Сначала уточните её время',
+          'Есть незавершенная смена. Сначала уточните ее время',
         );
       if (
         !reopen &&
@@ -212,7 +212,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
           sheet.entries.some((entry) => entry.actualMinutes === null))
       )
         throw new BadRequestException(
-          'Заполните фактические часы всех внесённых дней',
+          'Заполните фактические часы всех внесенных дней',
         );
       return tx.staffTimesheet.update({
         where: { id: sheet.id },
@@ -249,7 +249,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
         .filter((s) => s.date === e.date)
         .map((s) => s.endedAt?.toISOString() || 'Открыта')
         .join('; '),
-      Утверждён: sheet.approvedAt ? 'Да' : 'Нет',
+      Утвержден: sheet.approvedAt ? 'Да' : 'Нет',
     }));
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(

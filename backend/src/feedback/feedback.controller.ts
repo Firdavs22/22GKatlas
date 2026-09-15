@@ -11,14 +11,14 @@ export class FeedbackController {
   constructor(private readonly service: FeedbackService) {}
 
   // Любой авторизованный пользователь может отправить отзыв.
-  // Если isAnonymous=true — authorId не сохраняется. POST /feedback исключён из
-  // AuditInterceptor (см. SKIP_PATHS), чтобы userId не утёк в AuditLog.
+  // Если isAnonymous=true — authorId не сохраняется. POST /feedback исключен из
+  // AuditInterceptor (см. SKIP_PATHS), чтобы userId не утек в AuditLog.
   @Post()
   create(@CurrentUser() user: { id: string }, @Body() body: { message: string; isAnonymous?: boolean }) {
     return this.service.create(user.id, body.message, !!body.isAnonymous);
   }
 
-  // Видит только superadmin. RolesGuard: admin не пройдёт, т.к. requiredRoles=['superadmin']
+  // Видит только superadmin. RolesGuard: admin не пройдет, т.к. requiredRoles=['superadmin']
   // и в guard первый return true срабатывает только для самого superadmin'а.
   @Get()
   @Roles('superadmin')

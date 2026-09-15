@@ -150,20 +150,20 @@ async function main() {
   const sg4 = await prisma.skillGroup.upsert({
     where: { id: 'sg-counting' },
     update: {},
-    create: { id: 'sg-counting', title: 'Счёт', areaId: area3.id, sortOrder: 1 },
+    create: { id: 'sg-counting', title: 'Счет', areaId: area3.id, sortOrder: 1 },
   });
 
   const skills = [];
   const skillData = [
-    { id: 'skill-1', title: 'Мытьё рук', groupId: sg1.id, sortOrder: 1 },
-    { id: 'skill-2', title: 'Застёгивание пуговиц', groupId: sg1.id, sortOrder: 2 },
+    { id: 'skill-1', title: 'Мытье рук', groupId: sg1.id, sortOrder: 1 },
+    { id: 'skill-2', title: 'Застегивание пуговиц', groupId: sg1.id, sortOrder: 2 },
     { id: 'skill-3', title: 'Завязывание шнурков', groupId: sg1.id, sortOrder: 3 },
     { id: 'skill-4', title: 'Подметание', groupId: sg2.id, sortOrder: 1 },
     { id: 'skill-5', title: 'Полив цветов', groupId: sg2.id, sortOrder: 2 },
     { id: 'skill-6', title: 'Сортировка по цвету', groupId: sg3.id, sortOrder: 1 },
     { id: 'skill-7', title: 'Сортировка по форме', groupId: sg3.id, sortOrder: 2 },
-    { id: 'skill-8', title: 'Счёт до 10', groupId: sg4.id, sortOrder: 1 },
-    { id: 'skill-9', title: 'Счёт до 20', groupId: sg4.id, sortOrder: 2 },
+    { id: 'skill-8', title: 'Счет до 10', groupId: sg4.id, sortOrder: 1 },
+    { id: 'skill-9', title: 'Счет до 20', groupId: sg4.id, sortOrder: 2 },
   ];
 
   for (const s of skillData) {
@@ -210,7 +210,7 @@ async function main() {
   await prisma.feedItem.create({
     data: {
       type: 'child_achievement', scope: 'child', authorId: teacher.id, childId: child1.id, groupId: group.id,
-      title: 'Алиса освоила навык: Мытьё рук', text: 'Поздравляем!',
+      title: 'Алиса освоила навык: Мытье рук', text: 'Поздравляем!',
     },
   });
 
@@ -218,7 +218,7 @@ async function main() {
 
   // Schedule
   const scheduleData = [
-    { groupId: group.id, dayOfWeek: 1, timeStart: '08:00', timeEnd: '08:30', activity: 'Приём детей' },
+    { groupId: group.id, dayOfWeek: 1, timeStart: '08:00', timeEnd: '08:30', activity: 'Прием детей' },
     { groupId: group.id, dayOfWeek: 1, timeStart: '08:30', timeEnd: '09:00', activity: 'Утренний круг' },
     { groupId: group.id, dayOfWeek: 1, timeStart: '09:00', timeEnd: '10:30', activity: 'Свободная работа' },
     { groupId: group.id, dayOfWeek: 1, timeStart: '10:30', timeEnd: '11:00', activity: 'Перекус' },

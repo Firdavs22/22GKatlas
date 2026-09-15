@@ -56,7 +56,7 @@ function ResetForm() {
         <div className="w-12 h-12 mx-auto rounded-full bg-success/20 text-emerald-700 flex items-center justify-center mb-3">
           <CheckCircle2 size={20} />
         </div>
-        <h2 className="font-serif text-2xl mb-2">Пароль сменён</h2>
+        <h2 className="font-serif text-2xl mb-2">Пароль сменен</h2>
         <p className="text-sm text-slate-600">Перенаправляем на вход…</p>
       </div>
     );

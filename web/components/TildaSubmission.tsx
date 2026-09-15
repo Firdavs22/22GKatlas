@@ -46,7 +46,7 @@ export default function TildaSubmission({
         <strong>{contactLabels[details.contactMethod]}</strong>
       </p>
       <p className="break-words">Контакт: {details.contactValue}</p>
-      {details.childAge && <p>Возраст ребёнка: {details.childAge}</p>}
+      {details.childAge && <p>Возраст ребенка: {details.childAge}</p>}
       {details.visitDate && <p>Желаемая дата посещения: {details.visitDate}</p>}
       <p>
         Обработка персональных данных:{" "}

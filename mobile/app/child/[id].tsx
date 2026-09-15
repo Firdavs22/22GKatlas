@@ -90,7 +90,7 @@ export default function ChildProfileScreen() {
         {/* Quick links */}
         {[
           { label: 'Наблюдения', icon: 'eye-outline' as const, desc: 'Записи педагога' },
-          { label: 'Портфолио', icon: 'images-outline' as const, desc: 'Работы ребёнка' },
+          { label: 'Портфолио', icon: 'images-outline' as const, desc: 'Работы ребенка' },
           { label: 'Посещаемость', icon: 'calendar-outline' as const, desc: 'Статистика дней' },
           { label: 'Домашние задания', icon: 'clipboard-outline' as const, desc: 'Задания для дома' },
         ].map(link => (

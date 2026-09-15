@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ChildDocumentsModule } from './child-documents/child-documents.module';
 import { CrmModule } from './crm/crm.module';
 import { FeaturesModule } from './features/features.module';
 import { TeamModule } from './team/team.module';
@@ -45,6 +46,7 @@ import { FileAttachmentInterceptor } from './files/file-attachment.interceptor';
     AuthModule,
     AdminModule,
     ChildrenModule,
+    ChildDocumentsModule,
     FeedModule,
     ChatsModule,
     NotificationsModule,

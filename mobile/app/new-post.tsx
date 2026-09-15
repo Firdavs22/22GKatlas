@@ -92,7 +92,7 @@ export default function NewPostScreen() {
       });
       setPhotos(prev => [...prev, data.url]);
     } catch (err: any) {
-      Alert.alert('Ошибка загрузки', err?.response?.data?.message || err?.message || 'Попробуйте ещё раз');
+      Alert.alert('Ошибка загрузки', err?.response?.data?.message || err?.message || 'Попробуйте еще раз');
     } finally {
       setUploading(false);
     }
@@ -121,7 +121,7 @@ export default function NewPostScreen() {
 
   const publish = async () => {
     if (!childId) {
-      Alert.alert('Не выбран ребёнок');
+      Alert.alert('Не выбран ребенок');
       return;
     }
     setPublishing(true);
@@ -135,7 +135,7 @@ export default function NewPostScreen() {
       });
       router.back();
     } catch (err: any) {
-      Alert.alert('Не удалось опубликовать', err?.response?.data?.message || err?.message || 'Попробуйте ещё раз');
+      Alert.alert('Не удалось опубликовать', err?.response?.data?.message || err?.message || 'Попробуйте еще раз');
     } finally {
       setPublishing(false);
     }
@@ -282,7 +282,7 @@ function Step1Media({
           </View>
         )}
         <Text style={[styles.muted, { textAlign: 'center', fontSize: 12 }]}>
-          Можно пропустить — текстовое наблюдение тоже подойдёт.
+          Можно пропустить — текстовое наблюдение тоже подойдет.
         </Text>
       </View>
     );
@@ -292,7 +292,7 @@ function Step1Media({
     <View style={{ gap: spacing.lg }}>
       <View>
         <Text style={styles.h1}>{photos.length} фото</Text>
-        <Text style={styles.muted}>Можно добавить ещё или удалить лишние.</Text>
+        <Text style={styles.muted}>Можно добавить еще или удалить лишние.</Text>
       </View>
       <View style={styles.photoGrid}>
         {photos.map((url, i) => (
@@ -353,7 +353,7 @@ function Step2Context({
       </View>
 
       <View>
-        <SectionLabel>Ребёнок</SectionLabel>
+        <SectionLabel>Ребенок</SectionLabel>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -434,7 +434,7 @@ function Step2Context({
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Что развивает упражнение, как ребёнок с ним работал…"
+          placeholder="Что развивает упражнение, как ребенок с ним работал…"
           placeholderTextColor={colors.textMuted}
           multiline
           numberOfLines={6}

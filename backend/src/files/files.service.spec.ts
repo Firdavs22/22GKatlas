@@ -2,6 +2,17 @@ import { FilesService } from './files.service';
 import sharp from 'sharp';
 
 describe('Uploaded file content', () => {
+  it('preserves child document scans and immediately marks them as restricted files', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    const service = new FilesService({ fileMeta: { upsert } } as any);
+    const put = jest.spyOn(service as any, 'putObject').mockResolvedValue(undefined);
+    const original = await sharp({ create: { width: 2, height: 2, channels: 3, background: '#fff' } }).png().toBuffer();
+    const result = await service.uploadFile({ originalname: 'scan.png', mimetype: 'image/png', buffer: original } as any, 'parent', 'child');
+    expect(result.url).toMatch(/\.png$/);
+    expect(result.previewUrl).toBeUndefined();
+    expect(put).toHaveBeenCalledWith(expect.any(String), original, 'image/png');
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ scope: 'child-document', childId: 'child', uploaderId: 'parent' }) }));
+  });
   it('rasterizes SVG so uploaded scripts cannot be served as active SVG', async () => {
     const prisma = { fileMeta: { upsert: jest.fn().mockResolvedValue({}) } };
     const service = new FilesService(prisma as any);

@@ -8,6 +8,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from '../auth/auth.service';
 import { InviteStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { InviteParentDto, UpdateParentDto } from './dto/parent.dto';
+import { ChildSafetyDto } from './dto/child-safety.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -48,6 +49,11 @@ export class AdminController {
 
   @Put('children/:id')
   updateChild(@Param('id') id: string, @Body() dto: any) { return this.adminService.updateChild(id, dto, this.authService); }
+
+  @Patch('children/:id/safety')
+  updateChildSafety(@Param('id') id: string, @Body() dto: ChildSafetyDto) {
+    return this.adminService.updateChildSafety(id, dto);
+  }
 
   @Delete('children/:id')
   archiveChild(@Param('id') id: string) { return this.adminService.archiveChild(id); }

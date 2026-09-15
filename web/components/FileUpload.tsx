@@ -65,7 +65,7 @@ export default function FileUpload({
     } catch (err: unknown) {
       console.error('Upload error:', err);
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Ошибка загрузки файла. Попробуйте ещё раз.');
+      setError(msg || 'Ошибка загрузки файла. Попробуйте еще раз.');
     } finally {
       setUploading(false);
     }

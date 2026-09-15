@@ -26,7 +26,7 @@ const ALLOWED_MIMETYPES = [
  * SVG is a text format with no magic bytes and is allowed-by-client-mime
  * only; FilesService rasterizes SVG uploads before storage.
  */
-async function assertSafeMime(file: Express.Multer.File): Promise<void> {
+export async function assertSafeMime(file: Express.Multer.File): Promise<void> {
   // SVG and tiny text files won't be detected by magic bytes — fall back
   // to client-supplied mime which we already whitelisted.
   if (file.mimetype === 'image/svg+xml') return;
@@ -36,7 +36,7 @@ async function assertSafeMime(file: Express.Multer.File): Promise<void> {
   const detected = await fileTypeFromBuffer(file.buffer).catch(() => undefined);
   if (!detected) {
     throw new BadRequestException(
-      `Не удалось определить тип файла «${file.originalname}». Возможно, файл повреждён.`,
+      `Не удалось определить тип файла «${file.originalname}». Возможно, файл поврежден.`,
     );
   }
   if (!ALLOWED_MIMETYPES.includes(detected.mime)) {

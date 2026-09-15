@@ -106,7 +106,7 @@ export class ClockService {
         create: { userId: actor.id, month },
         update: {},
       });
-      if (sheet.approvedAt) throw new ConflictException('Табель уже утверждён');
+      if (sheet.approvedAt) throw new ConflictException('Табель уже утвержден');
       const entry = await tx.staffTimeEntry.findUnique({
         where: { sheetId_date: { sheetId: sheet.id, date } },
       });
@@ -199,7 +199,7 @@ export class ClockService {
       });
       if (sheet.approvedAt)
         throw new ConflictException(
-          'Руководитель должен открыть утверждённый табель',
+          'Руководитель должен открыть утвержденный табель',
         );
       const closed = await tx.staffClockSession.update({
         where: { id: active.id },

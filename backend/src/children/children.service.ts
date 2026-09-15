@@ -31,7 +31,7 @@ export class ChildrenService {
       case 'pediatrician':
         // Психолог и педиатр — штатные сотрудники. По умолчанию видят ВСЕХ активных
         // детей сада. Связь ChildSpecialist используется как метка «приоритетный
-        // подопечный» (для подсказок, заметок, записи на приём), но не ограничивает
+        // подопечный» (для подсказок, заметок, записи на прием), но не ограничивает
         // видимость.
         return this.prisma.child.findMany({
           where: { status: 'active' },
@@ -228,7 +228,7 @@ export class ChildrenService {
       let label = 'Только начинаем';
       if (percent >= 75)      label = 'Отлично';
       else if (percent >= 50) label = 'Хорошо развивается';
-      else if (percent >= 25) label = 'Идёт развитие';
+      else if (percent >= 25) label = 'Идет развитие';
       return { mastered, total, percent, label };
     };
 

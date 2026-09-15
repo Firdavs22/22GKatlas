@@ -163,7 +163,7 @@ export default function AdminChildren() {
   };
 
   const archive = async (childId: string) => {
-    if (!confirm('Отчислить ребёнка?')) return;
+    if (!confirm('Отчислить ребенка?')) return;
     await api.delete(`/admin/children/${childId}`);
     setChildren(prev => prev.map(c => (c.id === childId ? { ...c, status: 'left' } : c)));
   };
@@ -227,7 +227,7 @@ export default function AdminChildren() {
       actions={
         <Button variant="primary" size="sm" onClick={() => setWizardOpen(true)}>
           <Plus size={16} />
-          Зачислить ребёнка
+          Зачислить ребенка
         </Button>
       }
     >
@@ -242,7 +242,7 @@ export default function AdminChildren() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Имя ребёнка…"
+                placeholder="Имя ребенка…"
                 className={`${inputCls} pl-9`}
               />
             </div>
@@ -395,7 +395,7 @@ export default function AdminChildren() {
             <form onSubmit={saveForm}>
               <div className="p-6 border-b border-slate-100 flex items-start justify-between">
                 <h3 className="font-serif text-2xl">
-                  {editingId ? 'Редактировать ребёнка' : 'Новый ребёнок'}
+                  {editingId ? 'Редактировать ребенка' : 'Новый ребенок'}
                 </h3>
                 <button
                   type="button"
@@ -485,7 +485,7 @@ export default function AdminChildren() {
                     ))}
                   </div>
                   <p className="text-xs text-slate-400 mt-1.5">
-                    Родитель создаётся как пользователь с ролью «Родитель» и привязывается к ребёнку.
+                    Родитель создается как пользователь с ролью «Родитель» и привязывается к ребенку.
                   </p>
                 </div>
 
@@ -638,8 +638,8 @@ export default function AdminChildren() {
             </div>
             <h3 className="font-serif text-2xl mb-2">Удалить безвозвратно</h3>
             <p className="text-sm text-slate-600 mb-3">
-              Ребёнок <span className="font-medium text-foreground">{hardDeleteTarget.name}</span> и все связанные данные
-              (прогресс, наблюдения, портфолио, посещаемость, чаты, платежи) будут стёрты без возможности восстановления.
+              Ребенок <span className="font-medium text-foreground">{hardDeleteTarget.name}</span> и все связанные данные
+              (прогресс, наблюдения, портфолио, посещаемость, чаты, платежи) будут стерты без возможности восстановления.
             </p>
             <p className="text-xs text-slate-500 mb-4">
               Используйте только если родитель воспользовался правом на удаление данных.

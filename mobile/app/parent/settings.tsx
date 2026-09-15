@@ -40,7 +40,7 @@ export default function ParentSettingsScreen() {
     setSavingPwd(true);
     try {
       await api.put('/me/password', { oldPassword, newPassword });
-      Alert.alert('Готово', 'Пароль обновлён');
+      Alert.alert('Готово', 'Пароль обновлен');
       setOldPassword(''); setNewPassword('');
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -129,7 +129,7 @@ export default function ParentSettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Ваши данные</Text>
           <Text style={styles.helpText}>
-            Скачайте ZIP-архив со всеми данными, которые хранит о вас система: профиль, данные ребёнка,
+            Скачайте ZIP-архив со всеми данными, которые хранит о вас система: профиль, данные ребенка,
             фото из ленты и портфолио, прогресс, наблюдения, посещаемость.
           </Text>
           <Pressable onPress={exportData} style={styles.outlineBtn}>

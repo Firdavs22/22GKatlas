@@ -31,7 +31,7 @@ describe('Tilda webhook contract', () => {
       Name: ' Родитель ',
       Phone: '8 (999) 123-45-67',
       Email: 'PARENT@example.invalid',
-      childName: 'Ребёнок',
+      childName: 'Ребенок',
       COOKIES:
         'secret=private; TILDAUTM=utm_source%3Dtilda%7C%7C%7Cutm_campaign%3Dautumn',
       password: 'must-not-be-kept',
@@ -40,7 +40,7 @@ describe('Tilda webhook contract', () => {
     expect(dto).toMatchObject({
       parentName: 'Родитель',
       email: 'parent@example.invalid',
-      childName: 'Ребёнок',
+      childName: 'Ребенок',
       utmSource: 'tilda',
       utmCampaign: 'autumn',
       source: 'Tilda',

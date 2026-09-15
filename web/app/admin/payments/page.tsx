@@ -287,7 +287,7 @@ export default function AdminPayments() {
       </Card>
 
       <Card padding="md" variant="pale" className="mb-4 text-xs text-slate-600">
-        <strong className="text-foreground">Правила расчёта:</strong>
+        <strong className="text-foreground">Правила расчета:</strong>
         {' '}Базовая стоимость — из группы. Болезнь: <strong>−400 ₽/день</strong>. Отпуск: <strong>−50% дневной стоимости</strong>. Пропуск: без скидки.
       </Card>
 
@@ -296,7 +296,7 @@ export default function AdminPayments() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/40">
-                <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-4 py-3">Ребёнок</th>
+                <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-4 py-3">Ребенок</th>
                 <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-3 py-3">Группа</th>
                 <th className="text-right text-[11px] font-medium uppercase tracking-wider text-slate-500 px-3 py-3">Абонемент</th>
                 <th className="text-center text-[11px] font-medium uppercase tracking-wider text-slate-500 px-3 py-3">Болезнь</th>
@@ -436,7 +436,7 @@ export default function AdminPayments() {
                   {payments.filter(p => p.childId === historyChildId).length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                        Нет сохранённых платежей
+                        Нет сохраненных платежей
                       </td>
                     </tr>
                   )}

@@ -92,7 +92,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           data: owners.map((user) => ({
             userId: user.id,
             type: 'crm_contact',
-            title: 'Пора связаться с семьёй',
+            title: 'Пора связаться с семьей',
             body: 'В CRM наступил срок следующего контакта. Откройте заявки родителей.',
             data: { url: '/crm' },
           })),
@@ -407,13 +407,13 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       const lead = await this.lock(tx, id, dto.revision);
       if (dto.addToCalendar) {
         if (!enabledFeatures().team)
-          throw new BadRequestException('Календарь команды отключён');
+          throw new BadRequestException('Календарь команды отключен');
         if (!dto.nextActionAt || new Date(dto.nextActionAt) <= new Date())
           throw new BadRequestException('Укажите будущую дату встречи');
         const start = new Date(dto.nextActionAt);
         await tx.teamEvent.create({
           data: {
-            title: dto.nextAction || 'Встреча с семьёй',
+            title: dto.nextAction || 'Встреча с семьей',
             description: 'Заявка: ' + lead.parentName,
             kind: 'meeting',
             startsAt: start,
@@ -512,7 +512,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     const lead = await this.prisma.crmLead.findUnique({ where: { id } });
     if (!lead) throw new NotFoundException();
     if (lead.state === 'won')
-      throw new ConflictException('Ребёнок уже зачислен');
+      throw new ConflictException('Ребенок уже зачислен');
     return checkAdmission(this.prisma, {
       ...dto,
       parentName: lead.parentName,
@@ -523,7 +523,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
   async inviteParent(id: string, actor: Actor) {
     const lead = await this.prisma.crmLead.findUnique({ where: { id } });
     if (!lead?.enrollmentId)
-      throw new BadRequestException('Сначала зачислите ребёнка');
+      throw new BadRequestException('Сначала зачислите ребенка');
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: lead.enrollmentId },
       include: {

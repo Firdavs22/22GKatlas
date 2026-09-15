@@ -23,13 +23,13 @@ interface SkillRow {
 const META: Record<DimensionKey, { title: string; subtitle: string; Icon: typeof Heart; accent: string }> = {
   emotion: {
     title: 'Эмоции и общение',
-    subtitle: 'Самостоятельность, забота, сотрудничество — то, как ребёнок чувствует и взаимодействует.',
+    subtitle: 'Самостоятельность, забота, сотрудничество — то, как ребенок чувствует и взаимодействует.',
     Icon: Heart,
     accent: '#993556',
   },
   cognition: {
     title: 'Мышление и память',
-    subtitle: 'Концентрация, логика, восприятие, речь, счёт — основы познания мира.',
+    subtitle: 'Концентрация, логика, восприятие, речь, счет — основы познания мира.',
     Icon: Brain,
     accent: '#534AB7',
   },

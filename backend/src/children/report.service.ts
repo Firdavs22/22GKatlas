@@ -81,7 +81,7 @@ export class ReportService {
       pageMargins: [40, 40, 40, 40],
       defaultStyle: { font: Object.keys(fonts)[0] || 'Helvetica', fontSize: 11, lineHeight: 1.4 },
       content: [
-        { text: 'ГлобоАтлас — Отчёт о развитии ребёнка', style: 'header' },
+        { text: 'ГлобоАтлас — Отчет о развитии ребенка', style: 'header' },
         {
           canvas: [
             { type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#E2E8F0' },
@@ -112,7 +112,7 @@ export class ReportService {
               width: 'auto',
               stack: [
                 {
-                  text: `Дата отчёта: ${new Date().toLocaleDateString('ru-RU')}`,
+                  text: `Дата отчета: ${new Date().toLocaleDateString('ru-RU')}`,
                   fontSize: 10,
                   color: '#94A3B8',
                   alignment: 'right',

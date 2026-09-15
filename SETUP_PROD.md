@@ -41,7 +41,7 @@ usermod -aG sudo deploy
 rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
 ```
 
-Дальше всё делать **под `deploy`** (не root):
+Дальше все делать **под `deploy`** (не root):
 
 ```bash
 exit
@@ -50,7 +50,7 @@ ssh deploy@<IP-VPS>
 
 ### 1.3. Поставить свой SSH-ключ (на локальной машине)
 
-На своём компьютере (Mac/Linux/Windows) проверь, есть ли у тебя ключ:
+На своем компьютере (Mac/Linux/Windows) проверь, есть ли у тебя ключ:
 
 ```bash
 ls ~/.ssh/id_ed25519.pub
@@ -110,13 +110,13 @@ sudo sshd -t
 sudo systemctl restart ssh
 ```
 
-**В новом окне терминала** проверь, что вход по ключу ещё работает:
+**В новом окне терминала** проверь, что вход по ключу еще работает:
 
 ```bash
 ssh deploy@<IP-VPS>
 ```
 
-И что пароль действительно отключён:
+И что пароль действительно отключен:
 
 ```bash
 ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no deploy@31.129.107.181
@@ -351,13 +351,13 @@ curl -I https://your-domain.ru    # 200 / 301
 
 1. Открой `https://your-domain.ru/login`
 2. Войди как `admin@test.com / admin123`
-3. `/admin/staff` — создай своего настоящего админа на свой реальный email (придёт invite-ссылка)
+3. `/admin/staff` — создай своего настоящего админа на свой реальный email (придет invite-ссылка)
 4. Выйди, войди под собой
 5. В `/settings` — смени пароль
 6. В `/admin/staff` удали все тестовые `*@test.com` (или хотя бы смени им пароли)
 7. В `/admin/site-content` залей настоящую политику конфиденциальности
 
-> Бэкенд создаёт `admin@test.com` через `seed.ts` только если БД пустая. После замены пароля seed его не перетрёт.
+> Бэкенд создает `admin@test.com` через `seed.ts` только если БД пустая. После замены пароля seed его не перетрет.
 
 ---
 
@@ -434,7 +434,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml start storage
 
 ## 8. Логи и ротация
 
-Лимит логов уже включён в `docker-compose.yml` — 50 МБ × 5 файлов на сервис.
+Лимит логов уже включен в `docker-compose.yml` — 50 МБ × 5 файлов на сервис.
 
 ```bash
 docker compose logs -f backend                  # текущие логи backend
@@ -454,7 +454,7 @@ docker compose logs --since 1h                  # за последний час
 
 ### 9.2. Sentry (опционально, осторожно с ПДн)
 
-Каркас в коде есть, но **отключён по умолчанию**.
+Каркас в коде есть, но **отключен по умолчанию**.
 
 > **152-ФЗ**: Sentry-серверы в EU/US. Без явного согласия субъектов на трансграничную передачу ПДн — не включать. После запуска юр-блока согласовать с юристом, настроить scrubbing, и только тогда заполнить `SENTRY_DSN` в `.env`.
 
@@ -513,7 +513,7 @@ docker compose exec backend npx prisma migrate deploy
 
 ## 13. Чек-лист перед публичным запуском
 
-- [ ] SSH ключи настроены, вход по паролю отключён (`PasswordAuthentication no`)
+- [ ] SSH ключи настроены, вход по паролю отключен (`PasswordAuthentication no`)
 - [ ] `PermitRootLogin no`
 - [ ] UFW активен, открыты только 22/80/443
 - [ ] fail2ban работает (`fail2ban-client status sshd`)
@@ -521,14 +521,14 @@ docker compose exec backend npx prisma migrate deploy
 - [ ] Сильные секреты в `.env` (не `CHANGE_ME`)
 - [ ] `.env` имеет права 600 и в `.gitignore`
 - [ ] HTTPS работает, redirect 80→443
-- [ ] HSTS-заголовок отдаётся (проверь `curl -I https://your-domain.ru`)
-- [ ] Дефолтный admin-пароль сменён
+- [ ] HSTS-заголовок отдается (проверь `curl -I https://your-domain.ru`)
+- [ ] Дефолтный admin-пароль сменен
 - [ ] Тестовые аккаунты (`*@test.com`) удалены или с реальными именами
 - [ ] Cron бэкапы запущены, тестовое восстановление пройдено
-- [ ] UptimeRobot подключён к `/api/health`
+- [ ] UptimeRobot подключен к `/api/health`
 - [ ] Согласие на ПДн в форме инвайта работает
 - [ ] Политика конфиденциальности залита в `/admin/site-content`
-- [ ] Sentry **выключен** (или включён только после согласия пользователей)
+- [ ] Sentry **выключен** (или включен только после согласия пользователей)
 - [ ] Юр.лицо или ИП оформлено
 - [ ] Регистрация оператора ПДн в Роскомнадзоре (форма Р4) подана за 30 дней до публичного запуска
 

@@ -540,7 +540,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
     parentName: 'Тестовая семья',
     phone: '8 (999) 123-45-67',
     email: 'crm-parent@example.invalid',
-    childName: 'Тестовый ребёнок',
+    childName: 'Тестовый ребенок',
     birthDate: '2022-03-01',
     direction: 'Сад',
     priority: 'normal',
@@ -703,7 +703,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       groupId: 'group-a',
       startsOn: '2026-10-01',
       monthlyFee: 65000,
-      childName: 'Тестовый ребёнок',
+      childName: 'Тестовый ребенок',
       birthDate: '2022-03-01',
       revision: 4,
     };
@@ -771,7 +771,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
     const dto = {
       groupId: 'group-a',
       startsOn: '2026-10-01',
-      childName: 'Тестовый ребёнок',
+      childName: 'Тестовый ребенок',
       birthDate: '2022-03-01',
       revision: 1,
     };
@@ -1076,7 +1076,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
           .expect(201)
       ).body;
       expect(missing.ready).toBe(false);
-      expect(missing.missing).toContain('Имя ребёнка');
+      expect(missing.missing).toContain('Имя ребенка');
       await request(url)
         .post(`/api/crm/leads/${lead.id}/enroll`)
         .set(auth('director'))
@@ -1090,7 +1090,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       const fields = {
         groupId: 'group-a',
         startsOn: '2026-10-01',
-        childName: 'Ребёнок Tilda',
+        childName: 'Ребенок Tilda',
         birthDate: '2022-04-01',
       };
       const checked = (
@@ -1171,7 +1171,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       await post({
         ...form,
         tranid: 'site:another-child',
-        childName: 'Другой ребёнок',
+        childName: 'Другой ребенок',
       }).expect(200);
       expect(await prisma.crmLead.count({ where: { email: form.Email } })).toBe(
         2,

@@ -106,7 +106,7 @@ export class MeService {
         where: { id: userId },
         data: {
           email: `${anonId}@deleted.local`,
-          name: 'Удалённый пользователь',
+          name: 'Удаленный пользователь',
           phone: null,
           avatar: null,
           password: 'INVALIDATED',

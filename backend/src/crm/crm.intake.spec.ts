@@ -78,7 +78,7 @@ describe('Messenger leads through CRM', () => {
         {
           groupId: 'group',
           startsOn: '2026-10-01',
-          childName: 'Ребёнок',
+          childName: 'Ребенок',
           birthDate: '2022-01-01',
           revision: 1,
         },

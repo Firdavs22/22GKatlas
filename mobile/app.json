@@ -18,9 +18,9 @@
       "bundleIdentifier": "com.globokids.atlas",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Камера используется для фото- и видеоматериалов в ленте и портфолио ребёнка.",
+        "NSCameraUsageDescription": "Камера используется для фото- и видеоматериалов в ленте и портфолио ребенка.",
         "NSPhotoLibraryUsageDescription": "Доступ к галерее нужен для прикрепления фото к публикациям и портфолио.",
-        "NSPhotoLibraryAddUsageDescription": "ГлобоАтлас сохраняет скачанные фото ребёнка в галерею.",
+        "NSPhotoLibraryAddUsageDescription": "ГлобоАтлас сохраняет скачанные фото ребенка в галерею.",
         "NSMicrophoneUsageDescription": "Микрофон используется при записи видеосообщений педагогу.",
         "ITSAppUsesNonExemptEncryption": false
       }

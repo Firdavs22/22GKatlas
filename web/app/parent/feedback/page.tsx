@@ -44,7 +44,7 @@ export default function ParentFeedbackPage() {
             <div>
               <div className="font-medium text-sm text-green-900">Спасибо, сообщение отправлено</div>
               <div className="text-xs text-green-800/80 mt-1">
-                Можно отправить ещё одно, если есть что добавить.
+                Можно отправить еще одно, если есть что добавить.
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ function slugify(input: string): string {
   return input
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9а-яё\s-]/giu, '')
+    .replace(/[^a-z0-9а-я\u0451\s-]/giu, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 60) || `kb-${Date.now().toString(36)}`;

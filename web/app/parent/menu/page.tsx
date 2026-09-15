@@ -70,7 +70,7 @@ export default function MenuPage() {
       {!currentMenu ? (
         <Card padding="md">
           <div className="text-sm text-slate-400 py-12 text-center">
-            Меню ещё не опубликовано
+            Меню еще не опубликовано
           </div>
         </Card>
       ) : !hasParsedData ? (
@@ -85,7 +85,7 @@ export default function MenuPage() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/50">
                   <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3 w-28">
-                    Приём
+                    Прием
                   </th>
                   {MENU_DAY_NAMES.map((d, i) => (
                     <th

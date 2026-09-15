@@ -185,7 +185,7 @@ export default function PaymentsPage() {
                       Дата
                     </th>
                     <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-6 py-3">
-                      Счёт
+                      Счет
                     </th>
                   </tr>
                 </thead>
@@ -278,7 +278,7 @@ export default function PaymentsPage() {
                 <dd className="tabular-nums text-foreground">7723123456</dd>
               </div>
               <div>
-                <dt className="text-xs text-slate-500">Счёт</dt>
+                <dt className="text-xs text-slate-500">Счет</dt>
                 <dd className="tabular-nums text-foreground">40702 810 …</dd>
               </div>
             </dl>

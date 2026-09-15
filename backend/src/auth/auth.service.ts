@@ -19,7 +19,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException('Неверный email или пароль');
 
-    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удалён');
+    if (user.deletedAt) throw new UnauthorizedException('Аккаунт удален');
     if (user.blockedAt) throw new UnauthorizedException('Доступ заблокирован администратором');
 
     const valid = await bcrypt.compare(password, user.password);
@@ -41,11 +41,11 @@ export class AuthService {
     if (stored.expiresAt < new Date()) {
       // Clean up expired token
       await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-      throw new UnauthorizedException('Refresh-токен истёк');
+      throw new UnauthorizedException('Refresh-токен истек');
     }
     if (stored.user.deletedAt || stored.user.blockedAt) {
       await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-      throw new UnauthorizedException('Доступ к аккаунту прекращён');
+      throw new UnauthorizedException('Доступ к аккаунту прекращен');
     }
 
     // Rotate: delete old refresh token and issue a new pair
@@ -108,14 +108,14 @@ export class AuthService {
       select: { id: true, name: true, email: true, role: true, consentGivenAt: true, deletedAt: true, blockedAt: true },
     });
     if (!user) throw new NotFoundException();
-    if (user.deletedAt) throw new BadRequestException('Аккаунт удалён');
+    if (user.deletedAt) throw new BadRequestException('Аккаунт удален');
     if (user.blockedAt) throw new BadRequestException('Доступ заблокирован администратором');
     return {
       name: user.name,
       email: user.email,
       role: user.role,
       // Активирован = принял 152-ФЗ и установил свой пароль.
-      // (Просто наличие password — не индикатор, т.к. invite создаёт временный пароль.)
+      // (Просто наличие password — не индикатор, т.к. invite создает временный пароль.)
       alreadyActivated: !!user.consentGivenAt,
     };
   }

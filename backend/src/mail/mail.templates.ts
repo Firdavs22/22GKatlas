@@ -54,7 +54,7 @@ export interface ParentInviteVars {
 export function parentInvite(vars: ParentInviteVars): { subject: string; html: string; text: string } {
   const greeting = vars.parentName ? `Здравствуйте, ${vars.parentName}!` : 'Здравствуйте!';
   const childPart = vars.childName
-    ? `Для вашего ребёнка <strong>${escapeHtml(vars.childName)}</strong> создан личный кабинет в нашей системе.`
+    ? `Для вашего ребенка <strong>${escapeHtml(vars.childName)}</strong> создан личный кабинет в нашей системе.`
     : 'Для вас создан личный кабинет в нашей системе.';
 
   const subject = `Приглашение в личный кабинет ГлобоАтлас`;
@@ -67,7 +67,7 @@ export function parentInvite(vars: ParentInviteVars): { subject: string; html: s
       ${childPart}
     </p>
     <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:${FOREGROUND};">
-      Чтобы получить доступ — нажмите на кнопку ниже и создайте пароль. После этого вы сможете видеть прогресс ребёнка,
+      Чтобы получить доступ — нажмите на кнопку ниже и создайте пароль. После этого вы сможете видеть прогресс ребенка,
       получать новости группы и общаться с педагогом.
     </p>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
@@ -93,7 +93,7 @@ export function parentInvite(vars: ParentInviteVars): { subject: string; html: s
 
   const text =
     `${greeting}\n\n` +
-    `${vars.childName ? `Для вашего ребёнка ${vars.childName} создан личный кабинет.` : 'Для вас создан личный кабинет.'}\n\n` +
+    `${vars.childName ? `Для вашего ребенка ${vars.childName} создан личный кабинет.` : 'Для вас создан личный кабинет.'}\n\n` +
     `Откройте ссылку чтобы создать пароль:\n${vars.inviteUrl}\n\n` +
     `Ссылка действует 30 дней.\n\nГлобоАтлас`;
 

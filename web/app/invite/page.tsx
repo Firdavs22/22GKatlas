@@ -197,7 +197,7 @@ function InviteForm() {
           disabled={submitting || !consent}
           className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand-soft transition-colors disabled:opacity-50"
         >
-          {submitting ? 'Создаём аккаунт…' : (<>Войти в кабинет <ArrowRight size={16} /></>)}
+          {submitting ? 'Создаем аккаунт…' : (<>Войти в кабинет <ArrowRight size={16} /></>)}
         </button>
       </form>
     </div>

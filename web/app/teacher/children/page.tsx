@@ -6,6 +6,7 @@ import PageLayout from '@/components/PageLayout';
 import { Card, Badge } from '@/components/ui';
 import api from '@/lib/api';
 import { Child } from '@/lib/types';
+import ChildProfileCard, { ChildLike } from '@/components/ChildProfileCard';
 
 function calcAge(birthDate: string): number {
   const today = new Date();
@@ -46,7 +47,7 @@ export default function TeacherChildren() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Имя ребёнка…"
+            placeholder="Имя ребенка…"
             className={`${inputCls} pl-9`}
           />
         </div>
@@ -79,6 +80,17 @@ export default function TeacherChildren() {
 
 function ChildRow({ c, onAdaptChange }: { c: Child; onAdaptChange: (v: boolean) => void }) {
   const [busy, setBusy] = useState(false);
+  const [profile, setProfile] = useState<ChildLike | null>(null);
+  const [open, setOpen] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const toggleProfile = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true); setProfile(null); setProfileBusy(true); setProfileError('');
+    try { setProfile((await api.get(`/children/${c.id}`)).data); }
+    catch { setProfileError('Не удалось открыть карточку. Закройте ее и попробуйте снова.'); }
+    finally { setProfileBusy(false); }
+  };
 
   const toggleAdaptation = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -125,6 +137,8 @@ function ChildRow({ c, onAdaptChange }: { c: Child; onAdaptChange: (v: boolean) 
           {c.inAdaptation ? <><X size={13} /> Снять адаптацию</> : <><Sparkles size={13} /> Адаптация</>}
         </button>
       </div>
+      <button type="button" className="text-sm text-brand mt-3" disabled={profileBusy} onClick={toggleProfile}>{open ? 'Скрыть карточку' : 'Карточка ребенка и ограничения'}</button>
+      {open && <div className="mt-4">{profileBusy ? <p className="text-sm text-slate-500">Загрузка…</p> : profileError ? <p role="alert" className="text-sm text-red-700">{profileError}</p> : <ChildProfileCard child={profile} />}</div>}
     </Card>
   );
 }

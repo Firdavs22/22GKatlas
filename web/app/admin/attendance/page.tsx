@@ -351,7 +351,7 @@ export default function AdminAttendance() {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/40">
                   <th className="sticky left-0 bg-slate-50/40 text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3">
-                    Ребёнок
+                    Ребенок
                   </th>
                   {weekDates.map((d, i) => {
                     const isToday = fmt(d) === today;

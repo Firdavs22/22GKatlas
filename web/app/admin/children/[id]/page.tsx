@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Plus, X } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import ChildEditCard from '@/components/ChildEditCard';
+import ChildSafetyPanel, { ChildSafety } from '@/components/ChildSafetyPanel';
+import ChildDocuments from '@/components/ChildDocuments';
 import { Card, SectionLabel, Button } from '@/components/ui';
 import api from '@/lib/api';
 
@@ -16,7 +18,7 @@ const ROLE_LABEL: Record<string, string> = {
   pediatrician: 'Педиатр',
 };
 
-interface AdminChild {
+interface AdminChild extends ChildSafety {
   id: string;
   name?: string;
   birthDate?: string;
@@ -71,7 +73,7 @@ export default function AdminChildDetail() {
   };
 
   const removeSpecialist = async (specialistId: string) => {
-    if (!confirm('Снять специалиста с ребёнка?')) return;
+    if (!confirm('Снять специалиста с ребенка?')) return;
     try {
       await api.delete(`/admin/children/${id}/specialists/${specialistId}`);
       reloadChild();
@@ -117,10 +119,14 @@ export default function AdminChildDetail() {
       </div>
 
       <ChildEditCard
+        key={child.id}
         child={child}
         groups={groups}
         onUpdated={(c) => setChild(prev => ({ ...(prev || {}), ...(c as object) } as AdminChild))}
       />
+
+      <ChildSafetyPanel key={`safety-${child.id}`} child={child} childId={child.id} onSaved={updated => setChild(prev => prev ? { ...prev, ...updated } : prev)} />
+      <ChildDocuments key={`documents-${child.id}`} childId={child.id} />
 
       {(child.enrolledAt || child.monthlyFee != null) && <Card padding="md" className="mb-6"><SectionLabel>Условия посещения</SectionLabel><div className="flex flex-wrap gap-6 mt-3 text-sm">{child.enrolledAt && <p>Начало: {new Date(child.enrolledAt).toLocaleDateString('ru-RU')}</p>}{child.monthlyFee != null && <p>Плата в месяц: {Number(child.monthlyFee).toLocaleString('ru-RU')} ₽</p>}</div></Card>}
 

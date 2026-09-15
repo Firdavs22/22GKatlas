@@ -46,6 +46,7 @@ model User {
   feedbacks          Feedback[]
   timesheets         StaffTimesheet[]
   clockSessions      StaffClockSession[]
+  uploadedChildDocuments ChildDocument[]
 }
 
 enum Role {
@@ -150,12 +151,18 @@ model Child {
   photo           String?
   enrolledAt      DateTime    @default(now())
   status          ChildStatus @default(active)
-  // Период адаптации новичка. true = ребёнок недавно поступил, выделен отдельным
+  // Период адаптации новичка. true = ребенок недавно поступил, выделен отдельным
   // бейджем для педагогов и админа. Снимается вручную когда адаптация завершена.
   inAdaptation    Boolean     @default(false)
   externalId      String?
   contacts        Json? // [{name, phone, relation}]
   representatives Json? // [{name, phone, relation}]
+  forbiddenFoods  String    @default("")
+  contactEmail    String    @default("")
+  socialPublicationStatus String @default("unknown")
+  socialPublicationComment String @default("")
+  safetyRevision Int       @default(0)
+  documentFiles ChildDocument[]
   extraServices   String[]    @default([])
   allergies       String?
   documents       Json? // {medCard: bool, birthCert: bool, ...}
@@ -177,6 +184,23 @@ model Child {
   feedItems       FeedItem[]
   enrollments     Enrollment[]
   monthlyFee      Decimal?          @db.Decimal(10, 2)
+}
+
+model ChildDocument {
+  id           String   @id @default(uuid())
+  childId      String
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  title        String
+  category     String   @default("other")
+  filename     String   @unique
+  originalName String
+  size         Int
+  uploadedAt   DateTime @default(now())
+  uploaderId   String?
+  uploader     User?    @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  deletedAt    DateTime?
+
+  @@index([childId, uploadedAt])
 }
 
 enum ChildStatus {
@@ -773,7 +797,7 @@ model AuditLog {
   userAgent  String?
   // Sanitized request body (passwords stripped). Limited to 4 KB.
   body       Json?
-  // Free-form summary set by service when interesting (e.g. "Удалён ребёнок Иванов И.").
+  // Free-form summary set by service when interesting (e.g. "Удален ребенок Иванов И.").
   summary    String?
   durationMs Int?
   createdAt  DateTime @default(now())

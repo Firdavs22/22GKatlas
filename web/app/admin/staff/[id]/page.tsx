@@ -76,7 +76,7 @@ export default function AdminStaffDetail() {
 
           {staff.role === 'teacher' && (
             <div className="mt-3">
-              <div className="text-xs text-slate-500 mb-2">Закреплённая группа</div>
+              <div className="text-xs text-slate-500 mb-2">Закрепленная группа</div>
               {staff.teacherGroup ? (
                 <Link
                   href={`/admin/groups/${staff.teacherGroup.id}`}

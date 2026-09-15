@@ -28,7 +28,7 @@
 | Лента (детальный пост + лайтбокс) | `/parent/feed/[id]` | низкая | `app/parent/feed/[id].tsx` |
 | Меню питания | `/parent/menu` | низкая | `app/parent/menu.tsx` |
 | Рекомендации (home-tasks) | `/parent/home-tasks` | средняя | `app/parent/home-tasks.tsx` |
-| Запись на приём | `/parent/appointments` | средняя | `app/parent/appointments.tsx` |
+| Запись на прием | `/parent/appointments` | средняя | `app/parent/appointments.tsx` |
 | База знаний (KB) | `/parent/knowledge` | низкая | `app/parent/knowledge.tsx` + `[id].tsx` |
 | О системе (зоны/стадии) | `/parent/about` | низкая | `app/parent/about.tsx` |
 | Drill-down по измерению | `/parent/progress/dimension/[key]` | средняя | `app/parent/progress/dimension/[key].tsx` |
@@ -54,7 +54,7 @@
 |---|---|---|---|
 | Список своих детей | `/psychologist`, `/pediatrician` | низкая | `app/(role)/index.tsx` |
 | Рекомендации | `/recommendations` | средняя | `app/(role)/recommendations.tsx` |
-| Слоты приёма | `/slots` | средняя | `app/(role)/slots.tsx` |
+| Слоты приема | `/slots` | средняя | `app/(role)/slots.tsx` |
 
 ### Приоритет 4 — Admin
 Админам мобилка нужна минимально (быстро посмотреть статус, послать ответ). Делать в последнюю очередь:
@@ -93,13 +93,13 @@ export default function MyScreen() {
 
 - API endpoints — **те же** (`/api/feed`, `/api/children/:id/progress`, и т.д.)
 - Типы — можно скопировать `web/lib/types.ts` → `mobile/lib/types.ts`
-- Логику отображения стадий/дат/имён — копируй helper-функции один-в-один
+- Логику отображения стадий/дат/имен — копируй helper-функции один-в-один
 
 ### Чего избегать
 
 - **Не используй `font-serif`** в стилях — Nunito везде (на вебе мы это утвердили).
 - **Не кэшируй JWT в AsyncStorage** — только в `expo-secure-store` (это уже сделано).
-- **Не дублируй валидацию** — бэкенд всё проверяет (DTO добавлены в спринте безопасности).
+- **Не дублируй валидацию** — бэкенд все проверяет (DTO добавлены в спринте безопасности).
 
 ### Что станет проще после Спринта 1
 
@@ -107,7 +107,7 @@ export default function MyScreen() {
 
 ## Тестирование
 
-Запуск локально (на твоём компе через Expo Go):
+Запуск локально (на твоем компе через Expo Go):
 
 ```bash
 cd mobile
@@ -135,5 +135,5 @@ API должен смотреть на тот же бэкенд, что и ве�
 
 - Админка целиком (кроме мониторинга и быстрых действий)
 - Импорт навыков из Excel
-- Сложные отчёты с графиками
+- Сложные отчеты с графиками
 - Site-content редактор

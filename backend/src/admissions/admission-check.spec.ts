@@ -13,7 +13,7 @@ describe('Enrollment checklist', () => {
     },
   });
   const complete = {
-    childName: 'Ребёнок',
+    childName: 'Ребенок',
     birthDate: '2022-01-01',
     startsOn: '2026-10-01',
     parentName: 'Родитель',
@@ -42,7 +42,7 @@ describe('Enrollment checklist', () => {
     expect(result.ready).toBe(false);
     expect(result.missing).toEqual(
       expect.arrayContaining([
-        'Корректная дата рождения ребёнка',
+        'Корректная дата рождения ребенка',
         'Свободное место в группе',
         'Действующий аккаунт родителя: email сотрудника использовать нельзя',
       ]),

@@ -71,7 +71,7 @@ export default function SlotsManager() {
 
       {formOpen && (
         <Card padding="md" className="mb-6">
-          <h3 className="font-serif text-xl mb-4">Открыть время для приёма</h3>
+          <h3 className="font-serif text-xl mb-4">Открыть время для приема</h3>
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -169,7 +169,7 @@ export default function SlotsManager() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {booking ? null : (
-                      <Badge tone={past ? 'neutral' : 'warn'}>{past ? 'прошёл' : 'свободно'}</Badge>
+                      <Badge tone={past ? 'neutral' : 'warn'}>{past ? 'прошел' : 'свободно'}</Badge>
                     )}
                     <button
                       onClick={() => remove(slot)}

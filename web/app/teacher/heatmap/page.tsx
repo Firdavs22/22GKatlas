@@ -117,8 +117,8 @@ export default function HeatmapPage() {
     >
       <div className="mb-5 max-w-3xl">
         <p className="text-sm text-slate-600 leading-relaxed">
-          Тепловая карта показывает <b>усвоение материала по зонам</b> для каждого ребёнка группы.
-          Каждое число — процент освоенных навыков в зоне (усреднённо: <i>знакомство</i> = 25, <i>практика</i> = 60, <i>усвоено</i> = 100).
+          Тепловая карта показывает <b>усвоение материала по зонам</b> для каждого ребенка группы.
+          Каждое число — процент освоенных навыков в зоне (усредненно: <i>знакомство</i> = 25, <i>практика</i> = 60, <i>усвоено</i> = 100).
           Чем темнее цвет — тем выше показатель. Справа — шкала и средние по всей группе.
         </p>
       </div>
@@ -131,7 +131,7 @@ export default function HeatmapPage() {
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="border-b border-slate-100 bg-slate-50/60">
                   <th className="text-left text-[11px] font-medium uppercase tracking-wider text-slate-500 px-5 py-3 min-w-[160px]">
-                    Ребёнок
+                    Ребенок
                   </th>
                   {data.areas.map(a => (
                     <th

@@ -52,4 +52,30 @@ describe('File access', () => {
     expect(referencedFiles({ nested: ['<img src="/api/files/a.jpg">', '/api/files/a.jpg?token=old', '/files/b.pdf', '/api/files/a.jpg.exe'] }))
       .toEqual(['a.jpg', 'b.pdf']);
   });
+  it.each(['parent', 'teacher', 'psychologist', 'pediatrician', 'methodist'])('enforces family documents for %s, even for uploader/public/chat copies', async role => {
+    prisma.fileMeta.findUnique.mockResolvedValue({ uploaderId: user.id, scope: 'public' });
+    prisma.chatParticipant.findUnique.mockResolvedValue({ userId: user.id });
+    prisma.$queryRaw.mockResolvedValue([
+      { kind: 'child-document', data: { childId: 'other-child', deleted: false } },
+      { kind: 'chat', data: { chatId: 'my-chat' } }, { kind: 'site', data: {} },
+    ]);
+    await expect(service.assertCanRead('document.pdf', { ...user, role })).rejects.toThrow(ForbiddenException);
+  });
+  it('allows the linked parent but not a teacher with normal child access', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ kind: 'child-document', data: { childId: 'own-child', deleted: false } }]);
+    await expect(service.assertCanRead('scan.png', user)).resolves.toBeUndefined();
+    await expect(service.assertCanRead('scan.png', { ...user, role: 'teacher' })).rejects.toThrow(ForbiddenException);
+  });
+  it('denies a removed document to its parent uploader', async () => {
+    prisma.fileMeta.findUnique.mockResolvedValue({ uploaderId: user.id, scope: 'child-document' });
+    prisma.$queryRaw.mockResolvedValue([{ kind: 'child-document', data: { childId: 'own-child', deleted: true } }]);
+    await expect(service.assertCanRead('removed.pdf', user)).rejects.toThrow(ForbiddenException);
+  });
+  it('denies orphaned document uploads after creation failure or child deletion', async () => {
+    prisma.fileMeta.findUnique.mockResolvedValue({ uploaderId: user.id, scope: 'child-document' });
+    await expect(service.assertCanRead('orphan.pdf', user)).rejects.toThrow(ForbiddenException);
+  });
+  it.each(['admin', 'director', 'superadmin'])('allows administration role %s', async role => {
+    await expect(service.assertCanRead('document.pdf', { id: 'staff', role })).resolves.toBeUndefined();
+  });
 });

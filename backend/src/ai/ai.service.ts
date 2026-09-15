@@ -8,7 +8,7 @@ export interface GenerateObservationInput {
   skill?: { id: string; title: string };
   /** Опциональная область (Практическая жизнь, Сенсорика, ...) */
   area?: { id: string; title: string };
-  /** Возраст ребёнка в годах — для адаптации лексики */
+  /** Возраст ребенка в годах — для адаптации лексики */
   childAgeYears?: number;
   /** Любая свободная заметка от педагога */
   hint?: string;
@@ -37,7 +37,7 @@ interface AiProvider {
  *   - 'openai'          — OpenAI API (TODO: добавить когда понадобится)
  *   - 'claude'          — Anthropic API (TODO: добавить когда понадобится)
  *
- * Без AI_PROVIDER эндпоинт `/ai/observation` всё равно работает — возвращает stub-текст,
+ * Без AI_PROVIDER эндпоинт `/ai/observation` все равно работает — возвращает stub-текст,
  * чтобы UI не блокировался.
  */
 @Injectable()
@@ -108,10 +108,10 @@ class StubProvider implements AiProvider {
     if (area) {
       const areaHints: Record<string, string> = {
         'Практическая жизнь': 'Работа с реальными материалами развивает мелкую моторику и порядок действий.',
-        'Сенсорика': 'Через тактильное взаимодействие ребёнок учится различать качества предметов: размер, форма, текстура.',
+        'Сенсорика': 'Через тактильное взаимодействие ребенок учится различать качества предметов: размер, форма, текстура.',
         'Математика': 'Конкретные материалы помогают понять абстрактные математические идеи.',
         'Язык': 'Упражнение обогащает словарь и подготавливает руку к письму.',
-        'Космос': 'Расширяет представление о мире и своём месте в нём.',
+        'Космос': 'Расширяет представление о мире и своем месте в нем.',
       };
       const hint = areaHints[area];
       if (hint) lines.push(hint);
@@ -151,7 +151,7 @@ class OpenAiCompatProvider implements AiProvider {
     const userParts: string[] = [`Наблюдение: ${input.title}.`];
     if (input.skill?.title) userParts.push(`Навык: ${input.skill.title}.`);
     if (input.area?.title) userParts.push(`Область: ${input.area.title}.`);
-    if (input.childAgeYears) userParts.push(`Возраст ребёнка: ${input.childAgeYears} лет.`);
+    if (input.childAgeYears) userParts.push(`Возраст ребенка: ${input.childAgeYears} лет.`);
     if (input.hint?.trim()) userParts.push(`Контекст от педагога: ${input.hint.trim()}.`);
     userParts.push('Напиши краткое описание для родителя.');
 

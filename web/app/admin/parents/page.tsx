@@ -379,7 +379,7 @@ export default function AdminParents() {
                     </Link>
                   ))
                 ) : (
-                  <Badge tone="warn">Не привязан к ребёнку</Badge>
+                  <Badge tone="warn">Не привязан к ребенку</Badge>
                 )}
               </div>
             </Card>
@@ -407,7 +407,7 @@ export default function AdminParents() {
             </div>
             <h3 className="font-serif text-2xl mb-2">Удалить родителя</h3>
             <p className="text-sm text-slate-600 mb-3">
-              Аккаунт <span className="font-medium text-foreground">{deleteTarget.parent.name}</span> ({deleteTarget.parent.email}) будет анонимизирован: email, имя, телефон и пароль будут стёрты. Это необратимо.
+              Аккаунт <span className="font-medium text-foreground">{deleteTarget.parent.name}</span> ({deleteTarget.parent.email}) будет анонимизирован: email, имя, телефон и пароль будут стерты. Это необратимо.
             </p>
             <div className="mb-4 text-xs">
               <label className="inline-flex items-center gap-2 cursor-pointer text-slate-700">

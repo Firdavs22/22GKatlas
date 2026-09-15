@@ -128,7 +128,7 @@ export default function ParentDashboard() {
             {/* Info */}
             <div className="flex-1 p-6 flex flex-col gap-5">
               <div>
-                <SectionLabel>Ваш ребёнок</SectionLabel>
+                <SectionLabel>Ваш ребенок</SectionLabel>
                 <h2 className="font-serif text-3xl mt-1">
                   {child?.name || '—'}
                 </h2>
@@ -221,7 +221,7 @@ export default function ParentDashboard() {
               <div className="flex-1">
                 <div className="font-serif text-xl">Карта развития</div>
                 <div className="text-sm text-slate-500 mt-0.5">
-                  Прогресс ребёнка по 5 областям
+                  Прогресс ребенка по 5 областям
                 </div>
               </div>
               <ArrowRight size={20} className="text-slate-300 group-hover:text-brand transition-colors" />

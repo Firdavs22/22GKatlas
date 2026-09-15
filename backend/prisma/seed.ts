@@ -114,7 +114,7 @@ async function main() {
 
   const child3 = await prisma.child.create({
     data: {
-      name: 'Артём Козлов',
+      name: 'Артем Козлов',
       birthDate: new Date('2020-11-08'),
       groupId: group.id,
       status: 'active',
@@ -191,7 +191,7 @@ async function main() {
       authorId: teacher.id,
       groupId: group.id,
       title: 'Добро пожаловать!',
-      text: 'Начинается новый учебный год. Ждём всех детей!',
+      text: 'Начинается новый учебный год. Ждем всех детей!',
       pinned: true,
     },
   });
@@ -221,18 +221,18 @@ async function main() {
   // ─── SCHEDULE ─────────────────────────────────────────────
   console.log('Creating schedule...');
   const schedule = [
-    { day: 1, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
+    { day: 1, start: '08:00', end: '08:30', activity: 'Прием детей', desc: null },
     { day: 1, start: '08:30', end: '09:00', activity: 'Завтрак', desc: null },
     { day: 1, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: 'Свободная работа с материалом' },
     { day: 1, start: '11:30', end: '12:00', activity: 'Прогулка', desc: null },
     { day: 1, start: '12:00', end: '13:00', activity: 'Обед', desc: null },
-    { day: 2, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
+    { day: 2, start: '08:00', end: '08:30', activity: 'Прием детей', desc: null },
     { day: 2, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
-    { day: 3, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
+    { day: 3, start: '08:00', end: '08:30', activity: 'Прием детей', desc: null },
     { day: 3, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
-    { day: 4, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
+    { day: 4, start: '08:00', end: '08:30', activity: 'Прием детей', desc: null },
     { day: 4, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
-    { day: 5, start: '08:00', end: '08:30', activity: 'Приём детей', desc: null },
+    { day: 5, start: '08:00', end: '08:30', activity: 'Прием детей', desc: null },
     { day: 5, start: '09:00', end: '11:30', activity: 'Свободная работа', desc: null },
   ];
 
@@ -414,7 +414,7 @@ async function seedFallbackSkills() {
     { id: 'sg-4', title: 'Тактильное восприятие', areaId: 'area-2', sortOrder: 2 },
     { id: 'sg-5', title: 'Устная речь', areaId: 'area-3', sortOrder: 1 },
     { id: 'sg-6', title: 'Письмо', areaId: 'area-3', sortOrder: 2 },
-    { id: 'sg-7', title: 'Числа и счёт', areaId: 'area-4', sortOrder: 1 },
+    { id: 'sg-7', title: 'Числа и счет', areaId: 'area-4', sortOrder: 1 },
     { id: 'sg-8', title: 'Природа', areaId: 'area-5', sortOrder: 1 },
   ];
 
@@ -423,10 +423,10 @@ async function seedFallbackSkills() {
   }
 
   const skills = [
-    { id: 'sk-1', title: 'Мытьё рук', groupId: 'sg-1', sortOrder: 1 },
-    { id: 'sk-2', title: 'Застёгивание пуговиц', groupId: 'sg-1', sortOrder: 2 },
+    { id: 'sk-1', title: 'Мытье рук', groupId: 'sg-1', sortOrder: 1 },
+    { id: 'sk-2', title: 'Застегивание пуговиц', groupId: 'sg-1', sortOrder: 2 },
     { id: 'sk-3', title: 'Завязывание шнурков', groupId: 'sg-1', sortOrder: 3 },
-    { id: 'sk-4', title: 'Мытьё стола', groupId: 'sg-2', sortOrder: 1 },
+    { id: 'sk-4', title: 'Мытье стола', groupId: 'sg-2', sortOrder: 1 },
     { id: 'sk-5', title: 'Цилиндры-вкладыши', groupId: 'sg-3', sortOrder: 1 },
     { id: 'sk-6', title: 'Розовая башня', groupId: 'sg-3', sortOrder: 2 },
     { id: 'sk-7', title: 'Коричневая лестница', groupId: 'sg-3', sortOrder: 3 },

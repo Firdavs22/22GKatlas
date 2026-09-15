@@ -85,7 +85,7 @@ class LibraryController {
       data: { ...this.data(dto), revision: { increment: 1 } },
     });
     if (!result.count)
-      throw new ConflictException('Материал уже изменён. Обновите список');
+      throw new ConflictException('Материал уже изменен. Обновите список');
     return this.prisma.methodicalDocument.findUnique({ where: { id } });
   }
   @Delete(':id')
@@ -94,7 +94,7 @@ class LibraryController {
     const result = await this.prisma.methodicalDocument.deleteMany({
       where: { id, revision: dto.revision },
     });
-    if (!result.count) throw new ConflictException('Материал уже изменён');
+    if (!result.count) throw new ConflictException('Материал уже изменен');
     return { ok: true };
   }
 }

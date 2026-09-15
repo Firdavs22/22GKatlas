@@ -44,6 +44,7 @@ const NAV: Record<string, NavItem[]> = {
   methodist: [{ href: '/library', label: 'Кабинет методиста', icon: BookOpen }],
   parent: [
     { href: '/parent', label: 'Главная', icon: Home },
+    { href: '/parent/child', label: 'Карточка ребенка', icon: ClipboardList },
     { href: '/parent/progress', label: 'Карта развития', icon: Map },
     { href: '/parent/feed', label: 'Лента группы', icon: Newspaper },
     { href: '/parent/chats', label: 'Чаты', icon: MessageCircle },
@@ -53,7 +54,7 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/parent/payments', label: 'Оплата', icon: Wallet },
     { href: '/parent/home-tasks', label: 'Рекомендации', icon: ListChecks },
     { href: '/parent/knowledge', label: 'База знаний', icon: BookOpen },
-    { href: '/parent/appointments', label: 'Запись на приём', icon: CalendarCheck },
+    { href: '/parent/appointments', label: 'Запись на прием', icon: CalendarCheck },
     { href: '/parent/feedback', label: 'Обратная связь', icon: MessageSquare },
     { href: '/parent/about', label: 'О системе', icon: BookOpen },
   ],
@@ -78,7 +79,7 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/schedule', label: 'Расписание', icon: Calendar },
     { href: '/admin/attendance', label: 'Посещаемость', icon: CalendarCheck },
     { href: '/admin/payments', label: 'Оплата', icon: Wallet },
-    { href: '/admin/reports', label: 'Отчёты', icon: BarChart3, superadminOnly: true, directorAllowed: true },
+    { href: '/admin/reports', label: 'Отчеты', icon: BarChart3, superadminOnly: true, directorAllowed: true },
     { href: '/admin/events', label: 'События', icon: Calendar },
     { href: '/admin/menu', label: 'Меню', icon: ChefHat },
     { href: '/admin/broadcasts', label: 'Рассылки', icon: Megaphone },
@@ -90,13 +91,13 @@ const NAV: Record<string, NavItem[]> = {
   psychologist: [
     { href: '/psychologist', label: 'Дети', icon: GraduationCap },
     { href: '/psychologist/recommendations', label: 'Рекомендации', icon: ClipboardList },
-    { href: '/psychologist/slots', label: 'Запись на приём', icon: CalendarCheck },
+    { href: '/psychologist/slots', label: 'Запись на прием', icon: CalendarCheck },
     { href: '/psychologist/chats', label: 'Чаты', icon: MessageCircle },
   ],
   pediatrician: [
     { href: '/pediatrician', label: 'Дети', icon: GraduationCap },
     { href: '/pediatrician/recommendations', label: 'Рекомендации', icon: ClipboardList },
-    { href: '/pediatrician/slots', label: 'Запись на приём', icon: CalendarCheck },
+    { href: '/pediatrician/slots', label: 'Запись на прием', icon: CalendarCheck },
     { href: '/pediatrician/chats', label: 'Чаты', icon: MessageCircle },
     { href: '/pediatrician/menu', label: 'Меню', icon: UtensilsCrossed },
   ],
@@ -181,7 +182,7 @@ function ContextCard() {
         <div className="min-w-0 flex-1">
           <div className="font-medium text-sm text-foreground truncate">{group.name}</div>
           <div className="text-xs text-slate-500 truncate">
-            {group.ageRange} · {count} {count === 1 ? 'ребёнок' : count < 5 ? 'ребёнка' : 'детей'}
+            {group.ageRange} · {count} {count === 1 ? 'ребенок' : count < 5 ? 'ребенка' : 'детей'}
           </div>
         </div>
       </div>

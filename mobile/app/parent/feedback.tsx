@@ -50,7 +50,7 @@ export default function ParentFeedbackScreen() {
               <Ionicons name="checkmark-circle" size={18} color="#15803D" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.successTitle}>Спасибо, сообщение отправлено</Text>
-                <Text style={styles.successText}>Можно отправить ещё одно, если есть что добавить.</Text>
+                <Text style={styles.successText}>Можно отправить еще одно, если есть что добавить.</Text>
               </View>
             </View>
           ) : null}

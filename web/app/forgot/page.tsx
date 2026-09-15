@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h2 className="font-serif text-3xl">Забыли пароль?</h2>
                 <p className="text-sm text-slate-600 mt-2">
-                  Введите email — пришлём ссылку для сброса.
+                  Введите email — пришлем ссылку для сброса.
                 </p>
               </div>
 

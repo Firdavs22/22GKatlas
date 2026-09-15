@@ -52,7 +52,7 @@ export default function ChildCreatedModal({ childName, invites, emailSent = true
                 <Mail size={12} className="inline -mt-0.5" />{' '}
                 Письма с приглашением {invites.length === 1 ? 'отправлено' : 'отправлены'} —
                 родител{invites.length === 1 ? 'ю' : 'ям'} на email.
-                Если что-то не дойдёт — вот резервные ссылки:
+                Если что-то не дойдет — вот резервные ссылки:
               </>
             ) : (
               <>

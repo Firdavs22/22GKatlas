@@ -69,7 +69,7 @@ export default function AdminSkills() {
     reload();
   };
   const deleteArea = async (id: string) => {
-    if (!confirm('Удалить зону и все её группы/навыки?')) return;
+    if (!confirm('Удалить зону и все ее группы/навыки?')) return;
     try {
       await api.delete(`/admin/areas/${id}`);
       reload();
@@ -204,7 +204,7 @@ export default function AdminSkills() {
             disabled={importing || resetting}
             className="inline-flex items-center gap-1.5 h-10 px-4 text-sm rounded-full border border-red-200 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-40"
           >
-            <RotateCcw size={16} /> Сбросить всё
+            <RotateCcw size={16} /> Сбросить все
           </button>
           <Button
             variant="outline"
@@ -546,7 +546,7 @@ export default function AdminSkills() {
                 onClick={resetAll}
                 className="inline-flex items-center gap-1.5 h-10 px-5 rounded-full bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <RotateCcw size={14} /> {resetting ? 'Сброс…' : 'Сбросить всё'}
+                <RotateCcw size={14} /> {resetting ? 'Сброс…' : 'Сбросить все'}
               </button>
             </div>
           </div>

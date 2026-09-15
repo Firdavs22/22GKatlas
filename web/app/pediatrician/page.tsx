@@ -75,7 +75,7 @@ export default function PediatricianChildren() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Имя ребёнка…"
+            placeholder="Имя ребенка…"
             className={`${inputCls} pl-9`}
           />
         </div>

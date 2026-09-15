@@ -126,7 +126,7 @@ export default function TeacherPortfolio() {
           <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
-                Ребёнок
+                Ребенок
               </label>
               <select
                 value={formChildId}

@@ -84,7 +84,7 @@ export default function ClockPanel({
           </p>
           {!status.allowed && (
             <p className="text-amber-800 text-sm">
-              Подключитесь к рабочему Wi-Fi. Этот адрес сети не разрешён для
+              Подключитесь к рабочему Wi-Fi. Этот адрес сети не разрешен для
               отметок.
             </p>
           )}

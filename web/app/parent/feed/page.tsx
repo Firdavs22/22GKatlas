@@ -223,7 +223,7 @@ export default function FeedPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500 mr-1">Период</span>
         {([
-          { value: 'all', label: 'Всё' },
+          { value: 'all', label: 'Все' },
           { value: 'today', label: 'Сегодня' },
           { value: 'week', label: 'Неделя' },
           { value: 'month', label: 'Месяц' },

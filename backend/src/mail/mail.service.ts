@@ -46,7 +46,7 @@ export class MailService {
           pass: this.config.get<string>('SMTP_PASS'),
         },
       });
-      this.logger.log(`SMTP включён: ${host}`);
+      this.logger.log(`SMTP включен: ${host}`);
     } else {
       this.logger.warn(
         'SMTP не настроен (SMTP_HOST не задан). Письма будут логироваться в консоль вместо реальной отправки.',

@@ -1,4 +1,6 @@
 import { Card, Badge, SectionLabel } from '@/components/ui';
+import ChildSafetyPanel, { ChildSafety } from '@/components/ChildSafetyPanel';
+import ChildContactsSummary from '@/components/ChildContactsSummary';
 
 interface PersonLike {
   id?: string;
@@ -9,7 +11,7 @@ interface PersonLike {
   role?: string;
 }
 
-interface ChildLike {
+export interface ChildLike extends ChildSafety {
   id?: string;
   name?: string;
   birthDate?: string;
@@ -69,10 +71,10 @@ export default function ChildProfileCard({ child, showRelations = false }: Child
   const parents = (child.parents || []).map(link => link.parent).filter(Boolean);
 
   return (
-    <Card padding="md" className="mb-6">
+    <><ChildSafetyPanel child={child} /><Card padding="md" className="mb-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
         <div>
-          <SectionLabel>Личное дело ребёнка</SectionLabel>
+          <SectionLabel>Личное дело ребенка</SectionLabel>
           <div className="text-sm text-slate-500 mt-1">
             {text(child.group?.name, 'Без группы')}
             {child.group?.teacher?.name ? ` · педагог: ${child.group.teacher.name}` : ''}
@@ -102,7 +104,7 @@ export default function ChildProfileCard({ child, showRelations = false }: Child
               </div>
             ) : (
               <div className="rounded-xl border border-warn/30 bg-warn/15 text-orange-900 p-3 text-sm">
-                Родитель не привязан к ребёнку в системе. Добавьте родителя в карточке ребёнка.
+                Родитель не привязан к ребенку в системе. Добавьте родителя в карточке ребенка.
               </div>
             )}
           </div>
@@ -149,16 +151,10 @@ export default function ChildProfileCard({ child, showRelations = false }: Child
           </div>
         </section>
 
-        <section>
-          <SectionLabel>Экстренные контакты</SectionLabel>
+        <section className="xl:col-span-3">
+          <SectionLabel>Семья и контакты</SectionLabel>
           <div className="mt-2">
-            {child.contacts?.length ? (
-              <div className="space-y-2">
-                {child.contacts.map((c, i) => <PersonCard key={i} person={c} />)}
-              </div>
-            ) : (
-              <EmptyValue />
-            )}
+            <ChildContactsSummary contacts={child.contacts} representatives={child.representatives} />
           </div>
         </section>
 
@@ -205,6 +201,6 @@ export default function ChildProfileCard({ child, showRelations = false }: Child
           </div>
         </section>
       )}
-    </Card>
+    </Card></>
   );
 }

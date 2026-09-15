@@ -43,14 +43,14 @@ export default function AdminReports() {
       link.remove();
       URL.revokeObjectURL(downloadUrl);
     } catch {
-      alert('Ошибка при генерации отчёта');
+      alert('Ошибка при генерации отчета');
     } finally {
       setLoading(null);
     }
   };
 
   return (
-    <PageLayout eyebrow="Аналитика и выгрузки" title="Отчёты">
+    <PageLayout eyebrow="Аналитика и выгрузки" title="Отчеты">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <Card padding="md" className="flex flex-col">
           <div className="w-10 h-10 rounded-xl bg-brand-pale flex items-center justify-center text-brand mb-3">
@@ -120,7 +120,7 @@ export default function AdminReports() {
           </div>
           <h3 className="font-serif text-xl mb-2">Оплаты</h3>
           <p className="text-sm text-slate-500 mb-4 flex-1">
-            Статусы оплат по каждому ребёнку за указанный месяц.
+            Статусы оплат по каждому ребенку за указанный месяц.
           </p>
           <div className="mb-4">
             <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">

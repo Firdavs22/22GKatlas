@@ -115,7 +115,7 @@ export default function AdminFeedbackPage() {
                         </Badge>
                       ) : (
                         <span className="font-medium text-sm truncate">
-                          {item.author?.name || 'Удалённый пользователь'}
+                          {item.author?.name || 'Удаленный пользователь'}
                         </span>
                       )}
                       {!item.read && <Badge tone="brand">Новое</Badge>}
