@@ -261,8 +261,8 @@ function Step1Media({
   photos: string[];
   uploading: boolean;
   uploadError: string;
-  cameraInputRef: React.RefObject<HTMLInputElement>;
-  galleryInputRef: React.RefObject<HTMLInputElement>;
+  cameraInputRef: React.RefObject<HTMLInputElement | null>;
+  galleryInputRef: React.RefObject<HTMLInputElement | null>;
   onUpload: (files: FileList | null) => void;
   onRemove: (i: number) => void;
 }) {

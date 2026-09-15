@@ -4,6 +4,8 @@
 
 Нужны Docker Engine, Docker Compose **2.24.4 или новее**, Git, Python 3, OpenSSL и Certbot. Установка Docker зависит от ОС: [официальная инструкция для Ubuntu](https://docs.docker.com/engine/install/ubuntu/). Порты 80 и 443 должны быть свободны и разрешены в панели VPS. DNS A поддомена должен указывать на IPv4 этого сервера. Запись AAAA нужна только при настроенном IPv6.
 
+Образы приложения собираются на Node.js 24; отдельно устанавливать Node.js на VPS не требуется. На сервере с 2 ГБ RAM собирать backend и web последовательно, при наличии swap. Обновление зависимостей от 2026-09-15 требует пересборки обоих образов, но не меняет схему базы и созданные аккаунты.
+
 Ниже команды в Bash под root на VPS. Рабочий каталог фиксирован: `/opt/globoatlas`. Сначала проверить ОС и свободные ресурсы:
 
 ```bash
@@ -50,7 +52,8 @@ NEXT_PUBLIC_API_URL задаётся **без /api**. Для приглашен�
 ```bash
 dcp() { docker compose --project-directory /opt/globoatlas -f /opt/globoatlas/docker-compose.yml -f /opt/globoatlas/docker-compose.prod.yml "$@"; }
 dcp config --quiet
-dcp build
+dcp build backend
+dcp build web
 dcp up -d --wait postgres redis storage
 dcp run --rm --no-deps backend npx prisma migrate deploy
 bash scripts/create-first-admin.sh
@@ -109,7 +112,8 @@ systemctl list-timers certbot.timer
 
 ```bash
 git pull --ff-only origin master
-dcp build
+dcp build backend
+dcp build web
 dcp up -d --wait
 dcp exec -T backend npx prisma migrate status
 curl -fsS https://lk.globokids.ru/api/health

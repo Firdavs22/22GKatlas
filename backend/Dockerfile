@@ -1,6 +1,8 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache openssl
+
+FROM base AS builder
 COPY package*.json ./
 RUN npm ci
 COPY prisma ./prisma
@@ -9,10 +11,8 @@ COPY . .
 RUN npm run build && ls -la dist/src/
 RUN npx tsc -p tsconfig.seed.json && find dist-seed -name 'seed.js' -exec mv {} prisma/seed.js \; && rm -rf dist-seed
 
-FROM node:20-alpine AS runner
-WORKDIR /app
+FROM base AS runner
 ENV NODE_ENV=production
-RUN apk add --no-cache openssl
 COPY --from=builder /app/package*.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist

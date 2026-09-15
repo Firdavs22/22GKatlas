@@ -19,5 +19,5 @@ confirmation = getpass.getpass("Повторите пароль: ")
 if password != confirmation:
     sys.exit("Пароли не совпадают. Пользователь не создан.")
 print(json.dumps({"email": email, "name": name, "password": password}))
-' | docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+' | docker compose --progress quiet -f docker-compose.yml -f docker-compose.prod.yml \
   run --rm -T --no-deps backend node prisma/create-admin.cjs
