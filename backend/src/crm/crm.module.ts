@@ -25,6 +25,7 @@ import type { Actor } from '../team/team.service';
 import { CrmService } from './crm.service';
 import { TildaController } from './tilda.controller';
 import { AuthModule } from '../auth/auth.module';
+import { SaveChecklistDto } from './document-checklist';
 import {
   ActivityDto,
   EnrollDto,
@@ -104,6 +105,13 @@ class CrmController {
     @CurrentUser() user: Actor,
   ) {
     return this.crm.enroll(id, dto, user);
+  }
+  @Put('leads/:id/document-checklist') saveChecklist(
+    @Param('id') id: string,
+    @Body() dto: SaveChecklistDto,
+    @CurrentUser() user: Actor,
+  ) {
+    return this.crm.saveDocumentChecklist(id, dto, user);
   }
   @Post('leads/:id/enrollment-check') checkEnrollment(
     @Param('id') id: string,

@@ -131,4 +131,88 @@ describe('Tilda webhook contract', () => {
     });
     expect(() => tildaFields({ ...form, childAge: 'a'.repeat(81) })).toThrow();
   });
+  it.each([
+    ['phone', '+7 (999) 123-45-67', 'phone', '+79991234567'],
+    ['telegram', '@test_parent', 'telegram', ''],
+    ['vk', 'https://vk.com/test_parent', 'vk', ''],
+    ['max_messenger', '8 (999) 123-45-67', 'max', '+79991234567'],
+  ])(
+    'accepts the published form fields for %s',
+    async (method, contact, normalizedMethod, phone) => {
+      const payload = {
+        tranid: 'published:123',
+        formid: 'form908246677',
+        name: 'Тест',
+        input: '2',
+        'messenger-type': method,
+        'messenger-id': contact,
+        Date: '20.09.2026',
+        Checkbox: 'yes',
+        'Checkbox 2': 'no',
+      };
+      const { dto, intakeDetails, externalKey } = tildaFields(payload);
+      expect(await validate(dto)).toEqual([]);
+      expect(dto.phone).toBe(phone);
+      expect(dto.birthDate).toBeUndefined();
+      expect(intakeDetails).toMatchObject({
+        contactMethod: normalizedMethod,
+        contactValue: contact,
+        childAge: '2',
+        visitDate: '20.09.2026',
+        dataConsent: true,
+        marketingConsent: false,
+      });
+      process.env.TILDA_WEBHOOK_TOKEN = secret;
+      const create = jest.fn();
+      expect(
+        await new TildaController({ create } as any).receive(
+          'Bearer ' + secret,
+          payload,
+        ),
+      ).toBe('ok');
+      expect(create).toHaveBeenCalledWith(
+        dto,
+        null,
+        externalKey,
+        intakeDetails,
+      );
+      expect(
+        tildaFields({ ...payload, 'messenger-id': contact + ' ' }).externalKey,
+      ).toBe(externalKey);
+    },
+  );
+  it('recognizes the verified popup labels without assigning consent to unrelated forms', () => {
+    const payload = {
+      tranid: 'popup:1',
+      formid: '1000686846',
+      Name: 'Тест',
+      'messenger-type': 'telegram',
+      'messenger-id': '@test',
+      'ВОЗРАСТ РЕБЕНКА': '3',
+      'ДАТА ПОСЕЩЕНИЯ': '20.09.2026',
+      Checkbox: 'yes',
+      Checkbox_2: 'yes',
+    };
+    expect(tildaFields(payload).intakeDetails).toMatchObject({
+      childAge: '3',
+      visitDate: '20.09.2026',
+      dataConsent: true,
+      marketingConsent: true,
+    });
+    const unknown = tildaFields({
+      ...payload,
+      formid: 'other',
+      input: '2',
+      'ВОЗРАСТ РЕБЕНКА': '',
+    }).intakeDetails;
+    expect(unknown).toMatchObject({
+      childAge: '',
+      dataConsent: null,
+      marketingConsent: null,
+    });
+    expect(
+      tildaFields({ ...payload, Checkbox_2: '' }).intakeDetails
+        .marketingConsent,
+    ).toBeNull();
+  });
 });

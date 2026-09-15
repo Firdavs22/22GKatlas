@@ -14,6 +14,7 @@ function setup() {
   const prisma = {
     childParent: { findUnique: async ({ where }) => where.childId_parentId.childId === 'own' && where.childId_parentId.parentId === parent.id ? { childId: 'own' } : null },
     child: { findUnique: async ({ where }) => ({ id: where.id }) },
+    enrollment: { findFirst: async () => ({ documentChecklist: { items: [], exceptionReason: 'Справки принесут позже' } }) },
     childDocument: {
       findMany: async ({ where }) => documents.filter(d => d.childId === where.childId && !d.deletedAt),
       findFirst: async ({ where }) => documents.find(d => d.id === where.id && d.childId === where.childId),
@@ -110,4 +111,13 @@ test('concurrent staff edits cannot overwrite the newer publication restriction'
   assert.equal(saved.safetyRevision, 1);
   await assert.rejects(admin.updateChildSafety('own', { ...dto, socialPublicationStatus: 'allowed' }), error => error.getStatus() === 409);
   assert.equal(child.socialPublicationStatus, 'forbidden');
+});
+
+
+test('admission checklist uses the same private family access as the document folder', async () => {
+  const { service } = setup();
+  assert.equal((await service.checklist('own', parent)).exceptionReason, 'Справки принесут позже');
+  for (const role of ['admin', 'director', 'superadmin']) assert.ok(await service.checklist('other', { id: 'staff', role }));
+  for (const role of ['teacher', 'methodist', 'psychologist', 'pediatrician']) await assert.rejects(service.checklist('own', { ...parent, role }), denied);
+  await assert.rejects(service.checklist('other', parent), denied);
 });

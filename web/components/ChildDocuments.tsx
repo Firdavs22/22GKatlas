@@ -5,6 +5,7 @@ import { FolderLock, FileText, Download, Upload } from 'lucide-react';
 import { Card, Button, SectionLabel } from '@/components/ui';
 import { downloadBlob } from '@/components/WorkUI';
 import api from '@/lib/api';
+import AdmissionChecklist, { type DocumentChecklist } from '@/components/AdmissionChecklist';
 
 type Document = { id: string; title: string; category: string; filename: string; originalName: string; size: number; uploadedAt: string; canRemove: boolean };
 const categories: Record<string, string> = { contract: 'Договоры', medical: 'Медицинские документы', consent: 'Согласия', other: 'Прочее' };
@@ -16,6 +17,7 @@ const errorText = (e: unknown) => {
 
 export default function ChildDocuments({ childId }: { childId: string }) {
   const [docs, setDocs] = useState<Document[]>([]);
+  const [checklist, setChecklist] = useState<DocumentChecklist | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +30,9 @@ export default function ChildDocuments({ childId }: { childId: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    setChecklist(null);
+    api.get(`/children/${childId}/documents/checklist`, { signal: controller.signal })
+      .then(r => setChecklist(r.data)).catch(() => { /* folder remains usable if no admission snapshot is available */ });
     api.get(`/children/${childId}/documents`, { signal: controller.signal })
       .then(r => setDocs(r.data)).catch(e => { if (!controller.signal.aborted) setError(errorText(e)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -70,6 +75,7 @@ export default function ChildDocuments({ childId }: { childId: string }) {
   return <Card padding="md" className="mb-6">
     <div className="flex items-center gap-2"><FolderLock size={20} className="text-brand" /><SectionLabel>Документы ребенка</SectionLabel></div>
     <p className="text-xs text-slate-500 mt-2 mb-4">Доступны администрации и родителям этого ребенка. Родитель может убрать только свои загрузки.</p>
+    {checklist && <div className="mb-5"><AdmissionChecklist value={checklist} /></div>}
     <form onSubmit={upload} className="rounded-xl bg-slate-50 p-4 mb-5">
       <fieldset disabled={busy || loading} className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-sm">Название<input className={`${input} mt-1`} maxLength={200} placeholder="Например, согласие на публикацию" value={title} onChange={e => setTitle(e.target.value)} /></label>

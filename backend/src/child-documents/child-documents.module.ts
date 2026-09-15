@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get,
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
-import { ChildDocument } from '@prisma/client';
+import { ChildDocument, Prisma } from '@prisma/client';
 import { AuthModule } from '../auth/auth.module';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -56,6 +56,15 @@ export class ChildDocumentsService {
     return docs.map(doc => this.present(doc, user));
   }
 
+  async checklist(childId: string, user: Requester) {
+    await this.assertAccess(childId, user);
+    const admission = await this.prisma.enrollment.findFirst({
+      where: { childId, documentChecklist: { not: Prisma.DbNull } },
+      orderBy: { createdAt: 'desc' }, select: { documentChecklist: true },
+    });
+    return admission?.documentChecklist || null;
+  }
+
   async upload(childId: string, user: Requester, file: Express.Multer.File, dto: UploadChildDocumentDto) {
     await this.assertAccess(childId, user);
     if (!file?.buffer?.length) throw new BadRequestException('Выберите непустой файл');
@@ -99,6 +108,9 @@ export class ChildDocumentsController {
 
   @Get()
   list(@Param('childId') childId: string, @CurrentUser() user: Requester) { return this.documents.list(childId, user); }
+
+  @Get('checklist')
+  checklist(@Param('childId') childId: string, @CurrentUser() user: Requester) { return this.documents.checklist(childId, user); }
 
   @Post()
   @Throttle({ default: { limit: 20, ttl: 60000 } })

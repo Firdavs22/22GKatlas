@@ -239,6 +239,7 @@ model Enrollment {
   actorId    String
   createdAt  DateTime @default(now())
   parentId   String?
+  documentChecklist Json?
 }
 
 model CrmStage {
@@ -273,6 +274,7 @@ model CrmLead {
   enrollmentId String?       @unique
   externalKey  String?       @unique
   intakeDetails Json?
+  documentChecklist Json?
   revision     Int           @default(1)
   history      CrmActivity[]
   createdAt    DateTime      @default(now())

@@ -27,6 +27,11 @@ import {
 import type { Actor } from '../team/team.service';
 import { hasMessengerContact } from './intake-details';
 import type { IntakeDetails } from './intake-details';
+import {
+  DOCUMENT_CHECKLIST,
+  reviewDocumentChecklist,
+  SaveChecklistDto,
+} from './document-checklist';
 
 export function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, '');
@@ -203,7 +208,17 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
         },
       }),
     ]);
-    return { owners, groups, parents, children };
+    return {
+      owners,
+      groups,
+      parents,
+      children,
+      documentChecklistTemplate: DOCUMENT_CHECKLIST.map((item) => ({
+        ...item,
+        received: false,
+        note: '',
+      })),
+    };
   }
   list(q: LeadQuery) {
     return this.prisma.crmLead.findMany({
@@ -471,25 +486,51 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           });
         if (lead.revision !== dto.revision)
           throw new ConflictException('Заявка изменена. Обновите карточку');
-        if (!lead.phone)
+        if (!(dto.phone ?? lead.phone)?.trim())
           throw new BadRequestException(
-            'Перед зачислением добавьте телефон родителя в данные заявки',
+            'Перед зачислением добавьте телефон родителя',
           );
-        const enrollment = await this.admissions.enroll(
-          tx,
-          {
-            ...dto,
-            requestKey: 'lead:' + id,
-            parentName: lead.parentName,
-            phone: lead.phone,
-            email: dto.email || lead.email || undefined,
-          },
-          actor.id,
+        const phone = normalizePhone(dto.phone ?? lead.phone);
+        const parentName = (dto.parentName ?? lead.parentName).trim();
+        if (!parentName) throw new BadRequestException('Укажите имя родителя');
+        const documents = reviewDocumentChecklist(
+          dto.documentChecklist ?? lead.documentChecklist,
         );
+        if (!documents.ready)
+          throw new BadRequestException(
+            'Отметьте обязательные документы или укажите причину зачисления с неполным комплектом (от 10 символов)',
+          );
+        const input = {
+          ...dto,
+          requestKey: 'lead:' + id,
+          parentName,
+          phone,
+          email: dto.email || lead.email || undefined,
+        };
+        const snapshot = {
+          items: documents.items,
+          exceptionReason: documents.missing.length
+            ? documents.exceptionReason
+            : '',
+          missingAtEnrollment: documents.missing,
+          checkedById: actor.id,
+          checkedAt: new Date().toISOString(),
+        };
+        const enrollment = await this.admissions.enroll(tx, input, actor.id);
+        await tx.enrollment.update({
+          where: { id: enrollment.id },
+          data: { documentChecklist: snapshot },
+        });
         await tx.crmLead.update({
           where: { id },
           data: {
             state: 'won',
+            parentName,
+            phone,
+            email: input.email || lead.email,
+            childName: dto.childName,
+            birthDate: new Date(dto.birthDate + 'T00:00:00Z'),
+            documentChecklist: snapshot,
             enrollmentId: enrollment.id,
             nextActionAt: null,
             nextAction: '',
@@ -497,7 +538,15 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
             history: {
               create: {
                 kind: 'enrolled',
-                text: 'Зачислен в группу. Начало: ' + dto.startsOn,
+                text:
+                  'Зачислен в группу. Начало: ' +
+                  dto.startsOn +
+                  (documents.missing.length
+                    ? '\nДокументы ожидаются: ' +
+                      documents.missing.join(', ') +
+                      '\nПричина: ' +
+                      documents.exceptionReason
+                    : '\nОбязательный комплект документов получен.'),
                 actorId: actor.id,
               },
             },
@@ -513,11 +562,54 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     if (!lead) throw new NotFoundException();
     if (lead.state === 'won')
       throw new ConflictException('Ребенок уже зачислен');
-    return checkAdmission(this.prisma, {
+    let phone = '';
+    try {
+      phone = normalizePhone(dto.phone ?? lead.phone);
+    } catch {
+      /* report through the checklist */
+    }
+    const check = await checkAdmission(this.prisma, {
       ...dto,
-      parentName: lead.parentName,
-      phone: lead.phone,
+      parentName: dto.parentName ?? lead.parentName,
+      phone,
       email: dto.email || lead.email || undefined,
+    });
+    const documents = reviewDocumentChecklist(
+      dto.documentChecklist ?? lead.documentChecklist,
+    );
+    return {
+      ...check,
+      ready: check.ready && documents.ready,
+      missing: [
+        ...check.missing,
+        ...(!documents.ready
+          ? ['Обязательные документы или комментарий о неполном комплекте']
+          : []),
+      ],
+      documentChecklist: documents,
+    };
+  }
+  async saveDocumentChecklist(id: string, dto: SaveChecklistDto, actor: Actor) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lock(tx, id, dto.revision);
+      const documents = reviewDocumentChecklist(dto);
+      return tx.crmLead.update({
+        where: { id },
+        data: {
+          documentChecklist: {
+            items: documents.items,
+            exceptionReason: documents.exceptionReason,
+          },
+          revision: { increment: 1 },
+          history: {
+            create: {
+              kind: 'documents',
+              text: `Чек-лист документов: получено ${documents.items.filter((i) => i.received).length} из ${documents.items.length}`,
+              actorId: actor.id,
+            },
+          },
+        },
+      });
     });
   }
   async inviteParent(id: string, actor: Actor) {

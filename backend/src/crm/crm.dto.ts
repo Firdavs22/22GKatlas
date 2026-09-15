@@ -17,7 +17,9 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { ChecklistInputDto } from './document-checklist';
 export class LeadDto {
   @IsString() @MinLength(1) @MaxLength(120) parentName!: string;
   @IsString() @MaxLength(40) phone!: string;
@@ -66,6 +68,16 @@ export class ActivityDto {
   @IsInt() @Min(1) revision!: number;
 }
 export class EnrollDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) parentName?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  @Matches(/^[+\d()\s-]+$/)
+  phone?: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChecklistInputDto)
+  documentChecklist?: ChecklistInputDto;
   @IsString() @MinLength(1) @MaxLength(100) groupId!: string;
   @Matches(/^\d{4}-\d{2}-\d{2}$/) startsOn!: string;
   @IsOptional()
@@ -86,6 +98,12 @@ export class LeadQuery {
   @IsOptional() @IsString() @MaxLength(100) ownerId?: string;
 }
 export class EnrollmentCheckDto {
+  @IsOptional() @IsString() @MaxLength(120) parentName?: string;
+  @IsOptional() @IsString() @MaxLength(40) phone?: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChecklistInputDto)
+  documentChecklist?: ChecklistInputDto;
   @IsOptional() @IsString() @MaxLength(100) groupId?: string;
   @IsOptional() @IsString() @MaxLength(10) startsOn?: string;
   @IsOptional() @IsString() @MaxLength(160) childName?: string;

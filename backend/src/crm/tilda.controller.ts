@@ -51,10 +51,16 @@ export function tildaFields(body: Record<string, unknown>) {
     вк: 'vk',
     вконтакте: 'vk',
     max: 'max',
+    max_messenger: 'max',
     макс: 'max',
   };
   const method =
-    shortField(40, 'contactMethod', 'contact_method').toLowerCase() || 'phone';
+    shortField(
+      40,
+      'contactMethod',
+      'contact_method',
+      'messenger-type',
+    ).toLowerCase() || 'phone';
   const contactMethod = methods[method];
   if (!contactMethod)
     throw new BadRequestException('Способ связи: phone, telegram, vk или max');
@@ -64,11 +70,12 @@ export function tildaFields(body: Record<string, unknown>) {
       300,
       'contactValue',
       'contact_value',
+      'messenger-id',
       ...(contactMethod !== 'phone' ? [contactMethod] : []),
     ) || rawPhone;
   if (!contactValue)
     throw new BadRequestException(
-      'Укажите телефон или контакт выбранного мессенджера',
+      'Не получен контакт. В форме нужно передать Phone, contactValue или messenger-id',
     );
   const asPhone = (value: string) => {
     if (!/^[+\d()\s-]+$/.test(value))
@@ -93,23 +100,46 @@ export function tildaFields(body: Record<string, unknown>) {
       return false;
     return null;
   };
-  const dataConsentRaw = shortField(1000, 'dataConsent', 'data_consent');
+  const formId = shortField(120, 'formid');
+  // Verified field labels on the published Globokids forms. Generic Input and
+  // Checkbox fields on unrelated forms must never be guessed to be age/consent.
+  const knownForm = /^(?:form)?(?:908246677|1000686846)$/.test(formId);
+  const dataConsentRaw = shortField(
+    1000,
+    'dataConsent',
+    'data_consent',
+    ...(knownForm ? ['Checkbox'] : []),
+  );
   const marketingConsentRaw = shortField(
     1000,
     'marketingConsent',
     'marketing_consent',
+    ...(knownForm ? ['Checkbox_2', 'Checkbox 2'] : []),
   );
   const intakeDetails: IntakeDetails = {
     provider: 'tilda',
-    childAge: shortField(80, 'childAge', 'child_age', 'Age'),
+    childAge: shortField(
+      80,
+      'childAge',
+      'child_age',
+      'Age',
+      'ВОЗРАСТ РЕБЕНКА',
+      ...(knownForm ? ['Input'] : []),
+    ),
     contactMethod,
     contactValue,
-    visitDate: shortField(80, 'visitDate', 'visit_date', 'Date'),
+    visitDate: shortField(
+      80,
+      'visitDate',
+      'visit_date',
+      'Date',
+      'ДАТА ПОСЕЩЕНИЯ',
+    ),
     dataConsent: consent(dataConsentRaw),
     dataConsentRaw,
     marketingConsent: consent(marketingConsentRaw),
     marketingConsentRaw,
-    formId: shortField(120, 'formid'),
+    formId,
   };
   const cookies = field('COOKIES').slice(0, 16000);
   const rawUtm =

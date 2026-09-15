@@ -1,10 +1,22 @@
 "use client";
 
-import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  FormEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import PageLayout from "@/components/PageLayout";
+import CrmKanban, { type KanbanLead } from "@/components/CrmKanban";
+import AdmissionChecklist, {
+  type DocumentChecklist,
+  type DocumentItem,
+} from "@/components/AdmissionChecklist";
 import TildaSubmission, {
   leadContact,
   type IntakeDetails,
@@ -40,6 +52,7 @@ type Lead = {
   state: string;
   revision: number;
   intakeDetails?: IntakeDetails | null;
+  documentChecklist?: DocumentChecklist | null;
 };
 type Detail = Lead & {
   relatedLeads: {
@@ -58,6 +71,7 @@ type Detail = Lead & {
   enrollment: { child: { id: string; name: string }; startsOn: string } | null;
 };
 type Lookups = {
+  documentChecklistTemplate: DocumentItem[];
   owners: { id: string; name: string }[];
   groups: {
     id: string;
@@ -122,6 +136,7 @@ const actionLabels: Record<string, string> = {
   stage: "Этап",
   enrolled: "Зачисление",
   invite: "Приглашение родителю",
+  documents: "Документы",
 };
 const secondary =
   "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm disabled:opacity-40";
@@ -180,6 +195,7 @@ export default function CrmPage() {
   const [stages, setStages] = useState<Stage[]>([]),
     [leads, setLeads] = useState<Lead[]>([]);
   const [lookups, setLookups] = useState<Lookups>({
+    documentChecklistTemplate: [],
     owners: [],
     groups: [],
     parents: [],
@@ -204,7 +220,16 @@ export default function CrmPage() {
     nextActionAt: "",
     addToCalendar: false,
   });
+  const [moveMessage, setMoveMessage] = useState("");
+  const [undoMove, setUndoMove] = useState<{
+    lead: Lead;
+    stageId: string;
+  } | null>(null);
+  const movingRef = useRef(false);
   const [enroll, setEnroll] = useState<{
+    parentName: string;
+    phone: string;
+    documentChecklist: DocumentChecklist;
     groupId: string;
     startsOn: string;
     monthlyFee: string;
@@ -392,19 +417,74 @@ export default function CrmPage() {
       await openLead(result.data.id);
     });
   }
-  async function move(lead: Lead, stageId: string) {
-    await mutate(async () => {
-      await api.post(`/crm/leads/${lead.id}/move`, {
+  async function move(item: KanbanLead, stageId: string): Promise<boolean> {
+    const lead =
+      leads.find((l) => l.id === item.id) ||
+      (detail?.id === item.id ? detail : null);
+    if (
+      !lead ||
+      movingRef.current ||
+      busy ||
+      lead.stageId === stageId ||
+      lead.state !== "open"
+    )
+      return false;
+    movingRef.current = true;
+    setBusy(true);
+    setError("");
+    setModalError("");
+    setMoveMessage("");
+    setUndoMove(null);
+    setLeads((current) =>
+      current.map((l) => (l.id === lead.id ? { ...l, stageId } : l)),
+    );
+    try {
+      const { data } = await api.post(`/crm/leads/${lead.id}/move`, {
         stageId,
         revision: lead.revision,
       });
+      setLeads((current) => current.map((l) => (l.id === lead.id ? data : l)));
+      setMoveMessage(
+        `${lead.parentName} → ${stages.find((s) => s.id === stageId)?.title || "новый этап"}`,
+      );
+      setUndoMove({ lead: data, stageId: lead.stageId });
       if (detail?.id === lead.id) await openLead(lead.id);
-    });
+      return true;
+    } catch (e) {
+      setLeads((current) => current.map((l) => (l.id === lead.id ? lead : l)));
+      // A failed response may arrive after the server has committed the move.
+      // Refresh this card only, without replacing other cards or scroll position.
+      try {
+        const { data } = await api.get(`/crm/leads/${lead.id}`);
+        setLeads((current) =>
+          current.map((l) => (l.id === lead.id ? data : l)),
+        );
+        if (detail?.id === lead.id) setDetail(data);
+        if (data.stageId === stageId) {
+          setMoveMessage("Этап сохранен");
+          return true;
+        }
+      } catch {
+        /* leave the original card and explain the failed confirmation */
+      }
+      setError(errorText(e));
+      setModalError(errorText(e));
+      return false;
+    } finally {
+      movingRef.current = false;
+      setBusy(false);
+    }
   }
   function openEnrollment() {
     if (!detail) return;
     const parent = lookups.parents.find((p) => p.email === detail.email);
     setEnroll({
+      parentName: detail.parentName,
+      phone: detail.phone,
+      documentChecklist: detail.documentChecklist || {
+        items: lookups.documentChecklistTemplate,
+        exceptionReason: "",
+      },
       groupId: "",
       startsOn: localDate(),
       monthlyFee: "",
@@ -421,8 +501,6 @@ export default function CrmPage() {
     return (
       <button
         key={lead.id}
-        draggable={!busy && lead.state === "open"}
-        onDragStart={(e) => e.dataTransfer.setData("text/plain", lead.id)}
         onClick={() => openLead(lead.id)}
         className="block w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-brand focus:border-brand"
       >
@@ -494,6 +572,28 @@ export default function CrmPage() {
         </div>
       </div>
       <Notice error={error} />
+      {moveMessage && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 mb-4"
+        >
+          <span>{moveMessage}</span>
+          {undoMove && (
+            <button
+              type="button"
+              disabled={busy}
+              className="text-xs underline underline-offset-4 disabled:opacity-40"
+              onClick={() => {
+                const previous = undoMove;
+                setUndoMove(null);
+                void move(previous.lead, previous.stageId);
+              }}
+            >
+              Вернуть обратно
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3 mb-5">
         <input
           aria-label="Поиск заявок"
@@ -553,37 +653,14 @@ export default function CrmPage() {
       {loading ? (
         <p className="py-12 text-slate-500">Загрузка заявок…</p>
       ) : view === "board" && state === "open" ? (
-        <div className="flex gap-4 overflow-x-auto pb-6 items-start">
-          {stages.map((s) => (
-            <section
-              key={s.id}
-              className="bg-slate-100/80 rounded-2xl p-3 w-72 shrink-0 min-h-64"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const lead = leads.find(
-                  (l) => l.id === e.dataTransfer.getData("text/plain"),
-                );
-                if (lead && !busy) void move(lead, s.id);
-              }}
-            >
-              <h2 className="flex justify-between px-1 py-2 text-sm font-semibold">
-                <span>{s.title}</span>
-                <span className="text-slate-400">
-                  {filtered.filter((l) => l.stageId === s.id).length}
-                </span>
-              </h2>
-              <div className="space-y-3 mt-2">
-                {filtered.filter((l) => l.stageId === s.id).map(leadCard)}
-              </div>
-              {!filtered.some((l) => l.stageId === s.id) && (
-                <p className="text-xs text-slate-400 text-center py-8">
-                  Заявок пока нет
-                </p>
-              )}
-            </section>
-          ))}
-        </div>
+        <CrmKanban
+          stages={stages}
+          leads={filtered}
+          owners={lookups.owners}
+          disabled={busy}
+          onOpen={openLead}
+          onMove={move}
+        />
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((l) => (
@@ -665,6 +742,11 @@ export default function CrmPage() {
               <p className="font-medium text-emerald-900">
                 Зачисление завершено
               </p>
+              {detail.documentChecklist && (
+                <div className="my-4">
+                  <AdmissionChecklist value={detail.documentChecklist} />
+                </div>
+              )}
               {detail.enrollment && (
                 <Link
                   className="text-brand underline block mt-2"
@@ -1031,6 +1113,9 @@ export default function CrmPage() {
                   return;
                 }
                 await api.post(`/crm/leads/${detail.id}/enroll`, {
+                  parentName: enroll.parentName,
+                  phone: enroll.phone,
+                  documentChecklist: enroll.documentChecklist,
                   groupId: enroll.groupId,
                   startsOn: enroll.startsOn,
                   monthlyFee:
@@ -1099,6 +1184,32 @@ export default function CrmPage() {
                   value={enroll.monthlyFee}
                   onChange={(e) =>
                     setEnroll({ ...enroll, monthlyFee: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Имя родителя *">
+                <input
+                  required
+                  maxLength={120}
+                  className={inputClass}
+                  value={enroll.parentName}
+                  onChange={(e) =>
+                    setEnroll({ ...enroll, parentName: e.target.value })
+                  }
+                />
+              </Field>
+              <Field label="Телефон родителя *">
+                <input
+                  required
+                  type="tel"
+                  maxLength={40}
+                  placeholder="+7 (999) 123-45-67"
+                  className={inputClass}
+                  value={enroll.phone}
+                  onChange={(e) =>
+                    setEnroll({ ...enroll, phone: e.target.value })
                   }
                 />
               </Field>
@@ -1194,13 +1305,40 @@ export default function CrmPage() {
                 }
               />
             </Field>
+            <AdmissionChecklist
+              value={enroll.documentChecklist}
+              disabled={busy}
+              onChange={(documentChecklist) =>
+                setEnroll({ ...enroll, documentChecklist })
+              }
+            />
+            <button
+              type="button"
+              className={secondary}
+              disabled={busy}
+              onClick={() =>
+                mutate(async () => {
+                  await api.put(`/crm/leads/${detail.id}/document-checklist`, {
+                    ...enroll.documentChecklist,
+                    revision: detail.revision,
+                  });
+                  await openLead(detail.id);
+                })
+              }
+            >
+              Сохранить чек-лист без зачисления
+            </button>
             <div
               className="rounded-xl bg-slate-50 p-4 text-sm"
               aria-live="polite"
             >
               <p className="font-medium">Проверка перед зачислением</p>
               {!enrollmentCheck ? (
-                <p>Проверяю заполнение…</p>
+                <p>
+                  {modalError
+                    ? "Проверка не завершена. Исправьте указанные выше поля."
+                    : "Проверяю заполнение…"}
+                </p>
               ) : (
                 <>
                   {enrollmentCheck.ready ? (

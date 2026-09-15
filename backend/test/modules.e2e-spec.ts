@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { TeamService } from '../src/team/team.service';
 import { CrmService } from '../src/crm/crm.service';
+import { DOCUMENT_CHECKLIST } from '../src/crm/document-checklist';
 import { Test } from '@nestjs/testing';
 import { ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -17,6 +18,8 @@ import { MailService } from '../src/mail/mail.service';
 import { CsrfMiddleware } from '../src/common/csrf.middleware';
 import { io, Socket } from '../../web/node_modules/socket.io-client';
 import { ChatsGateway } from '../src/chats/chats.gateway';
+
+const completeDocuments = { items: DOCUMENT_CHECKLIST.map(item => ({ ...item, received: true })), exceptionReason: '' };
 
 // Never use DATABASE_URL here: integration tests require an explicitly isolated DB.
 if (!process.env.SECURITY_TEST_DATABASE_URL)
@@ -705,6 +708,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       monthlyFee: 65000,
       childName: 'Тестовый ребенок',
       birthDate: '2022-03-01',
+      documentChecklist: completeDocuments,
       revision: 4,
     };
     const [first, repeated] = await Promise.all([
@@ -773,6 +777,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       startsOn: '2026-10-01',
       childName: 'Тестовый ребенок',
       birthDate: '2022-03-01',
+      documentChecklist: completeDocuments,
       revision: 1,
     };
     await request(url)
@@ -1092,6 +1097,7 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
         startsOn: '2026-10-01',
         childName: 'Ребенок Tilda',
         birthDate: '2022-04-01',
+        documentChecklist: completeDocuments,
       };
       const checked = (
         await request(url)
