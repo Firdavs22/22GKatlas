@@ -2,18 +2,29 @@
 # Используется поверх docker-compose.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Что меняется по сравнению с базовым compose:
-#   web   — порт привязан к 127.0.0.1 (наружу через nginx, не напрямую)
-#   nginx — порты 80/443 (вместо dev 8080/8443) + prod-конфиг + SSL volume
+# Требуется Docker Compose >= 2.24.4 для !override.
+# Наружу публикуются только 80/443 nginx. Остальные сервисы доступны внутри Docker.
+# !reset/!override важны: обычный список ports добавляется к базовому, не заменяет его.
 services:
+  postgres:
+    ports: !reset []
+
+  storage:
+    ports: !reset []
+
+  backend:
+    ports: !reset []
+
   web:
-    ports:
-      - "127.0.0.1:3000:3000"
+    ports: !reset []
 
   nginx:
-    ports:
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://127.0.0.1/healthz"]
+    ports: !override
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/acme:/var/www/certbot:ro

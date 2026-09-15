@@ -19,7 +19,11 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# prisma is a devDependency, but the matching CLI is required for migrations.
+# Copy the locked builder version so startup never downloads another version.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+RUN ln -sf ../prisma/build/index.js node_modules/.bin/prisma
 EXPOSE 3001
-# Use migrate deploy for production (safe, won't drop data)
-# Falls back to db push only if no migrations exist yet (first deploy)
-CMD ["sh", "-c", "if [ -d prisma/migrations ] && [ \"$(ls -A prisma/migrations 2>/dev/null)\" ]; then npx prisma migrate deploy; else npx prisma db push; fi && (node -e 'const { PrismaClient } = require(\"@prisma/client\"); const prisma = new PrismaClient(); prisma.user.count().then((count) => process.exit(count > 0 ? 0 : 1)).finally(() => prisma.$disconnect());' || node prisma/seed.js) && node dist/src/main"]
+# Apply versioned migrations only. Demo seeds must never run automatically.
+# On a new database create the first administrator with prisma/create-admin.cjs.
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && exec node dist/src/main"]

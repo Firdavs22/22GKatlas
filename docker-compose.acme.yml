@@ -1,0 +1,9 @@
+# Только для первого получения HTTPS-сертификата. Приложение не публикуется.
+# Применяется после docker-compose.yml и docker-compose.prod.yml.
+services:
+  nginx:
+    ports: !override
+      - "0.0.0.0:80:80"
+    volumes: !override
+      - ./nginx/nginx.acme.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/acme:/var/www/certbot:ro

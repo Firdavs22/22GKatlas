@@ -4,3 +4,6 @@ node_modules
 .gitignore
 README.md
 *.log
+.env*
+*.pem
+*.key
