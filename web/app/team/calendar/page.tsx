@@ -32,7 +32,7 @@ const toInput = (value: string) => {
 };
 export default function TeamCalendar() {
   const { user } = useAuth(),
-    manager = !!user && ["admin", "superadmin"].includes(user.role);
+    manager = !!user && ["admin", "superadmin", "director"].includes(user.role);
   const [month, setMonth] = useState(localDate().slice(0, 7)),
     [events, setEvents] = useState<Event[]>([]),
     [staff, setStaff] = useState<{ id: string; name: string }[]>([]);

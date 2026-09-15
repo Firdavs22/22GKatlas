@@ -402,7 +402,7 @@ export class AdminService {
   getStaff() {
     return this.prisma.user.findMany({
       where: {
-        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'methodist'] },
+        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'director', 'methodist'] },
         deletedAt: null,
       },
       select: {
@@ -425,6 +425,16 @@ export class AdminService {
     });
   }
 
+  async assertStaffManagement(actor: { id: string; role: string }, targetId?: string, newRole?: string) {
+    if (!['superadmin', 'director'].includes(actor.role)) throw new ForbiddenException();
+    if (actor.role === 'director' && newRole === 'director') throw new ForbiddenException('Директора назначает главный администратор');
+    if (!targetId) return;
+    const target = await this.prisma.user.findUnique({ where: { id: targetId } });
+    if (!target || target.deletedAt || target.role === 'parent') throw new NotFoundException('Сотрудник не найден');
+    if (target.role === 'superadmin' || targetId === actor.id || (actor.role === 'director' && target.role === 'director'))
+      throw new ForbiddenException('Этот аккаунт не доступен для изменения');
+  }
+
   async inviteStaff(email: string, name: string, role: Role, authService: any) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Пользователь с таким email уже существует');
@@ -436,18 +446,22 @@ export class AdminService {
     return { inviteToken, inviteUrl, userId: user.id };
   }
 
-  updateStaff(id: string, dto: any) {
+  private manageableStaff(id: string, actor: { id: string; role: string }) {
+    return { id, deletedAt: null, NOT: { id: actor.id }, role: { notIn: (actor.role === 'director' ? ['parent', 'superadmin', 'director'] : ['parent', 'superadmin']) as Role[] } };
+  }
+
+  updateStaff(id: string, dto: any, actor: { id: string; role: string }) {
     const { password, email, ...rest } = dto;
     return this.prisma.user.update({
-      where: { id },
+      where: this.manageableStaff(id, actor),
       data: rest,
       select: { id: true, name: true, email: true, role: true, avatar: true },
     });
   }
 
   /** Block staff login — preserves all data, can be undone. */
-  async blockStaff(id: string, actingUserId: string) {
-    if (id === actingUserId) {
+  async blockStaff(id: string, actor: { id: string; role: string }) {
+    if (id === actor.id) {
       throw new ForbiddenException('Нельзя заблокировать самого себя');
     }
     const target = await this.prisma.user.findUnique({ where: { id } });
@@ -456,7 +470,7 @@ export class AdminService {
       throw new ForbiddenException('Нельзя заблокировать суперадминистратора');
     }
     await this.prisma.user.update({
-      where: { id },
+      where: this.manageableStaff(id, actor),
       data: { blockedAt: new Date() },
     });
     // Revoke all sessions — force re-login attempt (which will be rejected).
@@ -464,11 +478,11 @@ export class AdminService {
     return { ok: true };
   }
 
-  async unblockStaff(id: string) {
+  async unblockStaff(id: string, actor: { id: string; role: string }) {
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target || target.deletedAt) throw new NotFoundException();
     await this.prisma.user.update({
-      where: { id },
+      where: this.manageableStaff(id, actor),
       data: { blockedAt: null },
     });
     return { ok: true };
@@ -479,8 +493,8 @@ export class AdminService {
    * выставляет deletedAt. Запись остаётся для FK-целостности (наблюдения, портфолио),
    * через 30 дней физически удаляется cron-скриптом.
    */
-  async softDeleteStaff(id: string, actingUserId: string) {
-    if (id === actingUserId) {
+  async softDeleteStaff(id: string, actor: { id: string; role: string }) {
+    if (id === actor.id) {
       throw new ForbiddenException('Нельзя удалить самого себя');
     }
     const target = await this.prisma.user.findUnique({ where: { id } });
@@ -492,7 +506,7 @@ export class AdminService {
     const anonId = `deleted-${id.slice(0, 8)}`;
     await this.prisma.$transaction([
       this.prisma.user.update({
-        where: { id },
+        where: this.manageableStaff(id, actor),
         data: {
           email: `${anonId}@deleted.local`,
           name: 'Удалённый пользователь',
@@ -508,7 +522,7 @@ export class AdminService {
   }
 
   /** Перевыпустить invite-токен для уже существующего сотрудника (например, если забыл пароль). */
-  async resendInvite(id: string, authService: any) {
+  async resendInvite(id: string, authService: any, actor: { id: string; role: string }) {
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target || target.deletedAt) throw new NotFoundException();
     // Сбрасываем consent, чтобы человек заново принял условия 152-ФЗ при активации.
@@ -516,7 +530,7 @@ export class AdminService {
     const tempPassword = await bcrypt.hash(strongTempPassword(), 10);
     await this.prisma.$transaction([
       this.prisma.user.update({
-        where: { id },
+        where: this.manageableStaff(id, actor),
         data: { password: tempPassword, consentGivenAt: null },
       }),
       this.prisma.refreshToken.deleteMany({ where: { userId: id } }),

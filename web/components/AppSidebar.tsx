@@ -36,9 +36,11 @@ interface NavItem {
   badge?: number;
   /** Hide this item from non-superadmin (regular admin role). */
   superadminOnly?: boolean;
+  directorAllowed?: boolean;
 }
 
 const NAV: Record<string, NavItem[]> = {
+  director: [],
   methodist: [{ href: '/library', label: 'Кабинет методиста', icon: BookOpen }],
   parent: [
     { href: '/parent', label: 'Главная', icon: Home },
@@ -71,12 +73,12 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/admin/groups', label: 'Группы', icon: Users },
     { href: '/admin/children', label: 'Дети', icon: GraduationCap },
     { href: '/admin/parents', label: 'Родители', icon: Users },
-    { href: '/admin/staff', label: 'Сотрудники', icon: Users, superadminOnly: true },
+    { href: '/admin/staff', label: 'Сотрудники', icon: Users, superadminOnly: true, directorAllowed: true },
     { href: '/admin/skills', label: 'Навыки', icon: BookOpen, superadminOnly: true },
     { href: '/admin/schedule', label: 'Расписание', icon: Calendar },
     { href: '/admin/attendance', label: 'Посещаемость', icon: CalendarCheck },
     { href: '/admin/payments', label: 'Оплата', icon: Wallet },
-    { href: '/admin/reports', label: 'Отчёты', icon: BarChart3, superadminOnly: true },
+    { href: '/admin/reports', label: 'Отчёты', icon: BarChart3, superadminOnly: true, directorAllowed: true },
     { href: '/admin/events', label: 'События', icon: Calendar },
     { href: '/admin/menu', label: 'Меню', icon: ChefHat },
     { href: '/admin/broadcasts', label: 'Рассылки', icon: Megaphone },
@@ -101,6 +103,7 @@ const NAV: Record<string, NavItem[]> = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
+  director: 'Директор',
   methodist: 'Методист',
   parent: 'Родитель',
   teacher: 'Педагог',
@@ -111,6 +114,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_ICON: Record<string, typeof Home> = {
+  director: Users,
   methodist: BookOpen,
   parent: Home,
   teacher: GraduationCap,
@@ -122,6 +126,7 @@ const ROLE_ICON: Record<string, typeof Home> = {
 
 // Superadmin sees the full admin sidebar.
 NAV.superadmin = NAV.admin;
+NAV.director = NAV.admin;
 
 function calcAgeYears(birthDate: string): number {
   const b = new Date(birthDate);
@@ -233,7 +238,7 @@ export default function AppSidebar() {
   if (!user) return null;
 
   const items = (NAV[user.role] || []).filter(
-    item => !item.superadminOnly || user.role === 'superadmin',
+    item => !item.superadminOnly || user.role === 'superadmin' || (user.role === 'director' && item.directorAllowed),
   );
   const isActive = (href: string) =>
     pathname === href || (href !== `/${user.role}` && pathname.startsWith(href + '/'));

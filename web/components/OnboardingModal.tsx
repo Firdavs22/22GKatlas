@@ -78,7 +78,7 @@ export default function OnboardingModal({ role }: { role: string }) {
     if (!user) return;
     if (slides.length === 0) return;
     // Admins skip — they figure it out
-    if (role === 'admin' || role === 'superadmin') return;
+    if (['admin', 'superadmin', 'director'].includes(role)) return;
     // Show only if onboarding never completed
     if (!('onboardingCompletedAt' in user) || (user as { onboardingCompletedAt?: string | null }).onboardingCompletedAt) return;
     setOpen(true);

@@ -41,7 +41,7 @@ export default function OnboardingModal() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'admin' || user.role === 'superadmin') return;
+    if (['admin', 'superadmin', 'director'].includes(user.role)) return;
     if (slides.length === 0) return;
     const completed = (user as any).onboardingCompletedAt;
     if (completed) return;

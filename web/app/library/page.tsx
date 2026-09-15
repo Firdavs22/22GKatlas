@@ -45,7 +45,7 @@ const empty: Doc = {
 };
 export default function LibraryPage() {
   const { user } = useAuth(),
-    editor = !!user && ["admin", "superadmin", "methodist"].includes(user.role);
+    editor = !!user && ["admin", "superadmin", "director", "methodist"].includes(user.role);
   const [docs, setDocs] = useState<Doc[]>([]),
     [edit, setEdit] = useState<Doc | null>(null),
     [opened, setOpened] = useState<Doc | null>(null);
@@ -346,7 +346,7 @@ export default function LibraryPage() {
                 onChange={(e) => setEdit({ ...edit, body: e.target.value })}
               />
             </Field>
-            <Field label="Полезные ссылки (по одной на строку)">
+            <Field label="Ссылки и видеоуроки VK Видео / Rutube (по одной на строку)">
               <textarea
                 className={inputClass}
                 rows={3}

@@ -34,7 +34,7 @@ export default function WorkspaceNav() {
           ],
         ]
       : []),
-    ...(modules.crm && ["admin", "superadmin"].includes(user.role)
+    ...(modules.crm && ["admin", "superadmin", "director"].includes(user.role)
       ? [["/crm", "CRM · Заявки"]]
       : []),
   ];

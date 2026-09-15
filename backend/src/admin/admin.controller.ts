@@ -126,49 +126,55 @@ export class AdminController {
     return this.adminService.reissueParentInvite(id, this.authService);
   }
 
-  // ── STAFF ── superadmin-only ─────────────────────────────
+  // ── STAFF ── director and superadmin ─────────────────────────────
   @Get('staff')
-  @Roles('superadmin')
+  @Roles('superadmin', 'director')
   getStaff() { return this.adminService.getStaff(); }
 
   @Get('staff/:id')
-  @Roles('superadmin')
+  @Roles('superadmin', 'director')
   getStaffById(@Param('id') id: string) { return this.adminService.getStaffById(id); }
 
   @Post('staff/invite')
-  @Roles('superadmin')
-  inviteStaff(@Body() dto: InviteStaffDto) {
+  @Roles('superadmin', 'director')
+  async inviteStaff(@Body() dto: InviteStaffDto, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, undefined, dto.role);
     return this.adminService.inviteStaff(dto.email, dto.name, dto.role, this.authService);
   }
 
   @Put('staff/:id')
-  @Roles('superadmin')
-  updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto) {
-    return this.adminService.updateStaff(id, dto);
+  @Roles('superadmin', 'director')
+  async updateStaff(@Param('id') id: string, @Body() dto: UpdateStaffDto, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, id, dto.role);
+    return this.adminService.updateStaff(id, dto, req.user);
   }
 
   @Patch('staff/:id/block')
-  @Roles('superadmin')
-  blockStaff(@Param('id') id: string, @Req() req: any) {
-    return this.adminService.blockStaff(id, req.user.id);
+  @Roles('superadmin', 'director')
+  async blockStaff(@Param('id') id: string, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, id);
+    return this.adminService.blockStaff(id, req.user);
   }
 
   @Patch('staff/:id/unblock')
-  @Roles('superadmin')
-  unblockStaff(@Param('id') id: string) {
-    return this.adminService.unblockStaff(id);
+  @Roles('superadmin', 'director')
+  async unblockStaff(@Param('id') id: string, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, id);
+    return this.adminService.unblockStaff(id, req.user);
   }
 
   @Delete('staff/:id')
-  @Roles('superadmin')
-  deleteStaff(@Param('id') id: string, @Req() req: any) {
-    return this.adminService.softDeleteStaff(id, req.user.id);
+  @Roles('superadmin', 'director')
+  async deleteStaff(@Param('id') id: string, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, id);
+    return this.adminService.softDeleteStaff(id, req.user);
   }
 
   @Post('staff/:id/resend-invite')
-  @Roles('superadmin')
-  resendInvite(@Param('id') id: string) {
-    return this.adminService.resendInvite(id, this.authService);
+  @Roles('superadmin', 'director')
+  async resendInvite(@Param('id') id: string, @Req() req: any) {
+    await this.adminService.assertStaffManagement(req.user, id);
+    return this.adminService.resendInvite(id, this.authService, req.user);
   }
 
   // ── AREAS ─────────────────────────────────────────────────
@@ -269,23 +275,23 @@ export class AdminController {
     return this.adminService.updatePayment(id, dto);
   }
 
-  // ── REPORTS — superadmin-only ────────────────────────────
+  // ── REPORTS — director and superadmin ────────────────────────────
   @Get('reports/attendance')
-  @Roles('superadmin')
+  @Roles('superadmin', 'director')
   async downloadAttendanceReport(@Query('month') month: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generateAttendanceReport(month);
     this.sendXlsx(res, buffer, `attendance_${month || 'current'}.xlsx`);
   }
 
   @Get('reports/progress')
-  @Roles('superadmin')
+  @Roles('superadmin', 'director')
   async downloadProgressReport(@Query('groupId') groupId: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generateProgressReport(groupId);
     this.sendXlsx(res, buffer, `progress_${groupId || 'all'}.xlsx`);
   }
 
   @Get('reports/payments')
-  @Roles('superadmin')
+  @Roles('superadmin', 'director')
   async downloadPaymentsReport(@Query('month') month: string | undefined, @Res() res: Response) {
     const buffer = await this.adminService.generatePaymentsReport(month);
     this.sendXlsx(res, buffer, `payments_${month || 'current'}.xlsx`);

@@ -10,6 +10,7 @@ import { Role } from '@/lib/types';
 const ROLE_LABEL: Record<Role, string> = {
   superadmin: 'Суперадминистратор',
   admin: 'Администратор',
+  director: 'Директор',
   methodist: 'Методист',
   teacher: 'Педагог',
   parent: 'Родитель',
@@ -125,7 +126,7 @@ export default function AdminStaffDetail() {
             </div>
           )}
 
-          {staff.role === 'admin' && (
+          {['admin', 'superadmin', 'director'].includes(staff.role) && (
             <div className="text-sm text-slate-400 p-6 rounded-xl bg-slate-50 text-center mt-3">
               У администратора есть доступ ко всем данным системы.
             </div>

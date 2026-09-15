@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Role } from '@prisma/client';
 
 export class InviteStaffDto {
@@ -11,7 +11,7 @@ export class InviteStaffDto {
   @MaxLength(120)
   name!: string;
 
-  @IsEnum(Role)
+  @IsIn(['director', 'admin', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
   role!: Role;
 }
 
@@ -23,7 +23,7 @@ export class UpdateStaffDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(Role)
+  @IsIn(['director', 'admin', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
   role?: Role;
 
   @IsOptional()

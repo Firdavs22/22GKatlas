@@ -91,7 +91,7 @@ export class MeService {
     if (!user) throw new UnauthorizedException();
 
     // Admins cannot self-delete (must use another admin / SQL). Avoids locking everyone out.
-    if (user.role === 'admin') {
+    if (['admin', 'superadmin', 'director'].includes(user.role)) {
       throw new ForbiddenException(
         'Администратор не может удалить свой аккаунт самостоятельно. Свяжитесь с другим админом.',
       );

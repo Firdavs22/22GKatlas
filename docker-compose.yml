@@ -94,9 +94,13 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
       TEAM_ENABLED: ${TEAM_ENABLED:-true}
+      TEAM_CLOCK_ENABLED: ${TEAM_CLOCK_ENABLED:-false}
+      TEAM_WORKPLACE_CIDRS: ${TEAM_WORKPLACE_CIDRS:-}
+      TEAM_TIMEZONE: ${TEAM_TIMEZONE:-Europe/Moscow}
       LIBRARY_ENABLED: ${LIBRARY_ENABLED:-true}
       CRM_ENABLED: ${CRM_ENABLED:-true}
       CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
+      TILDA_WEBHOOK_TOKEN: ${TILDA_WEBHOOK_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

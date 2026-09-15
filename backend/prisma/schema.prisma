@@ -45,9 +45,11 @@ model User {
   chatParticipants   ChatParticipant[]
   feedbacks          Feedback[]
   timesheets         StaffTimesheet[]
+  clockSessions      StaffClockSession[]
 }
 
 enum Role {
+  director
   methodist
   admin
   teacher
@@ -86,6 +88,22 @@ model StaffTimeEntry {
   updatedAt      DateTime       @updatedAt
 
   @@unique([sheetId, date])
+}
+
+model StaffClockSession {
+  id         String   @id @default(uuid())
+  requestKey String   @unique @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  date       String
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+  startIp    String
+  endIp      String?
+  closedById String?
+  note       String   @default("")
+
+  @@index([userId, date])
 }
 
 model TeamEvent {
@@ -196,6 +214,7 @@ model Enrollment {
   monthlyFee Decimal  @db.Decimal(10, 2)
   actorId    String
   createdAt  DateTime @default(now())
+  parentId   String?
 }
 
 model CrmStage {

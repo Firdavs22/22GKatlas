@@ -21,7 +21,7 @@ export default function AdminScreen() {
   }
 
   if (!user) return <Redirect href="/login" />;
-  if (user.role !== 'admin') return <Redirect href="/home" />;
+  if (!['admin', 'superadmin', 'director'].includes(user.role)) return <Redirect href="/home" />;
 
   return (
     <>

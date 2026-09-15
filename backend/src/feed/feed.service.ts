@@ -115,7 +115,7 @@ export class FeedService {
   async deleteFeedItem(id: string, user: any) {
     const item = await this.prisma.feedItem.findUnique({ where: { id } });
     if (!item) return { ok: true };
-    if (user.role !== 'admin' && item.authorId !== user.id) throw new ForbiddenException();
+    if (!['admin', 'superadmin', 'director'].includes(user.role) && item.authorId !== user.id) throw new ForbiddenException();
     return this.prisma.feedItem.delete({ where: { id } });
   }
 

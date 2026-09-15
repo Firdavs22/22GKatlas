@@ -6,7 +6,7 @@ export class AccessControlService {
   constructor(private prisma: PrismaService) {}
 
   async checkChildAccess(childId: string, user: any) {
-    if (user.role === 'admin' || user.role === 'superadmin') return;
+    if (['admin', 'superadmin', 'director'].includes(user.role)) return;
 
     // Психолог и педиатр — штатные сотрудники сада, имеют доступ ко всем активным детям.
     if (user.role === 'psychologist' || user.role === 'pediatrician') {

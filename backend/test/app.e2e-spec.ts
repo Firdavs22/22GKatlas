@@ -112,7 +112,7 @@ describe('Security integration (isolated PostgreSQL)', () => {
     expect(response.body.token).toBeUndefined();
     expect(response.body.refreshToken).toBeUndefined();
     for (const name of ['access_token', 'refresh_token']) {
-      expect(response.headers['set-cookie'].find((item: string) => item.startsWith(`${name}=`))).toContain('HttpOnly');
+      expect((response.headers['set-cookie'] as unknown as string[]).find((item: string) => item.startsWith(`${name}=`))).toContain('HttpOnly');
     }
     setCookies(response);
     await request(url).get('/api/me').set('Cookie', cookies).expect(200);
@@ -145,7 +145,7 @@ describe('Security integration (isolated PostgreSQL)', () => {
     const login = await request(url).post('/api/auth/login').send({ email: 'parent-b@example.invalid', password, deviceName: 'Mobile App' }).expect(201);
     expect(login.body.token).toBeTruthy();
     expect(login.body.refreshToken).toBeTruthy();
-    expect(login.headers['set-cookie'].some((item: string) => item.startsWith('access_token='))).toBe(false);
+    expect((login.headers['set-cookie'] as unknown as string[]).some((item: string) => item.startsWith('access_token='))).toBe(false);
     const refresh = await request(url).post('/api/auth/refresh').send({ refreshToken: login.body.refreshToken }).expect(201);
     expect(refresh.body.token).toBeTruthy();
   });
@@ -214,6 +214,6 @@ describe('Security integration (isolated PostgreSQL)', () => {
   });
   it('logs out the browser and clears server cookies', async () => {
     const response = await request(url).post('/api/auth/logout').set('Cookie', cookies).set('X-XSRF-TOKEN', csrf).send({}).expect(201);
-    expect(response.headers['set-cookie'].find((item: string) => item.startsWith('access_token='))).toContain('Expires=Thu, 01 Jan 1970');
+    expect((response.headers['set-cookie'] as unknown as string[]).find((item: string) => item.startsWith('access_token='))).toContain('Expires=Thu, 01 Jan 1970');
   });
 });

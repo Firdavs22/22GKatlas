@@ -23,6 +23,8 @@ import { Feature, FeatureGuard } from '../features/features.module';
 import { AdmissionsModule } from '../admissions/admissions.module';
 import type { Actor } from '../team/team.service';
 import { CrmService } from './crm.service';
+import { TildaController } from './tilda.controller';
+import { AuthModule } from '../auth/auth.module';
 import {
   ActivityDto,
   EnrollDto,
@@ -31,6 +33,7 @@ import {
   MoveDto,
   StageDto,
   StageOrderDto,
+  EnrollmentCheckDto,
 } from './crm.dto';
 @Controller('crm')
 @Feature('crm')
@@ -41,19 +44,23 @@ class CrmController {
   @Get('stages') stages() {
     return this.crm.stages();
   }
-  @Post('stages') @Roles('superadmin') createStage(@Body() dto: StageDto) {
+  @Post('stages') @Roles('superadmin', 'director') createStage(
+    @Body() dto: StageDto,
+  ) {
     return this.crm.createStage(dto);
   }
-  @Put('stages/order') @Roles('superadmin') order(@Body() dto: StageOrderDto) {
+  @Put('stages/order') @Roles('superadmin', 'director') order(
+    @Body() dto: StageOrderDto,
+  ) {
     return this.crm.orderStages(dto.ids);
   }
-  @Put('stages/:id') @Roles('superadmin') rename(
+  @Put('stages/:id') @Roles('superadmin', 'director') rename(
     @Param('id') id: string,
     @Body() dto: StageDto,
   ) {
     return this.crm.renameStage(id, dto);
   }
-  @Delete('stages/:id') @Roles('superadmin') removeStage(
+  @Delete('stages/:id') @Roles('superadmin', 'director') removeStage(
     @Param('id') id: string,
   ) {
     return this.crm.removeStage(id);
@@ -98,6 +105,17 @@ class CrmController {
   ) {
     return this.crm.enroll(id, dto, user);
   }
+  @Post('leads/:id/enrollment-check') checkEnrollment(
+    @Param('id') id: string,
+    @Body() dto: EnrollmentCheckDto,
+  ) {
+    return this.crm.checkEnrollment(id, dto);
+  }
+  @Post('leads/:id/invite-parent')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  inviteParent(@Param('id') id: string, @CurrentUser() user: Actor) {
+    return this.crm.inviteParent(id, user);
+  }
 }
 @Controller('crm/intake')
 @Feature('crm')
@@ -126,8 +144,8 @@ class IntakeController {
   }
 }
 @Module({
-  imports: [AdmissionsModule],
-  controllers: [CrmController, IntakeController],
+  imports: [AdmissionsModule, AuthModule],
+  controllers: [CrmController, IntakeController, TildaController],
   providers: [CrmService],
 })
 export class CrmModule {}

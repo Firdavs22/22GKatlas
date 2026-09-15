@@ -85,3 +85,17 @@ export class LeadQuery {
   @IsOptional() @IsString() @MaxLength(120) search?: string;
   @IsOptional() @IsString() @MaxLength(100) ownerId?: string;
 }
+export class EnrollmentCheckDto {
+  @IsOptional() @IsString() @MaxLength(100) groupId?: string;
+  @IsOptional() @IsString() @MaxLength(10) startsOn?: string;
+  @IsOptional() @IsString() @MaxLength(160) childName?: string;
+  @IsOptional() @IsString() @MaxLength(10) birthDate?: string;
+  @IsOptional() @IsString() @MaxLength(254) email?: string;
+  @IsOptional() @IsString() @MaxLength(100) parentId?: string;
+  @IsOptional() @IsString() @MaxLength(100) childId?: string;
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99999999)
+  monthlyFee?: number;
+}

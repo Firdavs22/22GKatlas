@@ -12,6 +12,7 @@ import {
 } from "@/components/WorkUI";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
+import ClockPanel, { ClockSession } from "@/components/ClockPanel";
 type Entry = {
   date: string;
   plannedStart: string | null;
@@ -28,6 +29,9 @@ type Sheet = {
   month: string;
   approvedAt: string | null;
   entries: Entry[];
+  clockEnabled: boolean;
+  activeClock: ClockSession | null;
+  clockSessions: ClockSession[];
 };
 const statuses: Record<string, string> = {
   work: "Работа",
@@ -38,7 +42,7 @@ const statuses: Record<string, string> = {
 };
 export default function TimesheetPage() {
   const { user } = useAuth(),
-    manager = !!user && ["admin", "superadmin"].includes(user.role);
+    manager = !!user && ["admin", "superadmin", "director"].includes(user.role);
   const [month, setMonth] = useState(localDate().slice(0, 7)),
     [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
   const [userId, setUserId] = useState(""),
@@ -142,6 +146,15 @@ export default function TimesheetPage() {
     : [];
   return (
     <PageLayout title="Табель рабочего времени" eyebrow="Команда">
+      {selected && sheet && (
+        <ClockPanel
+          own={selected === user?.id}
+          manager={manager}
+          userId={selected}
+          active={sheet.activeClock}
+          onSaved={load}
+        />
+      )}
       <div className="flex flex-wrap items-end gap-4">
         <Field label="Месяц">
           <input
@@ -216,8 +229,11 @@ export default function TimesheetPage() {
             <span>{sheet.approvedAt ? "✓ Утверждён" : "Не утверждён"}</span>
           </div>
           <p className="text-xs text-slate-500 mb-3">
-            График задаёт руководитель. Фактические часы заполняет сотрудник или
-            руководитель. Невнесённые дни не считаются отработанными.
+            График задаёт руководитель.{" "}
+            {sheet.clockEnabled
+              ? "Часы считаются по отметкам начала и окончания работы, за вычетом заданного перерыва. Исправления вносит руководитель."
+              : "Фактические часы заполняет сотрудник или руководитель."}{" "}
+            Невнесённые дни не считаются отработанными.
           </p>
           <div className="overflow-x-auto rounded-2xl bg-white border border-slate-200">
             <table className="w-full text-sm">
@@ -255,7 +271,17 @@ export default function TimesheetPage() {
                       <td className="p-3">
                         <button
                           className="text-brand disabled:text-slate-400"
-                          disabled={!!sheet.approvedAt}
+                          disabled={
+                            !!sheet.approvedAt ||
+                            (!manager &&
+                              (sheet.clockEnabled ||
+                                sheet.clockSessions.some(
+                                  (s) => s.date === date,
+                                ))) ||
+                            !!sheet.clockSessions.find(
+                              (s) => s.date === date && !s.endedAt,
+                            )
+                          }
                           onClick={() => open(date)}
                         >
                           Изменить
@@ -268,6 +294,31 @@ export default function TimesheetPage() {
             </table>
           </div>
         </>
+      )}
+      {!!sheet?.clockSessions.length && (
+        <details className="my-5 rounded-xl border p-4">
+          <summary className="cursor-pointer font-medium">
+            Отметки начала и окончания за месяц
+          </summary>
+          <div className="space-y-3 mt-3 text-sm">
+            {sheet.clockSessions.map((s) => (
+              <div key={s.id}>
+                <p>
+                  {s.date}: {new Date(s.startedAt).toLocaleString("ru-RU")} →{" "}
+                  {s.endedAt
+                    ? new Date(s.endedAt).toLocaleString("ru-RU")
+                    : "Смена открыта"}
+                </p>
+                {manager && (
+                  <p className="text-slate-500">
+                    IP: {s.startIp} → {s.endIp || "—"}
+                  </p>
+                )}
+                {s.note && <p>Исправление: {s.note}</p>}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
       {edit && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

@@ -9,7 +9,7 @@ export class AppointmentsService {
   async createSlot(user: { id: string; role: string }, dto: {
     startsAt?: string; endsAt?: string; location?: string; notes?: string;
   }) {
-    if (!['psychologist', 'pediatrician', 'teacher', 'admin'].includes(user.role)) {
+    if (!['psychologist', 'pediatrician', 'teacher', 'admin', 'superadmin', 'director'].includes(user.role)) {
       throw new ForbiddenException();
     }
     if (!dto.startsAt || !dto.endsAt) {
@@ -35,7 +35,7 @@ export class AppointmentsService {
   /** Specialist sees own slots (busy + free). Admin sees everything. */
   async listMySlots(user: { id: string; role: string }, opts: { from?: string; to?: string }) {
     const where: { staffId?: string; startsAt?: { gte?: Date; lte?: Date } } = {};
-    if (user.role !== 'admin') where.staffId = user.id;
+    if (!['admin', 'superadmin', 'director'].includes(user.role)) where.staffId = user.id;
     if (opts.from || opts.to) {
       where.startsAt = {};
       if (opts.from) where.startsAt.gte = new Date(opts.from);
@@ -117,7 +117,7 @@ export class AppointmentsService {
     });
     if (!booking) throw new NotFoundException();
     // Parent may cancel own booking. Staff may cancel bookings on their slots. Admin always.
-    if (user.role !== 'admin') {
+    if (!['admin', 'superadmin', 'director'].includes(user.role)) {
       if (booking.parentId !== user.id && booking.slot.staffId !== user.id) {
         throw new ForbiddenException();
       }
@@ -134,7 +134,7 @@ export class AppointmentsService {
       include: { bookings: { where: { status: 'confirmed' } } },
     });
     if (!slot) throw new NotFoundException();
-    if (user.role !== 'admin' && slot.staffId !== user.id) throw new ForbiddenException();
+    if (!['admin', 'superadmin', 'director'].includes(user.role) && slot.staffId !== user.id) throw new ForbiddenException();
     if (slot.bookings.length > 0) {
       throw new BadRequestException('Сначала отмените запись на этот слот');
     }

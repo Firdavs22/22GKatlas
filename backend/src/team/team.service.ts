@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 
 export type Actor = { id: string; role: string };
 export const isManager = (user: Actor) =>
-  ['admin', 'superadmin'].includes(user.role);
+  ['admin', 'superadmin', 'director'].includes(user.role);
 const activeStaff = {
   role: { not: 'parent' as const },
   blockedAt: null,
@@ -80,6 +80,14 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
     return {
       user,
       month,
+      clockEnabled: process.env.TEAM_CLOCK_ENABLED === 'true',
+      clockSessions: await this.prisma.staffClockSession.findMany({
+        where: { userId, date: { startsWith: month + '-' } },
+        orderBy: { startedAt: 'asc' },
+      }),
+      activeClock: await this.prisma.staffClockSession.findFirst({
+        where: { userId, endedAt: null },
+      }),
       approvedAt: sheet?.approvedAt || null,
       entries: sheet?.entries || [],
     };
@@ -111,6 +119,33 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
       const current = await tx.staffTimeEntry.findUnique({
         where: { sheetId_date: { sheetId: sheet.id, date: dto.date } },
       });
+      const clockEntries = await tx.staffClockSession.count({
+        where: { userId, date: dto.date },
+      });
+      if (
+        !isManager(actor) &&
+        (process.env.TEAM_CLOCK_ENABLED === 'true' || clockEntries)
+      )
+        throw new ForbiddenException(
+          'Часы записываются кнопками начала и окончания работы. Исправления вносит руководитель',
+        );
+      if (
+        await tx.staffClockSession.count({
+          where: { userId, date: dto.date, endedAt: null },
+        })
+      )
+        throw new ConflictException('Сначала завершите открытую смену');
+      if (
+        clockEntries &&
+        ((dto.actualMinutes ?? null) !== current?.actualMinutes ||
+          dto.status !== current?.status ||
+          (dto.breakMinutes !== undefined &&
+            dto.breakMinutes !== current?.breakMinutes)) &&
+        !dto.note.trim()
+      )
+        throw new BadRequestException(
+          'Укажите причину исправления часов или статуса',
+        );
       if ((current?.revision || 0) !== dto.revision)
         throw new ConflictException('Запись уже изменена. Обновите табель');
       if (
@@ -164,6 +199,15 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
       if (!sheet) throw new BadRequestException('Табель пуст');
       if (
         !reopen &&
+        (await tx.staffClockSession.count({
+          where: { userId, date: { startsWith: month + '-' }, endedAt: null },
+        }))
+      )
+        throw new ConflictException(
+          'Есть незавершённая смена. Сначала уточните её время',
+        );
+      if (
+        !reopen &&
         (!sheet.entries.length ||
           sheet.entries.some((entry) => entry.actualMinutes === null))
       )
@@ -197,6 +241,14 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
       'Факт, ч': e.actualMinutes === null ? '' : e.actualMinutes / 60,
       Статус: labels[e.status] || e.status,
       Примечание: e.note,
+      'Отметки начала': sheet.clockSessions
+        .filter((s) => s.date === e.date)
+        .map((s) => s.startedAt.toISOString())
+        .join('; '),
+      'Отметки окончания': sheet.clockSessions
+        .filter((s) => s.date === e.date)
+        .map((s) => s.endedAt?.toISOString() || 'Открыта')
+        .join('; '),
       Утверждён: sheet.approvedAt ? 'Да' : 'Нет',
     }));
     const book = XLSX.utils.book_new();

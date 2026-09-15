@@ -83,12 +83,12 @@ export class ActivitiesService {
   ): Promise<boolean> {
     if (event.audience === 'all') return true;
     if (event.audience === 'staff') {
-      return ['admin', 'teacher', 'psychologist', 'pediatrician'].includes(user.role);
+      return ['admin', 'superadmin', 'director', 'methodist', 'teacher', 'psychologist', 'pediatrician'].includes(user.role);
     }
-    if (event.audience === 'parents') return user.role === 'parent' || user.role === 'admin';
+    if (event.audience === 'parents') return user.role === 'parent' || ['admin', 'superadmin', 'director'].includes(user.role);
     if (event.audience === 'group') {
-      if (!event.groupId) return user.role === 'admin';
-      if (user.role === 'admin') return true;
+      if (!event.groupId) return ['admin', 'superadmin', 'director'].includes(user.role);
+      if (['admin', 'superadmin', 'director'].includes(user.role)) return true;
       if (user.role === 'teacher') {
         const g = await this.prisma.group.findFirst({ where: { teacherId: user.id } });
         return g?.id === event.groupId;

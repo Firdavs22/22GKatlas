@@ -146,6 +146,7 @@ export class AdmissionsService {
     return tx.enrollment.create({
       data: {
         requestKey: dto.requestKey,
+        parentId: parent.id,
         childId: child.id,
         groupId: group.id,
         groupName: group.name,

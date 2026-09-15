@@ -1,4 +1,4 @@
-export type Role = 'methodist' | 'admin' | 'teacher' | 'parent' | 'psychologist' | 'pediatrician' | 'superadmin';
+export type Role = 'director' | 'methodist' | 'admin' | 'teacher' | 'parent' | 'psychologist' | 'pediatrician' | 'superadmin';
 
 export interface User {
   id: string;
@@ -157,6 +157,7 @@ export interface Schedule {
 }
 
 export const ROLE_HOME: Record<Role, string> = {
+  director: '/admin',
   methodist: '/library',
   admin: '/admin',
   superadmin: '/admin',

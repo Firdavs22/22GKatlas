@@ -6,6 +6,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Feature, FeatureGuard } from '../features/features.module';
 import { TeamService } from './team.service';
+import { ClockService } from './clock.service';
+import type { Request } from 'express';
 import type { Actor } from './team.service';
 import {
   EventQuery,
@@ -23,6 +26,9 @@ import {
   RevisionDto,
   TeamEventDto,
   TimeEntryDto,
+  CloseClockDto,
+  StartClockDto,
+  StopClockDto,
 } from './team.dto';
 
 @Controller('team')
@@ -37,7 +43,42 @@ import {
   'pediatrician',
 )
 export class TeamController {
-  constructor(private team: TeamService) {}
+  constructor(
+    private team: TeamService,
+    private clock: ClockService,
+  ) {}
+  @Get('clock') clockStatus(@CurrentUser() user: Actor, @Req() req: Request) {
+    return this.clock.status(user, req.ip || '');
+  }
+  @Post('clock/start') startClock(
+    @CurrentUser() user: Actor,
+    @Req() req: Request,
+    @Body() dto: StartClockDto,
+  ) {
+    return this.clock.start(user, req.ip || '', dto.requestId);
+  }
+  @Post('clock/stop') stopClock(
+    @CurrentUser() user: Actor,
+    @Req() req: Request,
+    @Body() dto: StopClockDto,
+  ) {
+    return this.clock.stop(user, req.ip || '', dto.sessionId);
+  }
+  @Post('clock/:userId/close') closeClock(
+    @Param('userId') id: string,
+    @CurrentUser() user: Actor,
+    @Req() req: Request,
+    @Body() dto: CloseClockDto,
+  ) {
+    return this.clock.closeByManager(
+      id,
+      user,
+      req.ip || '',
+      dto.sessionId,
+      dto.endedAt,
+      dto.note,
+    );
+  }
   @Get('staff') staff() {
     return this.team.directory();
   }

@@ -27,7 +27,7 @@ export class ChildAccessGuard implements CanActivate {
     if (!user) throw new ForbiddenException();
 
     // Admin/superadmin — полный доступ
-    if (user.role === 'admin' || user.role === 'superadmin') return true;
+    if (['admin', 'superadmin', 'director'].includes(user.role)) return true;
 
     // Психолог и педиатр — штатные сотрудники, видят всех активных детей сада.
     // Связь ChildSpecialist остаётся как метка «подопечный», но не ограничивает доступ.

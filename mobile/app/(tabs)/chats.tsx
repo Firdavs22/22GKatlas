@@ -16,6 +16,7 @@ const ROLE_LABEL: Record<string, string> = {
   psychologist: 'Психолог',
   pediatrician: 'Педиатр',
   admin: 'Администратор',
+  director: 'Директор',
   superadmin: 'Администратор',
 };
 

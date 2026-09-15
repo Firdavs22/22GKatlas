@@ -18,6 +18,8 @@ export class RolesGuard implements CanActivate {
     // superadmin bypasses all role checks except those that explicitly require 'superadmin'
     // (in that case it's included in requiredRoles already).
     if (user?.role === 'superadmin') return true;
+    // A director inherits daily administration, not owner-only permissions.
+    if (user?.role === 'director' && requiredRoles.includes('admin')) return true;
     return requiredRoles.includes(user?.role);
   }
 }

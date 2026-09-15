@@ -26,7 +26,7 @@ export class FileAccessService {
 
   async assertCanRead(filename: string, user: FileRequester): Promise<void> {
     if (!/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(filename)) throw new ForbiddenException('Нет доступа к файлу');
-    if (user.role === 'admin' || user.role === 'superadmin') return;
+    if (['admin', 'superadmin', 'director'].includes(user.role)) return;
     const meta = await this.prisma.fileMeta.findUnique({ where: { filename } });
 
     // Resolve the current owning records rather than caching an uploader's role.

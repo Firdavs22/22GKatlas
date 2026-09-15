@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 const ROLE_LABEL: Record<string, string> = {
   superadmin: 'Суперадминистратор',
   admin: 'Администратор',
+  director: 'Директор',
   methodist: 'Методист',
   teacher: 'Педагог',
   psychologist: 'Психолог',
@@ -19,6 +20,7 @@ const ROLE_LABEL: Record<string, string> = {
 const DELETE_CONFIRM_WORD = 'УДАЛИТЬ';
 
 const ROLE_ORDER: { id: string; label: string }[] = [
+  { id: 'director', label: 'Директора' },
   { id: 'methodist', label: 'Методисты' },
   { id: 'teacher', label: 'Педагоги' },
   { id: 'psychologist', label: 'Психологи' },
@@ -234,6 +236,7 @@ export default function AdminStaff() {
               onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
               className={inputCls}
             >
+              {me?.role === 'superadmin' && <option value="director">Директор</option>}
               <option value="methodist">Методист</option>
               <option value="teacher">Педагог</option>
               <option value="psychologist">Психолог</option>
@@ -262,7 +265,7 @@ export default function AdminStaff() {
         ) : (
           filtered.map(s => {
             const isSelf = me?.id === s.id;
-            const isSuper = s.role === 'superadmin';
+            const isSuper = s.role === 'superadmin' || (me?.role === 'director' && s.role === 'director');
             const isBlocked = !!s.blockedAt;
             const busy = actionLoading === s.id;
             return (
@@ -288,8 +291,8 @@ export default function AdminStaff() {
                     <Badge tone="brand">{ROLE_LABEL[s.role] || s.role}</Badge>
                     <button
                       onClick={() => openForm(s)}
-                      disabled={busy || isSuper}
-                      title={isSuper ? 'Суперадминистратор не редактируется через UI' : 'Изменить имя и роль'}
+                      disabled={busy || isSuper || isSelf}
+                      title={isSuper ? 'Этот аккаунт недоступен для редактирования' : 'Изменить имя и роль'}
                       className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <Pencil size={13} /> Изменить
@@ -297,7 +300,7 @@ export default function AdminStaff() {
                     <button
                       onClick={() => resendInvite(s)}
                       disabled={busy || isSelf || isSuper}
-                      title={isSelf ? 'Себе не нужно' : isSuper ? 'Не для суперадмина' : 'Сбросить пароль и выслать новое приглашение'}
+                      title={isSelf ? 'Себе не нужно' : isSuper ? 'Этот аккаунт защищён' : 'Сбросить пароль и выслать новое приглашение'}
                       className="inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 px-3 h-8 rounded-full hover:border-brand hover:text-brand transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <KeyRound size={13} /> Сбросить
@@ -307,7 +310,7 @@ export default function AdminStaff() {
                       disabled={busy || isSelf || isSuper}
                       title={
                         isSelf ? 'Нельзя заблокировать себя'
-                          : isSuper ? 'Нельзя заблокировать суперадмина'
+                          : isSuper ? 'Этот аккаунт защищён'
                           : isBlocked ? 'Разблокировать вход' : 'Заблокировать вход'
                       }
                       className={`inline-flex items-center gap-1.5 text-xs px-3 h-8 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
@@ -323,7 +326,7 @@ export default function AdminStaff() {
                       disabled={busy || isSelf || isSuper}
                       title={
                         isSelf ? 'Нельзя удалить себя'
-                          : isSuper ? 'Нельзя удалить суперадмина'
+                          : isSuper ? 'Этот аккаунт защищён'
                           : 'Удалить аккаунт (анонимизация ПДн, необратимо)'
                       }
                       className="inline-flex items-center gap-1.5 text-xs text-red-700 border border-red-200 px-3 h-8 rounded-full hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

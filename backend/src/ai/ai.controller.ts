@@ -18,7 +18,7 @@ export class AiController {
     @CurrentUser() user: { role: string },
   ) {
     // Защита от спама: только сотрудники могут генерировать
-    if (!['teacher', 'psychologist', 'pediatrician', 'admin'].includes(user.role)) {
+    if (!['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'director'].includes(user.role)) {
       return { text: '', provider: 'forbidden' };
     }
     return this.ai.generateObservation(body);

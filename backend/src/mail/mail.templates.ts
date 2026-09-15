@@ -105,6 +105,8 @@ const ROLE_LABEL_RU: Record<string, string> = {
   psychologist: 'психолога',
   pediatrician: 'педиатра',
   admin: 'администратора',
+  director: 'директора',
+  methodist: 'методиста',
 };
 
 export interface StaffInviteVars {

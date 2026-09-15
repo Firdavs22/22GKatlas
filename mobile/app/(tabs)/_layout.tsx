@@ -9,6 +9,7 @@ import type { Role } from '../../lib/types';
 
 // Define which tabs each role can see
 const ROLE_TABS: Record<Role, string[]> = {
+  director: ['home', 'profile'],
   methodist: ['home', 'profile'],
   admin:        ['home', 'profile'],
   superadmin:   ['home', 'profile'],

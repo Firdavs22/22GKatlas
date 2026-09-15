@@ -6,17 +6,23 @@ import {
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { enabledFeatures } from '../features/features.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdmissionsService } from '../admissions/admissions.module';
+import { checkAdmission } from '../admissions/admission-check';
+import { AuthService } from '../auth/auth.service';
+import { MailService } from '../mail/mail.service';
+import { parentInvite } from '../mail/mail.templates';
 import {
   ActivityDto,
   EnrollDto,
   LeadDto,
   LeadQuery,
   StageDto,
+  EnrollmentCheckDto,
 } from './crm.dto';
 import type { Actor } from '../team/team.service';
 
@@ -37,6 +43,8 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private prisma: PrismaService,
     private admissions: AdmissionsService,
+    private auth: AuthService,
+    private mail: MailService,
   ) {}
   onModuleInit() {
     this.timer = setInterval(() => {
@@ -71,7 +79,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
         if (!claimed.count) return;
         const owners = await tx.user.findMany({
           where: {
-            role: { in: ['admin', 'superadmin'] },
+            role: { in: ['admin', 'superadmin', 'director'] },
             deletedAt: null,
             blockedAt: null,
             ...(lead.ownerId ? { id: lead.ownerId } : {}),
@@ -168,7 +176,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     const [owners, groups, parents, children] = await Promise.all([
       this.prisma.user.findMany({
         where: {
-          role: { in: ['admin', 'superadmin'] },
+          role: { in: ['admin', 'superadmin', 'director'] },
           deletedAt: null,
           blockedAt: null,
         },
@@ -225,7 +233,12 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
           include: { child: { select: { id: true, name: true } } },
         })
       : null;
-    return { ...lead, enrollment };
+    const relatedLeads = await this.prisma.crmLead.findMany({
+      where: { phone: lead.phone, id: { not: lead.id } },
+      select: { id: true, parentName: true, childName: true, state: true },
+      take: 20,
+    });
+    return { ...lead, enrollment, relatedLeads };
   }
   private async leadData(dto: LeadDto) {
     if (!dto.parentName.trim())
@@ -245,7 +258,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       !(await this.prisma.user.findFirst({
         where: {
           id: dto.ownerId,
-          role: { in: ['admin', 'superadmin'] },
+          role: { in: ['admin', 'superadmin', 'director'] },
           blockedAt: null,
           deletedAt: null,
         },
@@ -462,5 +475,77 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       },
       { timeout: 15000 },
     );
+  }
+  async checkEnrollment(id: string, dto: EnrollmentCheckDto) {
+    const lead = await this.prisma.crmLead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException();
+    if (lead.state === 'won')
+      throw new ConflictException('Ребёнок уже зачислен');
+    return checkAdmission(this.prisma, {
+      ...dto,
+      parentName: lead.parentName,
+      phone: lead.phone,
+      email: dto.email || lead.email || undefined,
+    });
+  }
+  async inviteParent(id: string, actor: Actor) {
+    const lead = await this.prisma.crmLead.findUnique({ where: { id } });
+    if (!lead?.enrollmentId)
+      throw new BadRequestException('Сначала зачислите ребёнка');
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: lead.enrollmentId },
+      include: {
+        child: { include: { parents: { include: { parent: true } } } },
+      },
+    });
+    const parents = enrollment?.child.parents.map((p) => p.parent) || [];
+    const parent =
+      parents.find((p) => p.id === enrollment?.parentId) ||
+      parents.find((p) => p.email === lead.email) ||
+      (parents.length === 1 ? parents[0] : null);
+    if (
+      !parent ||
+      parent.role !== 'parent' ||
+      parent.blockedAt ||
+      parent.deletedAt
+    )
+      throw new ConflictException(
+        'Выберите действующего родителя в разделе «Родители»',
+      );
+    if (parent.consentGivenAt) return { status: 'active', email: parent.email };
+    if (!process.env.SMTP_HOST)
+      throw new ServiceUnavailableException(
+        'Почта не настроена. Зачисление сохранено; настройте SMTP и повторите отправку',
+      );
+    const appUrl = process.env.PUBLIC_APP_URL || '';
+    if (!/^https?:\/\/[^\s/]+/i.test(appUrl))
+      throw new ServiceUnavailableException(
+        'Не настроен адрес портала PUBLIC_APP_URL',
+      );
+    const token = this.auth.generateInviteToken(parent.id);
+    const inviteUrl =
+      appUrl.replace(/\/$/, '') + '/invite?token=' + encodeURIComponent(token);
+    const message = parentInvite({
+      parentName: parent.name,
+      childName: enrollment!.child.name,
+      inviteUrl,
+    });
+    try {
+      const result = await this.mail.send({ to: parent.email, ...message });
+      if (!result?.sent) throw new Error('SMTP disabled');
+    } catch {
+      throw new ServiceUnavailableException(
+        'Письмо не отправлено. Зачисление сохранено; проверьте SMTP и повторите отправку',
+      );
+    }
+    await this.prisma.crmActivity.create({
+      data: {
+        leadId: id,
+        kind: 'invite',
+        actorId: actor.id,
+        text: 'Родителю отправлено приглашение в портал',
+      },
+    });
+    return { status: 'sent', email: parent.email };
   }
 }

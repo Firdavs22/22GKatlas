@@ -16,6 +16,7 @@ export interface MobileNavItem {
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
+  director: 'Директор',
   methodist: 'Методист',
   admin: 'Администратор',
   superadmin: 'Главный администратор',
@@ -26,6 +27,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_HOME_TITLE: Record<Role, string> = {
+  director: 'Директор',
   methodist: 'Методист',
   admin: 'Дашборд',
   superadmin: 'Дашборд',
@@ -36,6 +38,7 @@ export const ROLE_HOME_TITLE: Record<Role, string> = {
 };
 
 export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
+  director: [],
   methodist: [],
   superadmin: [], // mirrored from admin after the record is constructed
   parent: [
@@ -95,6 +98,7 @@ export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
 // Superadmin uses the same nav as admin — declared after the object literal to avoid
 // duplicating the long admin list.
 ROLE_NAV.superadmin = ROLE_NAV.admin;
+ROLE_NAV.director = ROLE_NAV.admin;
 
 export function toneColors(tone: MobileNavItem['tone']) {
   const map = {

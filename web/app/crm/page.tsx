@@ -37,6 +37,12 @@ type Lead = {
   revision: number;
 };
 type Detail = Lead & {
+  relatedLeads: {
+    id: string;
+    parentName: string;
+    childName: string;
+    state: string;
+  }[];
   history: {
     id: string;
     kind: string;
@@ -64,22 +70,24 @@ type Lookups = {
   }[];
 };
 type LeadForm = {
-  [K in
-    | "parentName"
-    | "phone"
-    | "email"
-    | "childName"
-    | "birthDate"
-    | "direction"
-    | "priority"
-    | "ownerId"
-    | "source"
-    | "utmSource"
-    | "utmMedium"
-    | "utmCampaign"
-    | "notes"
-    | "nextAction"
-    | "nextActionAt"]: string;
+  [
+    K in
+      | "parentName"
+      | "phone"
+      | "email"
+      | "childName"
+      | "birthDate"
+      | "direction"
+      | "priority"
+      | "ownerId"
+      | "source"
+      | "utmSource"
+      | "utmMedium"
+      | "utmCampaign"
+      | "notes"
+      | "nextAction"
+      | "nextActionAt"
+  ]: string;
 };
 const emptyLead: LeadForm = {
   parentName: "",
@@ -108,6 +116,7 @@ const actionLabels: Record<string, string> = {
   edited: "Изменение",
   stage: "Этап",
   enrolled: "Зачисление",
+  invite: "Приглашение родителю",
 };
 const secondary =
   "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm disabled:opacity-40";
@@ -161,7 +170,8 @@ function Modal({
 
 export default function CrmPage() {
   const { user } = useAuth();
-  const allowed = !!user && ["admin", "superadmin"].includes(user.role);
+  const allowed =
+    !!user && ["admin", "superadmin", "director"].includes(user.role);
   const [stages, setStages] = useState<Stage[]>([]),
     [leads, setLeads] = useState<Lead[]>([]);
   const [lookups, setLookups] = useState<Lookups>({
@@ -199,6 +209,46 @@ export default function CrmPage() {
     parentId: string;
     childId: string;
   } | null>(null);
+  const [enrollmentCheck, setEnrollmentCheck] = useState<{
+    ready: boolean;
+    missing: string[];
+    parentAccess: string;
+    afterEnrollment: string[];
+  } | null>(null);
+  const [inviteMessage, setInviteMessage] = useState("");
+  function enrollmentPayload() {
+    if (!enroll) return {};
+    return {
+      ...enroll,
+      monthlyFee:
+        enroll.monthlyFee === "" ? undefined : Number(enroll.monthlyFee),
+      email: enroll.email || undefined,
+      parentId: enroll.parentId || undefined,
+      childId: enroll.childId || undefined,
+    };
+  }
+  useEffect(() => {
+    setEnrollmentCheck(null);
+    if (!enroll || !detail) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api
+        .post(`/crm/leads/${detail.id}/enrollment-check`, enrollmentPayload())
+        .then((r) => {
+          if (!cancelled) {
+            setEnrollmentCheck(r.data);
+            setModalError("");
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) setModalError(errorText(e));
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [enroll, detail?.id]);
   const [settings, setSettings] = useState(false),
     [stageForm, setStageForm] = useState({ id: "", title: "", kind: "active" });
   const load = useCallback(async () => {
@@ -251,6 +301,7 @@ export default function CrmPage() {
     setLookups(refs.data);
   }
   async function openLead(id: string) {
+    setInviteMessage("");
     setError("");
     setModalError("");
     try {
@@ -419,7 +470,7 @@ export default function CrmPage() {
           От первого контакта до зачисления в группу.
         </p>
         <div className="flex gap-2 flex-wrap">
-          {user?.role === "superadmin" && (
+          {["superadmin", "director"].includes(user?.role || "") && (
             <button
               className={secondary}
               onClick={() => {
@@ -565,6 +616,24 @@ export default function CrmPage() {
               new Date(detail.birthDate).toLocaleDateString("ru-RU")}
             {detail.direction && " · " + detail.direction}
           </p>
+          {!!detail.relatedLeads?.length && (
+            <div className="bg-amber-50 rounded-xl p-3 my-3 text-sm">
+              <p className="font-medium">
+                С этим телефоном уже есть заявки. Проверьте ребёнка перед
+                зачислением:
+              </p>
+              {detail.relatedLeads.map((l) => (
+                <button
+                  key={l.id}
+                  className="block text-brand underline mt-1"
+                  onClick={() => openLead(l.id)}
+                >
+                  {l.parentName} · {l.childName || "Ребёнок не указан"} ·{" "}
+                  {l.state === "won" ? "Зачислен" : "В работе"}
+                </button>
+              ))}
+            </div>
+          )}
           {detail.notes && (
             <p className="whitespace-pre-wrap bg-slate-50 rounded-xl p-4 my-4 text-sm">
               {detail.notes}
@@ -588,10 +657,32 @@ export default function CrmPage() {
                   Открыть ребёнка в портале
                 </Link>
               )}
-              <p className="text-sm mt-2">
-                Для доступа родителя отправьте приглашение из раздела
-                «Родители».
-              </p>
+              <button
+                className={buttonClass + " mt-3"}
+                disabled={busy}
+                onClick={() =>
+                  mutate(async () => {
+                    const { data } = await api.post(
+                      `/crm/leads/${detail.id}/invite-parent`,
+                    );
+                    await openLead(detail.id);
+                    setInviteMessage(
+                      data.status === "active"
+                        ? "У родителя уже есть доступ. Он входит со своим паролем."
+                        : "Приглашение отправлено на " +
+                            data.email +
+                            ". Родитель задаёт пароль по ссылке из письма.",
+                    );
+                  })
+                }
+              >
+                Отправить приглашение родителю
+              </button>
+              {inviteMessage && (
+                <p role="status" className="text-sm mt-3">
+                  {inviteMessage}
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -901,6 +992,17 @@ export default function CrmPage() {
             onSubmit={(e) => {
               e.preventDefault();
               void mutate(async () => {
+                const { data: check } = await api.post(
+                  `/crm/leads/${detail.id}/enrollment-check`,
+                  enrollmentPayload(),
+                );
+                setEnrollmentCheck(check);
+                if (!check.ready) {
+                  setModalError(
+                    "Дополните обязательные поля перед зачислением",
+                  );
+                  return;
+                }
                 await api.post(`/crm/leads/${detail.id}/enroll`, {
                   groupId: enroll.groupId,
                   startsOn: enroll.startsOn,
@@ -1065,7 +1167,45 @@ export default function CrmPage() {
                 }
               />
             </Field>
-            <button className={buttonClass} disabled={busy}>
+            <div
+              className="rounded-xl bg-slate-50 p-4 text-sm"
+              aria-live="polite"
+            >
+              <p className="font-medium">Проверка перед зачислением</p>
+              {!enrollmentCheck ? (
+                <p>Проверяю заполнение…</p>
+              ) : (
+                <>
+                  {enrollmentCheck.ready ? (
+                    <p className="text-emerald-700">
+                      Обязательные данные заполнены, место в группе есть.
+                    </p>
+                  ) : (
+                    <>
+                      <p>Необходимо дополнить:</p>
+                      <ul className="list-disc pl-5">
+                        {enrollmentCheck.missing.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  <p className="mt-2">
+                    {enrollmentCheck.parentAccess === "active"
+                      ? "Родитель войдёт с существующим паролем."
+                      : "После зачисления отправьте родителю приглашение: он задаст пароль по ссылке."}
+                  </p>
+                  <p className="mt-2 text-slate-500">
+                    Затем в карточке ребёнка:{" "}
+                    {enrollmentCheck.afterEnrollment.join("; ")}.
+                  </p>
+                </>
+              )}
+            </div>
+            <button
+              className={buttonClass}
+              disabled={busy || !enrollmentCheck?.ready}
+            >
               {busy ? "Зачисляю…" : "Подтвердить зачисление"}
             </button>
           </form>

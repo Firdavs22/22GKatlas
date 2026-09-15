@@ -16,6 +16,7 @@ export default function HomeScreen() {
   if (!user) return null;
 
   switch (user.role) {
+    case 'director':
     case 'superadmin':
     case 'admin':
       return <AdminHome />;

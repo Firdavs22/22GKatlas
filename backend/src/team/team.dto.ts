@@ -8,6 +8,7 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -51,4 +52,15 @@ export class TeamEventDto {
 }
 export class RevisionDto {
   @IsInt() @Min(1) revision!: number;
+}
+export class CloseClockDto {
+  @IsString() @MinLength(1) @MaxLength(100) sessionId!: string;
+  @IsISO8601({ strict: true }) endedAt!: string;
+  @IsString() @MinLength(1) @MaxLength(1000) note!: string;
+}
+export class StartClockDto {
+  @IsUUID() requestId!: string;
+}
+export class StopClockDto {
+  @IsString() @MinLength(1) @MaxLength(100) sessionId!: string;
 }

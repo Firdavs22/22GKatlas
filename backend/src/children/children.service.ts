@@ -14,6 +14,7 @@ export class ChildrenService {
     // Админ видит их через /admin/children?archived=1.
     switch (user.role) {
       case 'admin':
+      case 'director':
       case 'superadmin':
         return this.prisma.child.findMany({ where: { status: 'active' }, include: { group: true }, orderBy: { name: 'asc' } });
       case 'teacher': {

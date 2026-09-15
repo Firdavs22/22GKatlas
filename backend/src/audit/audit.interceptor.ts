@@ -67,8 +67,7 @@ export class AuditInterceptor implements NestInterceptor {
     const start = Date.now();
     const cleanPath = path.replace(/^\/api/, '');
     const sanitizedBody = truncate(sanitize(req.body));
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-      || req.socket?.remoteAddress
+    const ip = req.ip || req.socket?.remoteAddress
       || null;
     const userAgent = (req.headers['user-agent'] as string)?.slice(0, 300) || null;
 

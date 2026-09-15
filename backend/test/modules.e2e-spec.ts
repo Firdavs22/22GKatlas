@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { TeamService } from '../src/team/team.service';
 import { CrmService } from '../src/crm/crm.service';
 import { Test } from '@nestjs/testing';
@@ -94,6 +95,8 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
       ['specialist', 'psychologist'],
       ['methodist', 'methodist'],
       ['teacher-b', 'teacher'],
+      ['teacher-clock', 'teacher'],
+      ['director', 'director'],
       ['admin', 'superadmin'],
     ] as const) {
       await prisma.user.create({
@@ -852,6 +855,340 @@ describe('Workspace modules integration (isolated PostgreSQL)', () => {
     } finally {
       delete process.env.CRM_WEBHOOK_TOKEN;
       delete process.env.CRM_ENABLED;
+    }
+  });
+
+  it('lets directors manage ordinary staff but not owners, peers or their own role', async () => {
+    await request(url)
+      .get('/api/admin/staff')
+      .set(auth('director'))
+      .expect(200);
+    await request(url)
+      .post('/api/admin/skills/reset-all')
+      .set(auth('director'))
+      .send({})
+      .expect(403);
+    for (const id of ['admin', 'director']) {
+      await request(url)
+        .put('/api/admin/staff/' + id)
+        .set(auth('director'))
+        .send({ name: 'Changed' })
+        .expect(403);
+      await request(url)
+        .post('/api/admin/staff/' + id + '/resend-invite')
+        .set(auth('director'))
+        .expect(403);
+    }
+    await request(url)
+      .put('/api/admin/staff/teacher-clock')
+      .set(auth('director'))
+      .send({ role: 'director' })
+      .expect(403);
+    await request(url)
+      .put('/api/admin/staff/teacher-clock')
+      .set(auth('director'))
+      .send({ role: 'superadmin' })
+      .expect(400);
+    await request(url)
+      .put('/api/admin/staff/teacher-clock')
+      .set(auth('director'))
+      .send({ name: 'Clock Teacher' })
+      .expect(200);
+    await request(url)
+      .patch('/api/admin/staff/teacher-clock/block')
+      .set(auth('director'))
+      .expect(200);
+    await request(url)
+      .get('/api/team/clock')
+      .set(auth('teacher-clock'))
+      .expect(401);
+    await request(url)
+      .patch('/api/admin/staff/teacher-clock/unblock')
+      .set(auth('director'))
+      .expect(200);
+  });
+
+  it('records server clock times with IP enforcement, safe retries and controlled corrections', async () => {
+    const keys = [
+      'TEAM_CLOCK_ENABLED',
+      'TEAM_WORKPLACE_CIDRS',
+      'TEAM_TIMEZONE',
+    ];
+    const previous = keys.map((k) => process.env[k]);
+    process.env.TEAM_CLOCK_ENABLED = 'true';
+    process.env.TEAM_TIMEZONE = 'Europe/Moscow';
+    process.env.TEAM_WORKPLACE_CIDRS = '203.0.113.7';
+    try {
+      const start = (id: string) =>
+        request(url)
+          .post('/api/team/clock/start')
+          .set(auth('teacher-clock'))
+          .send({ requestId: id });
+      await start(randomUUID())
+        .set('X-Forwarded-For', '203.0.113.7')
+        .expect(403);
+      process.env.TEAM_WORKPLACE_CIDRS = '127.0.0.1';
+      const requestId = randomUUID(),
+        before = Date.now();
+      const attempts = await Promise.all([start(requestId), start(requestId)]);
+      expect(attempts.map((r) => r.status)).toEqual([201, 201]);
+      expect(attempts[0].body.id).toBe(attempts[1].body.id);
+      const session = attempts[0].body;
+      expect(new Date(session.startedAt).getTime()).toBeGreaterThanOrEqual(
+        before,
+      );
+      expect(
+        await prisma.staffClockSession.count({
+          where: { userId: 'teacher-clock', endedAt: null },
+        }),
+      ).toBe(1);
+      const row = {
+        date: session.date,
+        status: 'work',
+        actualMinutes: 480,
+        note: '',
+        revision: 0,
+      };
+      await request(url)
+        .put('/api/team/timesheet/teacher-clock')
+        .set(auth('teacher-clock'))
+        .send(row)
+        .expect(403);
+      await request(url)
+        .post('/api/team/timesheet/approve')
+        .set(auth('director'))
+        .send({ month: session.date.slice(0, 7), userId: 'teacher-clock' })
+        .expect(409);
+      const stopped = await request(url)
+        .post('/api/team/clock/stop')
+        .set(auth('teacher-clock'))
+        .send({ sessionId: session.id })
+        .expect(201);
+      const second = (await start(randomUUID()).expect(201)).body;
+      await request(url)
+        .post('/api/team/clock/stop')
+        .set(auth('teacher-clock'))
+        .send({ sessionId: session.id })
+        .expect(201);
+      expect(
+        (
+          await prisma.staffClockSession.findUniqueOrThrow({
+            where: { id: second.id },
+          })
+        ).endedAt,
+      ).toBeNull();
+      expect((await start(requestId).expect(201)).body.id).toBe(session.id);
+      process.env.TEAM_WORKPLACE_CIDRS = '203.0.113.7';
+      await request(url)
+        .post('/api/team/clock/stop')
+        .set(auth('teacher-clock'))
+        .send({ sessionId: second.id })
+        .expect(403);
+      const close = {
+        sessionId: second.id,
+        endedAt: new Date().toISOString(),
+        note: 'Сотрудник забыл завершить смену',
+      };
+      await request(url)
+        .post('/api/team/clock/teacher-clock/close')
+        .set(auth('director'))
+        .send({ ...close, note: '' })
+        .expect(400);
+      await request(url)
+        .post('/api/team/clock/teacher-clock/close')
+        .set(auth('director'))
+        .send(close)
+        .expect(201);
+      const sheet = (
+        await request(url)
+          .get('/api/team/timesheet')
+          .query({ month: session.date.slice(0, 7), userId: 'teacher-clock' })
+          .set(auth('director'))
+          .expect(200)
+      ).body;
+      expect(sheet.clockSessions).toHaveLength(2);
+      expect(sheet.entries[0].actualMinutes).toBe(0);
+      await request(url)
+        .put('/api/team/timesheet/teacher-clock')
+        .set(auth('director'))
+        .send({ ...row, revision: sheet.entries[0].revision })
+        .expect(400);
+      await request(url)
+        .put('/api/team/timesheet/teacher-clock')
+        .set(auth('director'))
+        .send({
+          ...row,
+          revision: sheet.entries[0].revision,
+          note: 'Исправление по журналу присутствия',
+        })
+        .expect(200);
+      process.env.TEAM_WORKPLACE_CIDRS = '127.0.0.1';
+      await start(randomUUID()).expect(409);
+      expect(
+        (
+          await prisma.staffClockSession.findUniqueOrThrow({
+            where: { id: session.id },
+          })
+        ).endedAt!.toISOString(),
+      ).toBe(stopped.body.endedAt);
+    } finally {
+      keys.forEach((key, i) => {
+        if (previous[i] === undefined) delete process.env[key];
+        else process.env[key] = previous[i];
+      });
+    }
+  });
+
+  it('takes a Tilda family through stages, checklist, enrollment, invitation and isolated parent access', async () => {
+    const keys = ['TILDA_WEBHOOK_TOKEN', 'SMTP_HOST', 'PUBLIC_APP_URL'];
+    const previous = keys.map((k) => process.env[k]);
+    process.env.TILDA_WEBHOOK_TOKEN =
+      'test-only-tilda-connector-token-at-least-32-characters';
+    process.env.PUBLIC_APP_URL = 'https://portal.example.invalid';
+    sentMail.mockClear();
+    try {
+      const post = (body: object) =>
+        request(url)
+          .post('/api/crm/tilda')
+          .set('Authorization', 'Bearer ' + process.env.TILDA_WEBHOOK_TOKEN)
+          .type('form')
+          .send(body);
+      await post({ test: 'test' }).expect(200, 'ok');
+      const form = {
+        tranid: 'site:complete-journey',
+        Name: 'Тест Tilda',
+        Phone: '8 (999) 555-66-77',
+        Email: 'tilda-family@example.invalid',
+      };
+      const attempts = await Promise.all([post(form), post(form)]);
+      expect(attempts.map((r) => r.status)).toEqual([200, 200]);
+      expect(await prisma.crmLead.count({ where: { email: form.Email } })).toBe(
+        1,
+      );
+      const lead = await prisma.crmLead.findFirstOrThrow({
+        where: { email: form.Email },
+      });
+      const missing = (
+        await request(url)
+          .post(`/api/crm/leads/${lead.id}/enrollment-check`)
+          .set(auth('director'))
+          .send({})
+          .expect(201)
+      ).body;
+      expect(missing.ready).toBe(false);
+      expect(missing.missing).toContain('Имя ребёнка');
+      await request(url)
+        .post(`/api/crm/leads/${lead.id}/enroll`)
+        .set(auth('director'))
+        .send({ revision: 1 })
+        .expect(400);
+      await request(url)
+        .post(`/api/crm/leads/${lead.id}/move`)
+        .set(auth('director'))
+        .send({ stageId: 'tour', revision: 1 })
+        .expect(201);
+      const fields = {
+        groupId: 'group-a',
+        startsOn: '2026-10-01',
+        childName: 'Ребёнок Tilda',
+        birthDate: '2022-04-01',
+      };
+      const checked = (
+        await request(url)
+          .post(`/api/crm/leads/${lead.id}/enrollment-check`)
+          .set(auth('director'))
+          .send(fields)
+          .expect(201)
+      ).body;
+      expect(checked.ready).toBe(true);
+      const admitted = (
+        await request(url)
+          .post(`/api/crm/leads/${lead.id}/enroll`)
+          .set(auth('director'))
+          .send({ ...fields, revision: 2 })
+          .expect(201)
+      ).body;
+      delete process.env.SMTP_HOST;
+      await request(url)
+        .post(`/api/crm/leads/${lead.id}/invite-parent`)
+        .set(auth('director'))
+        .expect(503);
+      expect(
+        await prisma.enrollment.count({ where: { id: admitted.id } }),
+      ).toBe(1);
+      process.env.SMTP_HOST = 'smtp.example.invalid';
+      sentMail.mockResolvedValue({ sent: true });
+      await request(url)
+        .post(`/api/crm/leads/${lead.id}/invite-parent`)
+        .set(auth('director'))
+        .expect(201);
+      const message = sentMail.mock.calls[0][0];
+      expect(message.to).toBe(form.Email);
+      const invitation =
+        /https:\/\/portal\.example\.invalid\/invite\?token=([^\s]+)/.exec(
+          message.text,
+        )![1];
+      await request(url)
+        .post('/api/auth/invite/accept')
+        .send({
+          token: decodeURIComponent(invitation),
+          password,
+          consent: true,
+        })
+        .expect(201);
+      const login = (
+        await request(url)
+          .post('/api/auth/login')
+          .send({ email: form.Email, password })
+          .expect(201)
+      ).body;
+      const access = { Authorization: 'Bearer ' + login.token };
+      await request(url)
+        .get('/api/children/' + admitted.child.id)
+        .set(access)
+        .expect(200);
+      await request(url).get('/api/children/child-a').set(access).expect(403);
+      const hashBefore = (
+        await prisma.user.findUniqueOrThrow({
+          where: { id: admitted.parentId },
+        })
+      ).password;
+      const active = (
+        await request(url)
+          .post(`/api/crm/leads/${lead.id}/invite-parent`)
+          .set(auth('director'))
+          .expect(201)
+      ).body;
+      expect(active.status).toBe('active');
+      expect(sentMail).toHaveBeenCalledTimes(1);
+      expect(
+        (
+          await prisma.user.findUniqueOrThrow({
+            where: { id: admitted.parentId },
+          })
+        ).password,
+      ).toBe(hashBefore);
+      await post({
+        ...form,
+        tranid: 'site:another-child',
+        childName: 'Другой ребёнок',
+      }).expect(200);
+      expect(await prisma.crmLead.count({ where: { email: form.Email } })).toBe(
+        2,
+      );
+      const detail = (
+        await request(url)
+          .get(`/api/crm/leads/${lead.id}`)
+          .set(auth('director'))
+          .expect(200)
+      ).body;
+      expect(detail.relatedLeads).toHaveLength(1);
+    } finally {
+      keys.forEach((key, i) => {
+        if (previous[i] === undefined) delete process.env[key];
+        else process.env[key] = previous[i];
+      });
+      sentMail.mockReset();
     }
   });
 });
