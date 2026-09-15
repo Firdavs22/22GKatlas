@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -16,8 +16,11 @@ export default function HomeScreen() {
   if (!user) return null;
 
   switch (user.role) {
+    case 'superadmin':
     case 'admin':
       return <AdminHome />;
+    case 'methodist':
+      return <MethodistHome />;
     case 'teacher':
       return <TeacherHome />;
     case 'parent':
@@ -25,6 +28,11 @@ export default function HomeScreen() {
     default:
       return <SpecialistHome />;
   }
+}
+
+function MethodistHome() {
+  const portal = process.env.EXPO_PUBLIC_PORTAL_URL;
+  return <MobileShell eyebrow="Методист" title="Рабочий кабинет"><Text>Правила, пособия, календарь и табель доступны в веб-портале, в том числе в браузере телефона.</Text>{portal ? <TouchableOpacity onPress={() => Linking.openURL(portal.replace(/\/$/, '') + '/library')} style={{ paddingVertical: 20 }}><Text style={{ color: colors.brand }}>Открыть кабинет методиста</Text></TouchableOpacity> : <Text style={{ marginTop: 16 }}>Откройте адрес портала вашего сада в браузере.</Text>}</MobileShell>;
 }
 
 function formatToday() {

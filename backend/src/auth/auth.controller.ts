@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Res, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Res, Req, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response, Request, CookieOptions } from 'express';
 import { AuthService } from './auth.service';
@@ -16,48 +16,58 @@ const COOKIE_BASE: CookieOptions = {
 const ACCESS_MAX_AGE = 15 * 60 * 1000;             // 15 min
 const REFRESH_MAX_AGE = 30 * 24 * 60 * 60 * 1000;  // 30 days
 
-function setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+function setAuthCookies(res: Response, accessToken: string, refreshToken: string, role: string) {
   res.cookie('access_token',  accessToken,  { ...COOKIE_BASE, maxAge: ACCESS_MAX_AGE });
   res.cookie('refresh_token', refreshToken, { ...COOKIE_BASE, maxAge: REFRESH_MAX_AGE });
+  // Navigation hint only; authorization always uses the current DB role.
+  res.cookie('role', role, { ...COOKIE_BASE, maxAge: REFRESH_MAX_AGE });
 }
 
 function clearAuthCookies(res: Response) {
   res.clearCookie('access_token',  { ...COOKIE_BASE });
   res.clearCookie('refresh_token', { ...COOKIE_BASE });
+  res.clearCookie('role', { ...COOKIE_BASE });
+  res.clearCookie('token', { path: '/' }); // remove legacy JavaScript-readable JWT
 }
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Get('csrf')
+  csrf(@Req() req: Request) { return { csrfToken: req.cookies?.['XSRF-TOKEN'] }; }
+
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min
   async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(body.email, body.password, body.deviceId, body.deviceName);
-    if (result?.token && result?.refreshToken) {
-      setAuthCookies(res, result.token, result.refreshToken);
+    if (body.client === 'web') {
+      setAuthCookies(res, result.token, result.refreshToken, result.user.role);
+      res.clearCookie('token', { path: '/' });
+      return { user: result.user };
     }
     return result;
   }
 
   @Post('refresh')
   async refresh(
-    @Body() body: Partial<RefreshDto>,
+    @Body() body: RefreshDto,
     @Req() req: Request & { cookies?: Record<string, string> },
     @Res({ passthrough: true }) res: Response,
   ) {
     const token = body?.refreshToken || req.cookies?.refresh_token;
-    if (!token) return { error: 'No refresh token' };
+    if (!token) throw new UnauthorizedException('Нет активной сессии');
     const result = await this.authService.refreshToken(token);
-    if (result?.token && result?.refreshToken) {
-      setAuthCookies(res, result.token, result.refreshToken);
+    if (!body?.refreshToken) {
+      setAuthCookies(res, result.token, result.refreshToken, result.user.role);
+      return { user: result.user };
     }
     return result;
   }
 
   @Post('logout')
   async logout(
-    @Body() body: Partial<RefreshDto>,
+    @Body() body: RefreshDto,
     @Req() req: Request & { cookies?: Record<string, string> },
     @Res({ passthrough: true }) res: Response,
   ) {

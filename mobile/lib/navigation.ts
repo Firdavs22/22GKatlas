@@ -16,6 +16,7 @@ export interface MobileNavItem {
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
+  methodist: 'Методист',
   admin: 'Администратор',
   superadmin: 'Главный администратор',
   teacher: 'Педагог',
@@ -25,6 +26,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_HOME_TITLE: Record<Role, string> = {
+  methodist: 'Методист',
   admin: 'Дашборд',
   superadmin: 'Дашборд',
   teacher: 'Матрица прогресса',
@@ -34,6 +36,7 @@ export const ROLE_HOME_TITLE: Record<Role, string> = {
 };
 
 export const ROLE_NAV: Record<Role, MobileNavItem[]> = {
+  methodist: [],
   superadmin: [], // mirrored from admin after the record is constructed
   parent: [
     { label: 'Карта развития', description: 'Навыки, история и наблюдения', href: '/parent/progress', icon: 'map-outline', tone: 'brand', implemented: true },

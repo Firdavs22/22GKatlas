@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import AppSidebar from './AppSidebar';
+import WorkspaceNav from './WorkspaceNav';
 import { SectionLabel, PageTitle } from './ui';
 
 interface PageLayoutProps {
@@ -60,6 +61,7 @@ export default function PageLayout({
               {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
             </header>
           )}
+          <WorkspaceNav />
           {children}
         </div>
       </main>

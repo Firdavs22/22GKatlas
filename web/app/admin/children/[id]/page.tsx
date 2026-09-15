@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Plus, X } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
 import ChildEditCard from '@/components/ChildEditCard';
@@ -32,6 +33,8 @@ interface AdminChild {
   attendance?: { id: string; date: string; status: string }[];
   status?: string;
   inAdaptation?: boolean;
+  enrolledAt?: string | null;
+  monthlyFee?: string | number | null;
 }
 
 export default function AdminChildDetail() {
@@ -119,9 +122,12 @@ export default function AdminChildDetail() {
         onUpdated={(c) => setChild(prev => ({ ...(prev || {}), ...(c as object) } as AdminChild))}
       />
 
+      {(child.enrolledAt || child.monthlyFee != null) && <Card padding="md" className="mb-6"><SectionLabel>Условия посещения</SectionLabel><div className="flex flex-wrap gap-6 mt-3 text-sm">{child.enrolledAt && <p>Начало: {new Date(child.enrolledAt).toLocaleDateString('ru-RU')}</p>}{child.monthlyFee != null && <p>Плата в месяц: {Number(child.monthlyFee).toLocaleString('ru-RU')} ₽</p>}</div></Card>}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Card padding="md">
           <SectionLabel>Родители</SectionLabel>
+          <Link href="/admin/parents" className="inline-block text-xs text-brand mt-2">Управление родителями и приглашениями</Link>
           {parents.length === 0 ? (
             <div className="text-sm text-slate-400 mt-2">Не привязаны</div>
           ) : (

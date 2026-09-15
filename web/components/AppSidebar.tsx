@@ -39,6 +39,7 @@ interface NavItem {
 }
 
 const NAV: Record<string, NavItem[]> = {
+  methodist: [{ href: '/library', label: 'Кабинет методиста', icon: BookOpen }],
   parent: [
     { href: '/parent', label: 'Главная', icon: Home },
     { href: '/parent/progress', label: 'Карта развития', icon: Map },
@@ -100,6 +101,7 @@ const NAV: Record<string, NavItem[]> = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
+  methodist: 'Методист',
   parent: 'Родитель',
   teacher: 'Педагог',
   admin: 'Администратор',
@@ -109,6 +111,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_ICON: Record<string, typeof Home> = {
+  methodist: BookOpen,
   parent: Home,
   teacher: GraduationCap,
   admin: Settings,

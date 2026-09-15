@@ -1,127 +1,104 @@
 import axios from 'axios';
 import { API_URL } from './network';
 
-const COOKIE_OPTIONS = 'path=/; SameSite=Lax';
+const baseURL = `${API_URL.replace(/\/+$/, '')}/api`;
+const transport = axios.create({ baseURL, withCredentials: true });
+export const api = axios.create({ baseURL, withCredentials: true });
+let csrfToken: string | null = null;
+let csrfRequest: Promise<string> | null = null;
+let refreshRequest: Promise<void> | null = null;
 
-export const api = axios.create({
-  baseURL: `${API_URL.replace(/\/+$/, '')}/api`,
-  withCredentials: true, // send/receive httpOnly auth cookies + XSRF-TOKEN
-});
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+export function removeLegacyCredentials() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  document.cookie = 'token=; path=/; SameSite=Lax; Max-Age=0';
 }
 
-// Track if we're currently refreshing to prevent multiple simultaneous refresh calls
-let isRefreshing = false;
-let failedQueue: { resolve: (token: string) => void; reject: (err: unknown) => void }[] = [];
-
-const processQueue = (error: unknown, token: string | null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else if (token) resolve(token);
-  });
-  failedQueue = [];
-};
-
-export function storeAuthData(data: { token: string; refreshToken: string; user: { role: string } }) {
-  localStorage.setItem('token', data.token);
-  localStorage.setItem('refreshToken', data.refreshToken);
+export function storeAuthData(data: { user: object }) {
+  removeLegacyCredentials();
   localStorage.setItem('user', JSON.stringify(data.user));
-  document.cookie = `token=${encodeURIComponent(data.token)}; ${COOKIE_OPTIONS}`;
-  document.cookie = `role=${encodeURIComponent(data.user.role)}; ${COOKIE_OPTIONS}`;
 }
 
 export function clearAuthData() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  document.cookie = `token=; ${COOKIE_OPTIONS}; Max-Age=0`;
-  document.cookie = `role=; ${COOKIE_OPTIONS}; Max-Age=0`;
+  removeLegacyCredentials();
+  if (typeof window !== 'undefined') localStorage.removeItem('user');
+  csrfToken = null;
 }
 
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    // Cookie-based auth comes for free via withCredentials. We keep the
-    // Authorization header for back-compat (legacy stored tokens, mobile clients).
-    const token = localStorage.getItem('token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+async function getCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  if (!csrfRequest) {
+    csrfRequest = transport.get('/auth/csrf').then(({ data }) => {
+      csrfToken = data.csrfToken;
+      if (!csrfToken) throw new Error('Не удалось подготовить защищённый запрос');
+      return csrfToken;
+    }).finally(() => { csrfRequest = null; });
+  }
+  return csrfRequest;
+}
 
-    // CSRF: echo XSRF-TOKEN cookie back as X-XSRF-TOKEN header for mutating ops.
-    const method = (config.method || 'get').toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD') {
-      const xsrf = readCookie('XSRF-TOKEN');
-      if (xsrf) config.headers['X-XSRF-TOKEN'] = xsrf;
-    }
+export async function refreshSession(): Promise<void> {
+  if (!refreshRequest) {
+    const renew = async () => {
+      const send = async () => transport.post('/auth/refresh', {}, {
+        headers: { 'X-XSRF-TOKEN': await getCsrfToken() },
+      });
+      try { storeAuthData((await send()).data); }
+      catch (error) {
+        if (!axios.isAxiosError(error) || error.response?.data?.code !== 'CSRF_INVALID') throw error;
+        csrfToken = null;
+        storeAuthData((await send()).data);
+      }
+    };
+    // Serialize refresh across browser tabs when Web Locks are available.
+    const run = async (): Promise<void> => {
+      if (typeof navigator !== 'undefined' && navigator.locks) {
+        await navigator.locks.request('globoatlas-session-refresh', async () => {
+          try { storeAuthData({ user: (await transport.get('/me')).data }); return; }
+          catch (error) { if (!axios.isAxiosError(error) || error.response?.status !== 401) throw error; }
+          await renew();
+        });
+      } else {
+        await renew();
+      }
+    };
+    refreshRequest = run().finally(() => { refreshRequest = null; });
+  }
+  return refreshRequest;
+}
+
+api.interceptors.request.use(async config => {
+  removeLegacyCredentials();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes((config.method || 'get').toUpperCase())) {
+    config.headers['X-XSRF-TOKEN'] = await getCsrfToken();
   }
   return config;
 });
 
-api.interceptors.response.use(
-  (res) => res,
-  async (err) => {
-    const originalRequest = err.config;
-    if (!originalRequest) return Promise.reject(err);
-
-    // If 401 and we haven't tried to refresh yet
-    if (err.response?.status === 401 && !originalRequest._retry && typeof window !== 'undefined') {
-      // Don't try to refresh if this was the refresh request itself or login
-      if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
-        clearAuthData();
-        window.location.href = '/login';
-        return Promise.reject(err);
+api.interceptors.response.use(response => response, async error => {
+  const request = error.config;
+  if (!request || typeof window === 'undefined') return Promise.reject(error);
+  if (error.response?.data?.code === 'CSRF_INVALID' && !request._csrfRetry) {
+    request._csrfRetry = true;
+    csrfToken = null;
+    return api(request);
+  }
+  if (error.response?.status === 401 && !request._retry &&
+      !request.url?.startsWith('/auth/') && request.url !== '/auth/login') {
+    request._retry = true;
+    try {
+      await refreshSession();
+      return api(request);
+    } catch (refreshError) {
+      clearAuthData();
+      if (!['/login', '/invite', '/forgot', '/reset', '/privacy'].some(path => window.location.pathname.startsWith(path))) {
+        window.location.assign('/login');
       }
-
-      if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise((resolve, reject) => {
-          failedQueue.push({
-            resolve: (token: string) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              resolve(api(originalRequest));
-            },
-            reject,
-          });
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        clearAuthData();
-        window.location.href = '/login';
-        return Promise.reject(err);
-      }
-
-      try {
-        // Refresh works with either the cookie OR the body token; we always send body
-        // for safety, but withCredentials carries the cookie too.
-        const { data } = await axios.post(
-          `${API_URL}/api/auth/refresh`,
-          { refreshToken },
-          { withCredentials: true },
-        );
-        storeAuthData(data);
-
-        processQueue(null, data.token);
-        originalRequest.headers.Authorization = `Bearer ${data.token}`;
-        return api(originalRequest);
-      } catch (refreshErr) {
-        processQueue(refreshErr, null);
-        clearAuthData();
-        window.location.href = '/login';
-        return Promise.reject(refreshErr);
-      } finally {
-        isRefreshing = false;
-      }
+      return Promise.reject(refreshError);
     }
-
-    return Promise.reject(err);
-  },
-);
+  }
+  return Promise.reject(error);
+});
 
 export default api;

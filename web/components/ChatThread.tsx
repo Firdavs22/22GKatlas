@@ -5,7 +5,7 @@ import { ArrowLeft, Send, X, Paperclip } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import PageLayout from '@/components/PageLayout';
 import { Card } from '@/components/ui';
-import api from '@/lib/api';
+import api, { refreshSession } from '@/lib/api';
 import { WS_URL } from '@/lib/network';
 import { ChatMessage } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -50,7 +50,7 @@ export default function ChatThread({
   embedded = false,
 }: ChatThreadProps) {
   const { id } = useParams<{ id: string }>();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
@@ -61,18 +61,24 @@ export default function ChatThread({
 
   useEffect(() => {
     api.get(`/chats/${id}/messages`).then(r => setMessages(r.data));
-    const socket = io(WS_URL, { auth: { token }, transports: ['websocket', 'polling'] });
+    const socket = io(WS_URL, { withCredentials: true, transports: ['websocket', 'polling'] });
     socket.on('connect', () => socket.emit('joinRoom', id));
     socket.on('newMessage', (msg: ChatMessage) => {
       setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
     });
     socket.on('error', err => console.warn('[chat] socket error:', err));
     socket.on('connect_error', err => console.warn('[chat] connect_error:', err.message));
+    socket.on('disconnect', reason => {
+      if (reason === 'io server disconnect') {
+        refreshSession().then(() => { if (socketRef.current === socket) socket.connect(); }).catch(() => {});
+      }
+    });
     socketRef.current = socket;
     return () => {
+      socketRef.current = null;
       socket.disconnect();
     };
-  }, [id, token]);
+  }, [id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

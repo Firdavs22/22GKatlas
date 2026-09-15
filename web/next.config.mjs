@@ -3,6 +3,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  async rewrites() {
+    return [{ source: '/api/:path*', destination: `${process.env.INTERNAL_API_URL || 'http://localhost:3001'}/api/:path*` }];
+  },
   eslint: { ignoreDuringBuilds: true },
   // TypeScript errors MUST be caught at build time for production safety
   // If build fails, fix the TS errors before deploying

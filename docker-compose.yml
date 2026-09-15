@@ -75,6 +75,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/globoatlas
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      TRUST_PROXY: loopback,uniquelocal
       # Object storage — SeaweedFS S3. Env names kept as MINIO_* so backend code stays unchanged.
       MINIO_ENDPOINT: storage
       MINIO_PORT: 8333
@@ -92,6 +93,10 @@ services:
       AI_API_URL: ${AI_API_URL:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
+      TEAM_ENABLED: ${TEAM_ENABLED:-true}
+      LIBRARY_ENABLED: ${LIBRARY_ENABLED:-true}
+      CRM_ENABLED: ${CRM_ENABLED:-true}
+      CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,6 +112,7 @@ services:
       context: ./web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-}
     restart: unless-stopped
     logging: *default-logging
     depends_on:

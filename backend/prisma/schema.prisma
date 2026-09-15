@@ -10,23 +10,23 @@ datasource db {
 // ─── DIRECTORY ────────────────────────────────────────────
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  password        String
-  name            String
-  role            Role
-  avatar          String?
-  phone           String?
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password              String
+  name                  String
+  role                  Role
+  avatar                String?
+  phone                 String?
   // Personal-data processing consent (152-ФЗ). Set when invitee accepts terms.
-  consentGivenAt  DateTime?
+  consentGivenAt        DateTime?
   // Soft-delete marker. Anonymized record kept for FK integrity until 30 days, then physical-delete by cron.
-  deletedAt       DateTime?
+  deletedAt             DateTime?
   // Block marker — set by admin to suspend login without deleting data. Null = active.
-  blockedAt       DateTime?
+  blockedAt             DateTime?
   // First-time onboarding tour completion. null = show modal on next dashboard view.
   onboardingCompletedAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   teacherGroup       Group?            @relation("GroupTeacher")
   parentChildren     ChildParent[]
@@ -44,15 +44,85 @@ model User {
   refreshTokens      RefreshToken[]
   chatParticipants   ChatParticipant[]
   feedbacks          Feedback[]
+  timesheets         StaffTimesheet[]
 }
 
 enum Role {
+  methodist
   admin
   teacher
   parent
   psychologist
   pediatrician
   superadmin
+}
+
+model StaffTimesheet {
+  id           String           @id @default(uuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month        String
+  approvedAt   DateTime?
+  approvedById String?
+  entries      StaffTimeEntry[]
+
+  @@unique([userId, month])
+}
+
+model StaffTimeEntry {
+  id             String         @id @default(uuid())
+  sheetId        String
+  sheet          StaffTimesheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  date           String
+  plannedStart   String?
+  plannedEnd     String?
+  breakMinutes   Int            @default(0)
+  plannedMinutes Int            @default(0)
+  actualMinutes  Int?
+  status         String         @default("work")
+  note           String         @default("")
+  revision       Int            @default(1)
+  updatedById    String
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([sheetId, date])
+}
+
+model TeamEvent {
+  id              String    @id @default(uuid())
+  title           String
+  description     String    @default("")
+  kind            String    @default("meeting")
+  startsAt        DateTime
+  endsAt          DateTime
+  visibility      String    @default("participants")
+  participantIds  String[]
+  authorId        String
+  reminderMinutes Int       @default(30)
+  remindedAt      DateTime?
+  cancelled       Boolean   @default(false)
+  revision        Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([startsAt])
+}
+
+model MethodicalDocument {
+  id          String   @id @default(uuid())
+  title       String
+  kind        String   @default("manual")
+  body        String
+  audience    String   @default("teachers")
+  published   Boolean  @default(false)
+  attachments String[]
+  links       String[]
+  authorId    String
+  revision    Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([audience, published])
 }
 
 model Child {
@@ -66,11 +136,11 @@ model Child {
   // бейджем для педагогов и админа. Снимается вручную когда адаптация завершена.
   inAdaptation    Boolean     @default(false)
   externalId      String?
-  contacts        Json?       // [{name, phone, relation}]
-  representatives Json?       // [{name, phone, relation}]
+  contacts        Json? // [{name, phone, relation}]
+  representatives Json? // [{name, phone, relation}]
   extraServices   String[]    @default([])
   allergies       String?
-  documents       Json?       // {medCard: bool, birthCert: bool, ...}
+  documents       Json? // {medCard: bool, birthCert: bool, ...}
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -87,6 +157,8 @@ model Child {
   homeTasks       HomeTask[]
   specialistNotes SpecialistNote[]
   feedItems       FeedItem[]
+  enrollments     Enrollment[]
+  monthlyFee      Decimal?          @db.Decimal(10, 2)
 }
 
 enum ChildStatus {
@@ -96,19 +168,87 @@ enum ChildStatus {
 }
 
 model Group {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   name       String
   ageRange   String
   year       Int
-  capacity   Int      @default(24)
-  monthlyFee Float    @default(75000)
+  capacity   Int     @default(24)
+  monthlyFee Float   @default(75000)
   externalId String?
 
-  teacher   User?      @relation("GroupTeacher", fields: [teacherId], references: [id])
-  teacherId String?    @unique
-  children  Child[]
-  schedules Schedule[]
-  feedItems FeedItem[]
+  teacher     User?        @relation("GroupTeacher", fields: [teacherId], references: [id])
+  teacherId   String?      @unique
+  children    Child[]
+  schedules   Schedule[]
+  feedItems   FeedItem[]
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  requestKey String   @unique
+  childId    String
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  groupId    String?
+  group      Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupName  String
+  startsOn   DateTime @db.Date
+  monthlyFee Decimal  @db.Decimal(10, 2)
+  actorId    String
+  createdAt  DateTime @default(now())
+}
+
+model CrmStage {
+  id       String    @id @default(uuid())
+  title    String
+  kind     String    @default("active")
+  position Int
+  leads    CrmLead[]
+}
+
+model CrmLead {
+  id           String        @id @default(uuid())
+  parentName   String
+  phone        String
+  email        String?
+  childName    String        @default("")
+  birthDate    DateTime?     @db.Date
+  direction    String        @default("")
+  priority     String        @default("normal")
+  ownerId      String?
+  source       String        @default("Вручную")
+  utmSource    String        @default("")
+  utmMedium    String        @default("")
+  utmCampaign  String        @default("")
+  notes        String        @default("")
+  stageId      String
+  stage        CrmStage      @relation(fields: [stageId], references: [id])
+  state        String        @default("open")
+  nextActionAt DateTime?
+  remindedAt   DateTime?
+  nextAction   String        @default("")
+  enrollmentId String?       @unique
+  externalKey  String?       @unique
+  revision     Int           @default(1)
+  history      CrmActivity[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([phone])
+  @@index([state, stageId])
+  @@index([nextActionAt])
+}
+
+model CrmActivity {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      CrmLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  kind      String
+  text      String
+  actorId   String?
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
 }
 
 model ChildParent {
@@ -179,29 +319,29 @@ model Area {
 }
 
 model SkillGroup {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   title     String
-  area      Area     @relation(fields: [areaId], references: [id])
+  area      Area    @relation(fields: [areaId], references: [id])
   areaId    String
   sortOrder Int
   skills    Skill[]
 }
 
 model Skill {
-  id                 String     @id @default(uuid())
-  title              String
-  description        String?
-  ageRange           String?
-  sortOrder          Int
-  group              SkillGroup @relation(fields: [groupId], references: [id])
-  groupId            String
-  progress           Progress[]
-  homeTasks          HomeTask[]
+  id                String     @id @default(uuid())
+  title             String
+  description       String?
+  ageRange          String?
+  sortOrder         Int
+  group             SkillGroup @relation(fields: [groupId], references: [id])
+  groupId           String
+  progress          Progress[]
+  homeTasks         HomeTask[]
   // Three development dimensions (parent-facing view).
   // One skill can carry multiple flags (e.g. Pink Tower → cognition + body).
-  developsEmotion    Boolean    @default(false)
-  developsCognition  Boolean    @default(false)
-  developsBody       Boolean    @default(false)
+  developsEmotion   Boolean    @default(false)
+  developsCognition Boolean    @default(false)
+  developsBody      Boolean    @default(false)
 
   @@index([developsEmotion])
   @@index([developsCognition])
@@ -285,26 +425,26 @@ model PortfolioItem {
 // ─── FEED (Лента) ─────────────────────────────────────────
 
 model FeedItem {
-  id        String       @id @default(uuid())
-  type      FeedItemType
-  scope     FeedScope
+  id    String       @id @default(uuid())
+  type  FeedItemType
+  scope FeedScope
 
-  author    User         @relation(fields: [authorId], references: [id])
-  authorId  String
+  author   User   @relation(fields: [authorId], references: [id])
+  authorId String
 
-  child     Child?       @relation(fields: [childId], references: [id])
-  childId   String?
+  child   Child?  @relation(fields: [childId], references: [id])
+  childId String?
 
-  group     Group?       @relation(fields: [groupId], references: [id])
-  groupId   String?
+  group   Group?  @relation(fields: [groupId], references: [id])
+  groupId String?
 
   title     String?
   text      String?
   mediaUrls String[]
-  pinned    Boolean      @default(false)
+  pinned    Boolean  @default(false)
 
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   likes     FeedLike[]
 
   @@index([groupId, createdAt(sort: Desc)])
@@ -416,8 +556,8 @@ model ChatMessage {
 // ─── SCHEDULE ─────────────────────────────────────────────
 
 model Schedule {
-  id          String @id @default(uuid())
-  group       Group  @relation(fields: [groupId], references: [id])
+  id          String  @id @default(uuid())
+  group       Group   @relation(fields: [groupId], references: [id])
   groupId     String
   dayOfWeek   Int
   timeStart   String
@@ -515,29 +655,29 @@ model Broadcast {
 // ─── KNOWLEDGE BASE ───────────────────────────────────────
 
 model KbCategory {
-  id          String     @id @default(uuid())
+  id          String      @id @default(uuid())
   title       String
-  slug        String     @unique
+  slug        String      @unique
   description String?
-  order       Int        @default(0)
+  order       Int         @default(0)
   articles    KbArticle[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model KbArticle {
-  id          String      @id @default(uuid())
-  category    KbCategory  @relation(fields: [categoryId], references: [id])
-  categoryId  String
-  title       String
-  excerpt     String?
-  body        String
-  videoUrl    String?
-  coverUrl    String?
-  published   Boolean     @default(true)
-  authorId    String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id         String     @id @default(uuid())
+  category   KbCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+  title      String
+  excerpt    String?
+  body       String
+  videoUrl   String?
+  coverUrl   String?
+  published  Boolean    @default(true)
+  authorId   String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([categoryId, createdAt(sort: Desc)])
 }
@@ -545,28 +685,28 @@ model KbArticle {
 // ─── APPOINTMENT BOOKING ──────────────────────────────────
 
 model AppointmentSlot {
-  id           String              @id @default(uuid())
-  staffId      String
-  startsAt     DateTime
-  endsAt       DateTime
-  location     String?
-  notes        String?
-  bookings     AppointmentBooking[]
-  createdAt    DateTime            @default(now())
+  id        String               @id @default(uuid())
+  staffId   String
+  startsAt  DateTime
+  endsAt    DateTime
+  location  String?
+  notes     String?
+  bookings  AppointmentBooking[]
+  createdAt DateTime             @default(now())
 
   @@index([staffId, startsAt])
 }
 
 model AppointmentBooking {
-  id        String           @id @default(uuid())
-  slot      AppointmentSlot  @relation(fields: [slotId], references: [id])
-  slotId    String           @unique
+  id        String          @id @default(uuid())
+  slot      AppointmentSlot @relation(fields: [slotId], references: [id])
+  slotId    String          @unique
   parentId  String
   childId   String?
   topic     String?
-  status    BookingStatus    @default(confirmed)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  status    BookingStatus   @default(confirmed)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([parentId, createdAt(sort: Desc)])
 }
@@ -579,14 +719,14 @@ enum BookingStatus {
 // ─── REFRESH TOKENS ───────────────────────────────────────
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  deviceId  String?
+  id         String   @id @default(uuid())
+  token      String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  deviceId   String?
   deviceName String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([token])
@@ -603,20 +743,20 @@ model SiteContent {
 // Append-only log of mutating actions by users (admin compliance + breach forensics).
 // Populated by AuditInterceptor on every POST/PUT/PATCH/DELETE under /api/.
 model AuditLog {
-  id        String   @id @default(uuid())
-  actorId   String?
-  actorRole String?
-  method    String   // POST | PUT | PATCH | DELETE
-  path      String   // route, e.g. /admin/staff/123
-  status    Int      // HTTP status returned
-  ip        String?
-  userAgent String?
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorRole  String?
+  method     String // POST | PUT | PATCH | DELETE
+  path       String // route, e.g. /admin/staff/123
+  status     Int // HTTP status returned
+  ip         String?
+  userAgent  String?
   // Sanitized request body (passwords stripped). Limited to 4 KB.
-  body      Json?
+  body       Json?
   // Free-form summary set by service when interesting (e.g. "Удалён ребёнок Иванов И.").
-  summary   String?
+  summary    String?
   durationMs Int?
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([actorId, createdAt])
   @@index([path, createdAt])
@@ -636,7 +776,7 @@ model AuditLog {
 //     'school'    — anyone authenticated (school-wide posts/menus/events)
 model FileMeta {
   filename   String   @id
-  scope      String   // 'public' | 'uploader' | 'child' | 'group' | 'school'
+  scope      String // 'public' | 'uploader' | 'child' | 'group' | 'school'
   uploaderId String?
   childId    String?
   groupId    String?

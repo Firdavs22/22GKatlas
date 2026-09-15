@@ -145,10 +145,13 @@ export class AuthService {
     if (payload.type !== 'invite') {
       throw new BadRequestException('Неверный тип токена');
     }
+    if (user.deletedAt || user.blockedAt || user.consentGivenAt) {
+      throw new BadRequestException('Приглашение уже использовано или аккаунт недоступен');
+    }
 
     const hashed = await bcrypt.hash(password, 12);
-    const updated = await this.prisma.user.update({
-      where: { id: user.id },
+    const claimed = await this.prisma.user.updateMany({
+      where: { id: user.id, consentGivenAt: null, deletedAt: null, blockedAt: null },
       data: {
         password: hashed,
         consentGivenAt: new Date(),
@@ -156,6 +159,8 @@ export class AuthService {
       },
     });
 
+    if (claimed.count !== 1) throw new BadRequestException('Приглашение уже использовано');
+    const updated = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     const { password: _, ...userWithoutPassword } = updated;
     return userWithoutPassword;
   }
@@ -173,7 +178,7 @@ export class AuthService {
       where: { email: email.trim().toLowerCase() },
     });
     if (!user || user.password === 'INVALIDATED') return { ok: true };
-    const token = this.jwt.sign({ sub: user.id, type: 'reset' }, { expiresIn: '1h' });
+    const token = this.jwt.sign({ sub: user.id, type: 'reset', credentialVersion: this.credentialVersion(user.password) }, { expiresIn: '1h' });
     const publicAppUrl = this.config.get<string>('PUBLIC_APP_URL') || '';
     const link = `${publicAppUrl}/reset?token=${encodeURIComponent(token)}`;
     try {
@@ -200,12 +205,23 @@ export class AuthService {
     if (payload.type !== 'reset') throw new BadRequestException('Неверный тип токена');
 
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || user.password === 'INVALIDATED') throw new BadRequestException('Аккаунт недоступен');
+    if (!user || user.password === 'INVALIDATED' || user.deletedAt || user.blockedAt ||
+        payload.credentialVersion !== this.credentialVersion(user.password)) {
+      throw new BadRequestException('Ссылка недействительна или уже использована');
+    }
 
     const hashed = await bcrypt.hash(newPassword, 12);
-    await this.prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    const changed = await this.prisma.user.updateMany({
+      where: { id: user.id, password: user.password, deletedAt: null, blockedAt: null }, data: { password: hashed },
+    });
+    if (changed.count !== 1) throw new BadRequestException('Ссылка уже использована');
     await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
     return { ok: true };
+  }
+
+  private credentialVersion(passwordHash: string): string {
+    return crypto.createHmac('sha256', this.config.getOrThrow<string>('JWT_SECRET'))
+      .update(`password-reset:${passwordHash}`).digest('hex');
   }
 
   // ── Private helpers ────────────────────────────────────
@@ -218,7 +234,7 @@ export class AuthService {
     deviceName?: string,
   ) {
     // Access token (short-lived, 15 min — set in auth.module.ts)
-    const accessToken = this.jwt.sign({ sub: userId, email, role });
+    const accessToken = this.jwt.sign({ sub: userId, email, role, type: 'access' });
 
     // Refresh token (long-lived, 30 days, stored in DB)
     const refreshToken = crypto.randomBytes(64).toString('hex');

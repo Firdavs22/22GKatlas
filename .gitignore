@@ -45,6 +45,11 @@ yarn-error.log*
 
 # Internal files
 MAKE_NO_MISTAKES_CLAUDE.md
+MOBILE_BUILD.md
+MOBILE_TODO.md
+ROADMAP.md
+SETUP_PROD.md
+CONTEXT.md
 
 # Log files
 *.err.log

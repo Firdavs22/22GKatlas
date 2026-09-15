@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { getToken } from './auth';
-import { API_URL } from './api';
+import api, { API_URL } from './api';
 
 let socket: Socket | null = null;
 let connecting: Promise<Socket | null> | null = null;
@@ -25,12 +25,18 @@ export async function getSocket(): Promise<Socket | null> {
       try { socket.removeAllListeners(); socket.disconnect(); } catch {}
     }
     socket = io(API_URL, {
-      auth: { token },
+      auth: callback => { getToken().then(current => callback({ token: current })); },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+    });
+    const currentSocket = socket;
+    socket.on('disconnect', reason => {
+      if (reason === 'io server disconnect') {
+        api.get('/me').then(() => { if (socket === currentSocket) currentSocket.connect(); }).catch(() => {});
+      }
     });
     connecting = null;
     return socket;

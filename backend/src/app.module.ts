@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { CrmModule } from './crm/crm.module';
+import { FeaturesModule } from './features/features.module';
+import { TeamModule } from './team/team.module';
+import { LibraryModule } from './library/library.module';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
@@ -22,13 +26,19 @@ import { HealthModule } from './health/health.module';
 import { AuditModule } from './audit/audit.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuditInterceptor } from './audit/audit.interceptor';
+import { HttpThrottlerGuard } from './common/http-throttler.guard';
+import { FileAttachmentInterceptor } from './files/file-attachment.interceptor';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    FeaturesModule,
+    CrmModule,
+    TeamModule,
+    LibraryModule,
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 300 }]),
     PrismaModule,
     CommonModule,
     MailModule,
@@ -52,6 +62,8 @@ import { AuditInterceptor } from './audit/audit.interceptor';
     FeedbackModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: HttpThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: FileAttachmentInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })

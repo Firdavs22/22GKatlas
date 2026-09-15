@@ -1,40 +1,22 @@
-/**
- * Утилита для построения URL медиафайлов с авторизацией.
- * 
- * Браузер не может отправить Authorization header в <img src> / <video src>,
- * поэтому мы передаём JWT-токен через query-параметр ?token=.
- */
-
 import { API_URL } from './network';
 
-/**
- * Добавляет JWT-токен к URL файла для авторизованного доступа.
- * Поддерживает:
- *  - относительные пути ("/api/files/abc.jpg")
- *  - абсолютные пути ("http://localhost:3001/api/files/abc.jpg")
- *  - null/undefined/пустые строки → возвращает пустую строку
- */
+/** Media uses the browser's httpOnly session cookie, never a JWT in the URL. */
 export function getAuthMediaUrl(path: string | null | undefined): string {
   if (!path) return '';
-
-  if (typeof window === 'undefined') return path;
-
-  const token = localStorage.getItem('token');
-  if (!token) return path;
-
-  // Build full URL
-  let fullUrl: string;
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    fullUrl = path;
-  } else if (path.startsWith('/api/')) {
-    fullUrl = `${API_URL}${path}`;
-  } else {
-    fullUrl = path;
+  const relative = path.startsWith('/api/') ? path : path.startsWith('/files/') ? `/api${path}` : null;
+  if (relative) {
+    const url = new URL(relative, 'https://internal.invalid');
+    url.searchParams.delete('token');
+    return `${API_URL}${url.pathname}${url.search}`;
   }
-
-  // Append token as query parameter
-  const separator = fullUrl.includes('?') ? '&' : '?';
-  return `${fullUrl}${separator}token=${encodeURIComponent(token)}`;
+  try {
+    const url = new URL(path);
+    if (/^\/api\/files\//.test(url.pathname)) {
+      url.searchParams.delete('token');
+      return `${API_URL}${url.pathname}${url.search}`;
+    }
+  } catch { /* Relative paths outside the API remain unchanged. */ }
+  return path;
 }
 
 /**

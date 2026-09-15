@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_PATHS = ['/login', '/invite', '/forgot', '/reset', '/privacy'];
 
 const ROLE_PREFIXES: Record<string, string[]> = {
+  methodist: ['/library', '/team'],
   admin: ['/admin'],
   superadmin: ['/admin'],
   teacher: ['/teacher'],
@@ -13,6 +14,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
 };
 
 const ROLE_HOME: Record<string, string> = {
+  methodist: '/library',
   admin: '/admin',
   superadmin: '/admin',
   teacher: '/teacher',
@@ -30,7 +32,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Get token from cookie (set after login)
-  const token = request.cookies.get('token')?.value;
+  const token = request.cookies.get('access_token')?.value || request.cookies.get('refresh_token')?.value;
   const role = request.cookies.get('role')?.value;
 
   if (!token) {
@@ -45,11 +47,11 @@ export function middleware(request: NextRequest) {
   // Role-based access
   if (role) {
     const allowedPrefixes = ROLE_PREFIXES[role] || [];
-    const commonPrefixes = ['/profile', '/notifications', '/settings'];
+    const commonPrefixes = ['/profile', '/notifications', '/settings', '/library', ...(role !== 'parent' ? ['/team'] : []), ...(['admin', 'superadmin'].includes(role) ? ['/crm'] : [])];
     const allAllowed = [...allowedPrefixes, ...commonPrefixes];
     const isAllowed = allAllowed.some((prefix) => pathname.startsWith(prefix));
     if (!isAllowed) {
-      return NextResponse.redirect(new URL(ROLE_HOME[role], request.url));
+      return NextResponse.redirect(new URL(ROLE_HOME[role] || '/login', request.url));
     }
   }
 

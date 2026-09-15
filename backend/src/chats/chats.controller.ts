@@ -34,7 +34,7 @@ export class ChatsController {
   @Post(':id/messages')
   async sendMessage(@Param('id') id: string, @Body() dto: { text: string; attachments?: string[] }, @CurrentUser() user: any) {
     const message = await this.chatsService.sendMessage(id, dto, user.id);
-    this.chatsGateway.notifyNewMessage(id, message);
+    await this.chatsGateway.notifyNewMessage(id, message);
     return message;
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilesService } from '../files/files.service';
-import * as archiver from 'archiver';
+import archiver from 'archiver';
 import type { Response } from 'express';
 
 /**
@@ -34,7 +34,7 @@ export class ExportService {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-    const archive = (archiver as any)('zip', { zlib: { level: 6 } });
+    const archive = archiver('zip', { zlib: { level: 6 } });
     archive.on('warning', (err: Error) => this.logger.warn(`archive warning: ${err.message}`));
     archive.on('error', (err: Error) => {
       this.logger.error(`archive error: ${err.message}`);
@@ -111,7 +111,7 @@ Email: ${user.email}
           include: { skill: { select: { id: true, title: true } }, history: true },
         }),
         this.prisma.observation.findMany({
-          where: { childId: child.id },
+          where: { childId: child.id, visible: true },
           include: { author: { select: { name: true, role: true } } },
         }),
         this.prisma.portfolioItem.findMany({ where: { childId: child.id } }),

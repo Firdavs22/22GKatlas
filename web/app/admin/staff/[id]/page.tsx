@@ -10,6 +10,7 @@ import { Role } from '@/lib/types';
 const ROLE_LABEL: Record<Role, string> = {
   superadmin: 'Суперадминистратор',
   admin: 'Администратор',
+  methodist: 'Методист',
   teacher: 'Педагог',
   parent: 'Родитель',
   psychologist: 'Психолог',

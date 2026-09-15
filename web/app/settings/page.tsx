@@ -7,6 +7,7 @@ import { Card, Button, SectionLabel } from '@/components/ui';
 import FileUpload from '@/components/FileUpload';
 import AuthMedia from '@/components/AuthMedia';
 import api, { clearAuthData } from '@/lib/api';
+import { API_URL } from '@/lib/network';
 
 interface MeProfile {
   id: string;
@@ -23,6 +24,7 @@ const inputCls =
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Администратор',
+  methodist: 'Методист',
   teacher: 'Педагог',
   parent: 'Родитель',
   psychologist: 'Психолог',
@@ -309,7 +311,7 @@ export default function SettingsPage() {
             </p>
           </div>
           <a
-            href={`${process.env.NEXT_PUBLIC_API_URL || '/api'}/me/export?token=${typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''}`}
+            href={`${API_URL}/api/me/export`}
             target="_blank"
             rel="noreferrer"
             className="shrink-0 inline-flex items-center gap-2 h-10 px-4 rounded-full bg-brand text-white text-sm font-medium hover:bg-brand/90 transition-colors"

@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService } from '../common/access-control.service';
 import { Response } from 'express';
-import * as archiver from 'archiver';
+import archiver from 'archiver';
 
 @Injectable()
 export class FeedService {
@@ -102,7 +102,7 @@ export class FeedService {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="child-photos-${childId}.zip"`);
 
-    const archive = (archiver as any)('zip');
+    const archive = archiver('zip');
     archive.pipe(res);
     archive.append(JSON.stringify({ childId, photoCount: urls.length, urls }, null, 2), { name: 'index.json' });
     await archive.finalize();

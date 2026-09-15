@@ -47,6 +47,8 @@ export class SiteContentController {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
     res.setHeader('Content-Type', CONTENT_TYPES[ext] || 'application/octet-stream');
     res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     stream.pipe(res);
   }
 

@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 const ROLE_LABEL: Record<string, string> = {
   superadmin: 'Суперадминистратор',
   admin: 'Администратор',
+  methodist: 'Методист',
   teacher: 'Педагог',
   psychologist: 'Психолог',
   pediatrician: 'Педиатр',
@@ -18,6 +19,7 @@ const ROLE_LABEL: Record<string, string> = {
 const DELETE_CONFIRM_WORD = 'УДАЛИТЬ';
 
 const ROLE_ORDER: { id: string; label: string }[] = [
+  { id: 'methodist', label: 'Методисты' },
   { id: 'teacher', label: 'Педагоги' },
   { id: 'psychologist', label: 'Психологи' },
   { id: 'pediatrician', label: 'Педиатры' },
@@ -232,6 +234,7 @@ export default function AdminStaff() {
               onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
               className={inputCls}
             >
+              <option value="methodist">Методист</option>
               <option value="teacher">Педагог</option>
               <option value="psychologist">Психолог</option>
               <option value="pediatrician">Педиатр</option>

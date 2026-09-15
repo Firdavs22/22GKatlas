@@ -118,6 +118,8 @@ api.interceptors.response.use(
 
       const refreshToken = await getRefreshToken();
       if (!refreshToken) {
+        isRefreshing = false;
+        processQueue(err, null);
         await clearAuth();
         router.replace('/login');
         return Promise.reject(err);
@@ -178,6 +180,10 @@ export async function getAuthMediaUrl(path: string): Promise<string> {
   }
 
   if (!token) return url;
+  try {
+    const target = new URL(url);
+    if (target.origin !== new URL(API_URL).origin || !target.pathname.startsWith('/api/files/')) return url;
+  } catch { return url; }
   return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 }
 

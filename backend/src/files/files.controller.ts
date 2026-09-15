@@ -1,12 +1,12 @@
-import { Controller, Post, Get, Param, Query, Req, UseInterceptors, UploadedFile, UploadedFiles, Res, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Param, UseInterceptors, UploadedFile, UploadedFiles, Res, UseGuards, BadRequestException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesService } from './files.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { JwtService } from '@nestjs/jwt';
+import { FileAccessService } from './file-access.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { fromBuffer as detectFromBuffer } from 'file-type';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -25,7 +25,7 @@ const ALLOWED_MIMETYPES = [
  * executable. This refuses the upload if the actual bytes aren't an allowed type.
  *
  * SVG is a text format with no magic bytes and is allowed-by-client-mime
- * only (still safe because we serve via authenticated proxy, not raw).
+ * only; FilesService rasterizes SVG uploads before storage.
  */
 async function assertSafeMime(file: Express.Multer.File): Promise<void> {
   // SVG and tiny text files won't be detected by magic bytes — fall back
@@ -70,7 +70,7 @@ const CONTENT_TYPES: Record<string, string> = {
 export class FilesController {
   constructor(
     private readonly filesService: FilesService,
-    private readonly jwtService: JwtService,
+    private readonly fileAccess: FileAccessService,
   ) {}
 
   @Post('upload')
@@ -118,30 +118,13 @@ export class FilesController {
   // Supports auth via Authorization header OR ?token= query parameter
   // (browsers can't send Authorization headers in <img src> / <video src>)
   @Get('files/:filename')
+  @UseGuards(JwtAuthGuard)
   async getFile(
     @Param('filename') filename: string,
-    @Query('token') queryToken: string,
-    @Req() req: Request,
+    @CurrentUser() user: { id: string; role: string },
     @Res() res: Response,
   ) {
-    // Verify JWT from header or query string
-    const headerToken = (req.headers.authorization || '').replace('Bearer ', '');
-    const token = headerToken || queryToken;
-
-    if (!token) {
-      throw new UnauthorizedException('Требуется авторизация');
-    }
-
-    let payload: { sub?: string; role?: string };
-    try {
-      payload = this.jwtService.verify(token);
-    } catch {
-      throw new UnauthorizedException('Недействительный токен');
-    }
-
-    if (payload.sub && payload.role) {
-      await this.filesService.assertCanRead(filename, { id: payload.sub, role: payload.role });
-    }
+    await this.fileAccess.assertCanRead(filename, user);
 
     const stream = await this.filesService.getFileStream(filename);
 
@@ -150,8 +133,11 @@ export class FilesController {
     const contentType = CONTENT_TYPES[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
 
-    // Allow browser caching for authenticated media (1 hour)
-    res.setHeader('Cache-Control', 'private, max-age=3600');
+    // Private media must be reauthorized after account/access changes.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
 
     stream.pipe(res);
   }

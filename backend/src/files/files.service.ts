@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus, ForbiddenException } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import * as Minio from 'minio';
 import * as crypto from 'crypto';
 import sharp from 'sharp';
@@ -10,6 +10,7 @@ const IMAGE_MIMETYPES = new Set([
   'image/jpg',
   'image/gif',
   'image/webp',
+  'image/svg+xml',
 ]);
 
 /** Max long-edge dimensions for full and preview variants. */
@@ -100,68 +101,23 @@ export class FilesService implements OnModuleInit {
     return Promise.all(files.map(f => this.uploadFile(f, uploaderId)));
   }
 
-  /**
-   * Authorize file read. Throws ForbiddenException if the requester may not view this file.
-   * Rules:
-   *   • Legacy files (no FileMeta) — always allowed (current behavior).
-   *   • Uploader can always read their own files.
-   *   • Admin can read any file.
-   *   • Files uploaded by staff (admin/teacher/specialists) — readable by any authenticated user
-   *     (URLs only leak through accessible posts).
-   *   • Files uploaded by a parent — readable by uploader + admin + staff with a child of theirs.
-   */
-  async assertCanRead(filename: string, requester: { id: string; role: string }): Promise<void> {
-    const meta = await this.prisma.fileMeta.findUnique({ where: { filename } });
-    if (!meta) return; // legacy file — fall through to permissive
-    if (meta.scope === 'public') return;
-    if (requester.role === 'admin' || requester.role === 'superadmin') return;
-    if (meta.uploaderId === requester.id) return;
-
-    if (!meta.uploaderId) return; // anonymous-origin file — permissive
-
-    const uploader = await this.prisma.user.findUnique({
-      where: { id: meta.uploaderId },
-      select: { role: true, id: true },
-    });
-    if (!uploader) return; // uploader gone — fall through
-
-    if (uploader.role !== 'parent') {
-      // Staff uploads are visible to all authenticated users by design.
-      return;
-    }
-
-    // Parent-uploaded: check if requester is staff connected to one of the uploader's children.
-    if (
-      requester.role === 'teacher' ||
-      requester.role === 'psychologist' ||
-      requester.role === 'pediatrician'
-    ) {
-      const parentChildren = await this.prisma.childParent.findMany({
-        where: { parentId: uploader.id },
-        select: { childId: true },
-      });
-      const childIds = parentChildren.map(c => c.childId);
-      if (childIds.length === 0) {
-        throw new ForbiddenException('Нет доступа к файлу');
-      }
-      if (requester.role === 'teacher') {
-        const ok = await this.prisma.child.count({
-          where: { id: { in: childIds }, group: { teacherId: requester.id } },
-        });
-        if (ok > 0) return;
-      } else {
-        const ok = await this.prisma.childSpecialist.count({
-          where: { specialistId: requester.id, childId: { in: childIds } },
-        });
-        if (ok > 0) return;
-      }
-    }
-
-    throw new ForbiddenException('Нет доступа к файлу');
-  }
-
   /** Strips EXIF, resizes if too large, generates a 400px preview. */
   private async uploadImage(baseId: string, file: Express.Multer.File): Promise<UploadResult> {
+    // Rasterize SVG while retaining transparent logos; never store executable SVG.
+    if (file.mimetype === 'image/svg+xml') {
+      const source = sharp(file.buffer).resize({ width: FULL_MAX, height: FULL_MAX, fit: 'inside', withoutEnlargement: true });
+      const [full, preview] = await Promise.all([
+        source.clone().png().toBuffer(),
+        source.clone().resize({ width: PREVIEW_MAX, withoutEnlargement: true })
+          .flatten({ background: '#ffffff' }).jpeg({ quality: 80 }).toBuffer(),
+      ]);
+      await Promise.all([
+        this.putObject(`${baseId}.png`, full, 'image/png'),
+        this.putObject(`${baseId}_preview.jpg`, preview, 'image/jpeg'),
+      ]);
+      return { url: `/api/files/${baseId}.png`, previewUrl: `/api/files/${baseId}_preview.jpg` };
+    }
+
     // Preserve GIF as-is (sharp handles it but loses animation by default).
     if (file.mimetype === 'image/gif') {
       const filename = `${baseId}.gif`;
@@ -213,7 +169,11 @@ export class FilesService implements OnModuleInit {
 
   /** Video / pdf / docs go straight to MinIO unchanged. */
   private async uploadRaw(baseId: string, file: Express.Multer.File): Promise<UploadResult> {
-    const ext = (file.originalname.split('.').pop() || 'bin').toLowerCase().slice(0, 8);
+    const ext = ({ 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+      'application/pdf': 'pdf', 'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    } as Record<string, string>)[file.mimetype] || 'bin';
     const filename = `${baseId}.${ext}`;
     await this.putObject(filename, file.buffer, file.mimetype);
     return { url: `/api/files/${filename}` };

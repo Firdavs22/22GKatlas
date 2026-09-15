@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { parentInvite, staffInvite } from '../mail/mail.templates';
 import { Role } from '@prisma/client';
+import { AdmissionsService } from '../admissions/admissions.module';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as XLSX from 'xlsx';
@@ -18,6 +19,7 @@ export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
   constructor(
+    private admissions: AdmissionsService,
     private prisma: PrismaService,
     private mail: MailService,
     private config: ConfigService,
@@ -274,7 +276,7 @@ export class AdminService {
     return { ok: true };
   }
   enrollChild(childId: string, groupId: string) {
-    return this.prisma.child.update({ where: { id: childId }, data: { groupId } });
+    return this.admissions.assignGroup(childId, groupId);
   }
 
   async assignSpecialist(childId: string, specialistId: string, role: Role) {
@@ -400,7 +402,7 @@ export class AdminService {
   getStaff() {
     return this.prisma.user.findMany({
       where: {
-        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin'] },
+        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'methodist'] },
         deletedAt: null,
       },
       select: {

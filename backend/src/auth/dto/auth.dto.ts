@@ -1,6 +1,10 @@
-import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
+  @IsOptional()
+  @IsIn(['web', 'mobile'])
+  client?: 'web' | 'mobile';
+
   @IsEmail()
   @MaxLength(254)
   email!: string;
@@ -42,6 +46,7 @@ export class AcceptInviteDto {
 }
 
 export class RefreshDto {
+  @IsOptional()
   @IsString()
   @MinLength(8)
   refreshToken!: string;

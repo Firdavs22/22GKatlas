@@ -31,7 +31,7 @@ function derivePreviewUrl(src: string): string | null {
 /**
  * Компонент для отображения медиафайлов, требующих JWT-авторизации.
  * 
- * Автоматически добавляет JWT-токен в URL через query string,
+ * Использует сессионную httpOnly cookie,
  * определяет тип (image/video) по расширению, показывает fallback при ошибке.
  */
 export default function AuthMedia({

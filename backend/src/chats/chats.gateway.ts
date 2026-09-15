@@ -6,9 +6,13 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatsService } from './chats.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { JwtStrategy } from '../auth/jwt.strategy';
+import { FileAccessService } from '../files/file-access.service';
+import { allowedOrigins } from '../common/origins';
 
 interface AuthSocket extends Socket {
   userId?: string;
+  authReady?: Promise<void>;
 }
 
 // Simple in-memory rate limiter for WebSocket messages
@@ -38,9 +42,7 @@ setInterval(() => {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',')
-      : ['http://localhost:3000'],
+    origin: (origin, callback) => callback(null, !origin || allowedOrigins().includes(origin)),
     credentials: true,
   },
   namespace: '/',
@@ -52,24 +54,46 @@ export class ChatsGateway implements OnGatewayConnection {
     private jwtService: JwtService,
     private chatsService: ChatsService,
     private prisma: PrismaService,
+    private strategy: JwtStrategy,
+    private files: FileAccessService,
   ) {}
 
   handleConnection(client: AuthSocket) {
-    try {
-      const token =
-        client.handshake.auth?.token ||
-        (client.handshake.headers.authorization || '').split(' ')[1];
-      if (!token) { client.disconnect(); return; }
-      const payload = this.jwtService.verify(token);
-      client.userId = payload.sub;
-    } catch {
-      client.disconnect();
-    }
+    client.authReady = (async () => {
+      try {
+        const origin = client.handshake.headers.origin;
+        if (origin && !allowedOrigins().includes(origin)) throw new Error('Forbidden origin');
+        const cookie = /(?:^|;\s*)access_token=([^;]+)/.exec(client.handshake.headers.cookie || '')?.[1];
+        const token = client.handshake.auth?.token ||
+          (client.handshake.headers.authorization || '').split(' ')[1] ||
+          (cookie ? decodeURIComponent(cookie) : undefined);
+        if (typeof token !== 'string') throw new Error('Missing credential');
+        client.data.accessToken = token;
+        const user = await this.authenticate(client);
+        client.userId = user.id;
+        const payload = this.jwtService.verify(token, { algorithms: ['HS256'] });
+        const expiry = setTimeout(() => client.disconnect(true), Math.max(0, payload.exp * 1000 - Date.now()));
+        expiry.unref?.();
+        client.once('disconnect', () => clearTimeout(expiry));
+      } catch { client.disconnect(true); }
+    })();
+  }
+
+  private async authenticate(client: { data: Record<string, any> }) {
+    const payload = this.jwtService.verify(client.data.accessToken, { algorithms: ['HS256'] });
+    return this.strategy.validate(payload);
+  }
+
+  private async activeUser(client: AuthSocket) {
+    await client.authReady;
+    try { return await this.authenticate(client); }
+    catch { client.disconnect(true); return null; }
   }
 
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(@MessageBody() chatId: string, @ConnectedSocket() client: AuthSocket) {
-    const userId = client.userId;
+    const user = await this.activeUser(client);
+    const userId = user?.id;
     if (!userId) { client.emit('error', 'unauthorized'); return; }
 
     // Verify user is a participant of this chat
@@ -90,7 +114,8 @@ export class ChatsGateway implements OnGatewayConnection {
     @MessageBody() data: { chatId: string; text: string; attachments?: string[] },
     @ConnectedSocket() client: AuthSocket,
   ) {
-    const userId = client.userId;
+    const user = await this.activeUser(client);
+    const userId = user?.id;
     if (!userId) { client.emit('error', 'unauthorized'); return; }
 
     // Rate limiting
@@ -108,16 +133,29 @@ export class ChatsGateway implements OnGatewayConnection {
       return;
     }
 
+    try { await this.files.assertCanAttach(data.attachments, user!); }
+    catch { client.emit('error', 'forbidden'); return; }
     const message = await this.chatsService.sendMessage(
       data.chatId, { text: data.text, attachments: data.attachments }, userId,
     );
-    this.notifyNewMessage(data.chatId, message);
+    await this.notifyNewMessage(data.chatId, message);
     return message;
   }
 
   /** Broadcast a freshly persisted message to all sockets joined to the chat room.
    *  Called by the REST controller after a synchronous POST so realtime works regardless of transport. */
-  notifyNewMessage(chatId: string, message: unknown) {
-    this.server.to(chatId).emit('newMessage', message);
+  async notifyNewMessage(chatId: string, message: unknown) {
+    // Revalidate receivers too: a blocked user must not keep receiving chat data.
+    const clients = await this.server.in(chatId).fetchSockets();
+    await Promise.all(clients.map(async client => {
+      try {
+        const user = await this.authenticate(client);
+        const member = await this.prisma.chatParticipant.findUnique({
+          where: { chatRoomId_userId: { chatRoomId: chatId, userId: user.id } },
+        });
+        if (member) client.emit('newMessage', message);
+        else await client.leave(chatId);
+      } catch { client.disconnect(true); }
+    }));
   }
 }
