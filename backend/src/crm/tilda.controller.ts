@@ -4,6 +4,8 @@ import {
   Controller,
   Headers,
   HttpCode,
+  HttpException,
+  Logger,
   Post,
   UnauthorizedException,
   UseGuards,
@@ -181,6 +183,7 @@ export function tildaFields(body: Record<string, unknown>) {
 @Feature('crm')
 @UseGuards(FeatureGuard)
 export class TildaController {
+  private readonly logger = new Logger(TildaController.name);
   constructor(private crm: CrmService) {}
   @Post()
   @HttpCode(200)
@@ -189,34 +192,75 @@ export class TildaController {
     @Headers('authorization') authorization: string,
     @Body() body: Record<string, unknown>,
   ) {
-    const expected = process.env.TILDA_WEBHOOK_TOKEN || '';
-    const supplied = /^Bearer (\S+)$/i.exec(authorization || '')?.[1] || '';
-    const digest = (value: string) =>
-      createHash('sha256').update(value).digest();
-    if (
-      expected.length < 32 ||
-      !timingSafeEqual(digest(expected), digest(supplied))
-    )
-      throw new UnauthorizedException();
-    if (!body || typeof body !== 'object' || Array.isArray(body))
-      throw new BadRequestException('Нужна форма Tilda');
-    if (
-      body.test === 'test' &&
-      Object.keys(body).every((key) => key === 'test')
-    )
-      return 'ok';
-    const { dto, externalKey, intakeDetails } = tildaFields(body);
-    const errors = await validate(dto, {
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    });
-    if (errors.length)
-      throw new BadRequestException({
-        message: 'Проверьте поля формы Tilda',
-        fields: errors.map((e) => e.property),
+    let phase = 'authorization';
+    try {
+      const expected = process.env.TILDA_WEBHOOK_TOKEN || '';
+      const supplied = /^Bearer (\S+)$/i.exec(authorization || '')?.[1] || '';
+      const digest = (value: string) =>
+        createHash('sha256').update(value).digest();
+      if (
+        expected.length < 32 ||
+        !timingSafeEqual(digest(expected), digest(supplied))
+      )
+        throw new UnauthorizedException();
+      phase = 'fields';
+      if (!body || typeof body !== 'object' || Array.isArray(body))
+        throw new BadRequestException('Нужна форма Tilda');
+      if (
+        body.test === 'test' &&
+        Object.keys(body).every((key) => key === 'test')
+      ) {
+        this.logger.log('TILDA_EVENT {"event":"verification_ok"}');
+        return 'ok';
+      }
+      const { dto, externalKey, intakeDetails } = tildaFields(body);
+      phase = 'validation';
+      const errors = await validate(dto, {
+        whitelist: true,
+        forbidNonWhitelisted: true,
       });
-    await this.crm.create(dto, null, externalKey, intakeDetails);
-    // No contact data, internal IDs or credentials in the provider response.
-    return 'ok';
+      if (errors.length)
+        throw new BadRequestException({
+          message: 'Проверьте поля формы Tilda',
+          fields: errors.map((e) => e.property),
+        });
+      phase = 'database';
+      await this.crm.create(dto, null, externalKey, intakeDetails);
+      this.logger.log('TILDA_EVENT {"event":"delivery_saved"}');
+      // No contact data, internal IDs or credentials in the provider response.
+      return 'ok';
+    } catch (error) {
+      const status = error instanceof HttpException ? error.getStatus() : 500;
+      const databaseCode =
+        typeof (error as any)?.code === 'string' &&
+        /^P[0-9]{4}$/.test((error as any).code)
+          ? (error as any).code
+          : undefined;
+      this.logger.warn(
+        'TILDA_EVENT ' +
+          JSON.stringify({
+            event: 'rejected',
+            phase,
+            status,
+            databaseCode,
+            fields: [
+              'Name',
+              'parentName',
+              'Phone',
+              'contactMethod',
+              'messenger-type',
+              'contactValue',
+              'messenger-id',
+              'tranid',
+              'formid',
+            ].filter((key) =>
+              Object.keys(body || {}).some(
+                (actual) => actual.toLowerCase() === key.toLowerCase(),
+              ),
+            ),
+          }),
+      );
+      throw error;
+    }
   }
 }

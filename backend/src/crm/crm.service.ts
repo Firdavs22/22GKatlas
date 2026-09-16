@@ -15,6 +15,7 @@ import { AdmissionsService } from '../admissions/admissions.module';
 import { checkAdmission } from '../admissions/admission-check';
 import { AuthService } from '../auth/auth.service';
 import { MailService } from '../mail/mail.service';
+import { smtpFailure } from '../mail/smtp';
 import { parentInvite } from '../mail/mail.templates';
 import {
   ActivityDto,
@@ -657,9 +658,9 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.mail.send({ to: parent.email, ...message });
       if (!result?.sent) throw new Error('SMTP disabled');
-    } catch {
+    } catch (error) {
       throw new ServiceUnavailableException(
-        'Письмо не отправлено. Зачисление сохранено; проверьте SMTP и повторите отправку',
+        'Письмо не отправлено. Зачисление сохранено. ' + smtpFailure(error).hint,
       );
     }
     await this.prisma.crmActivity.create({

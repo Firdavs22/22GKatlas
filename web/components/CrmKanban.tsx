@@ -312,12 +312,14 @@ export default function CrmKanban({
   disabled,
   onOpen,
   onMove,
+  onDraggingChange,
 }: {
   stages: KanbanStage[];
   leads: KanbanLead[];
   owners: Owner[];
   disabled: boolean;
   onOpen: (id: string) => void;
+  onDraggingChange?: (active: boolean) => void;
   onMove: (lead: KanbanLead, stageId: string) => Promise<boolean>;
 }) {
   const [active, setActive] = useState<KanbanLead | null>(null);
@@ -401,11 +403,16 @@ export default function CrmKanban({
           onDragCancel: () => "Перенос отменен",
         },
       }}
-      onDragStart={({ active: item }) =>
-        setActive(leads.find((l) => l.id === item.id) || null)
-      }
-      onDragCancel={() => setActive(null)}
+      onDragStart={({ active: item }) => {
+        onDraggingChange?.(true);
+        setActive(leads.find((l) => l.id === item.id) || null);
+      }}
+      onDragCancel={() => {
+        onDraggingChange?.(false);
+        setActive(null);
+      }}
       onDragEnd={({ over }) => {
+        onDraggingChange?.(false);
         const lead = active;
         droppedId.current = lead?.id || null;
         setActive(null);

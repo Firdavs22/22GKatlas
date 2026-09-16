@@ -226,6 +226,12 @@ export default function CrmPage() {
     stageId: string;
   } | null>(null);
   const movingRef = useRef(false);
+  const draggingRef = useRef(false);
+  const reloadVersion = useRef(0);
+  const refreshBlocked = useRef(false);
+  const [reloading, setReloading] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const [lastSynced, setLastSynced] = useState("");
   const [enroll, setEnroll] = useState<{
     parentName: string;
     phone: string;
@@ -284,14 +290,12 @@ export default function CrmPage() {
   const load = useCallback(async () => {
     if (!allowed) return;
     try {
-      const [s, l, refs, modules] = await Promise.all([
+      const [s, refs, modules] = await Promise.all([
         api.get("/crm/stages"),
-        api.get("/crm/leads"),
         api.get("/crm/lookups"),
         api.get("/modules"),
       ]);
       setStages(s.data);
-      setLeads(l.data);
       setLookups(refs.data);
       setTeamEnabled(!!modules.data.team);
       setError("");
@@ -304,23 +308,54 @@ export default function CrmPage() {
   useEffect(() => {
     load();
   }, [load]);
-  // Fetch the archive only when requested; current filters are applied locally.
-  useEffect(() => {
-    if (!allowed) return;
-    let active = true;
-    api
-      .get("/crm/leads", { params: { state } })
-      .then((r) => {
-        if (active) setLeads(r.data);
-      })
-      .catch((e) => {
-        if (active) setError(errorText(e));
-      });
-    return () => {
-      active = false;
-    };
+  refreshBlocked.current = busy || !!detail || !!form || !!enroll || settings;
+  const reloadLeads = useCallback(async () => {
+    if (!allowed || refreshBlocked.current || draggingRef.current) return;
+    const version = ++reloadVersion.current;
+    setReloading(true);
+    try {
+      const [list, stagesResult] = await Promise.all([
+        api.get("/crm/leads", { params: { state } }),
+        api.get("/crm/stages"),
+      ]);
+      if (
+        version !== reloadVersion.current ||
+        refreshBlocked.current ||
+        draggingRef.current
+      )
+        return;
+      setLeads(list.data);
+      setStages(stagesResult.data);
+      setLastSynced(
+        new Date().toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+      setSyncError("");
+    } catch (e) {
+      if (version === reloadVersion.current) setSyncError(errorText(e));
+    } finally {
+      setReloading(false);
+    }
   }, [allowed, state]);
+  useEffect(() => {
+    void reloadLeads();
+    const updateVisible = () => {
+      if (document.visibilityState === "visible") void reloadLeads();
+    };
+    const timer = setInterval(updateVisible, 15000);
+    document.addEventListener("visibilitychange", updateVisible);
+    window.addEventListener("focus", updateVisible);
+    return () => {
+      ++reloadVersion.current;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateVisible);
+      window.removeEventListener("focus", updateVisible);
+    };
+  }, [reloadLeads]);
   async function refresh() {
+    ++reloadVersion.current;
     const [s, l, refs] = await Promise.all([
       api.get("/crm/stages"),
       api.get("/crm/leads", { params: { state } }),
@@ -350,6 +385,7 @@ export default function CrmPage() {
   }
   async function mutate(fn: () => Promise<void>) {
     if (busy) return;
+    ++reloadVersion.current;
     setBusy(true);
     setError("");
     setModalError("");
@@ -429,6 +465,7 @@ export default function CrmPage() {
       lead.state !== "open"
     )
       return false;
+    ++reloadVersion.current;
     movingRef.current = true;
     setBusy(true);
     setError("");
@@ -555,6 +592,14 @@ export default function CrmPage() {
           От первого контакта до зачисления в группу.
         </p>
         <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            className={secondary}
+            disabled={busy || reloading}
+            onClick={() => void reloadLeads()}
+          >
+            {reloading ? "Обновляю…" : "Обновить заявки"}
+          </button>
           {["superadmin", "director"].includes(user?.role || "") && (
             <button
               className={secondary}
@@ -572,6 +617,11 @@ export default function CrmPage() {
         </div>
       </div>
       <Notice error={error} />
+      <Notice error={syncError} />
+      <p className="text-xs text-slate-500 mb-4">
+        Новые заявки подгружаются каждые 15 секунд.
+        {lastSynced ? ` Обновлено в ${lastSynced}.` : ""}
+      </p>
       {moveMessage && (
         <div
           role="status"
@@ -631,6 +681,19 @@ export default function CrmPage() {
         >
           {view === "board" ? "Показать списком" : "Показать доской"}
         </button>
+        {(search || owner || state !== "open") && (
+          <button
+            type="button"
+            className={secondary}
+            onClick={() => {
+              setSearch("");
+              setOwner("");
+              setState("open");
+            }}
+          >
+            Сбросить фильтры
+          </button>
+        )}
       </div>
       {overdue.length > 0 && (
         <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 mb-5">
@@ -659,6 +722,10 @@ export default function CrmPage() {
           owners={lookups.owners}
           disabled={busy}
           onOpen={openLead}
+          onDraggingChange={(active) => {
+            draggingRef.current = active;
+            if (active) ++reloadVersion.current;
+          }}
           onMove={move}
         />
       ) : (

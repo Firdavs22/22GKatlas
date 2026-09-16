@@ -42,7 +42,7 @@ export default function AdminStaff() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleteWord, setDeleteWord] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [inviteSent, setInviteSent] = useState<{ email: string; name: string; inviteUrl: string; isResend: boolean } | null>(null);
+  const [inviteSent, setInviteSent] = useState<{ email: string; name: string; inviteUrl: string; isResend: boolean; emailSent: boolean; emailError: string } | null>(null);
 
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -93,7 +93,7 @@ export default function AdminStaff() {
       setStaff(prev => prev.map(s => (s.id === editingId ? { ...s, ...data } : s)));
     } else {
       const { data } = await api.post('/admin/staff/invite', form);
-      setInviteSent({ email: form.email, name: form.name, inviteUrl: data.inviteUrl, isResend: false });
+      setInviteSent({ email: form.email, name: form.name, inviteUrl: data.inviteUrl, isResend: false, emailSent: data.emailSent === true, emailError: data.emailError || '' });
       api.get('/admin/staff').then(r => setStaff(r.data));
     }
     setFormOpen(false);
@@ -123,7 +123,7 @@ export default function AdminStaff() {
     setActionLoading(s.id);
     try {
       const { data } = await api.post(`/admin/staff/${s.id}/resend-invite`);
-      setInviteSent({ email: s.email, name: s.name, inviteUrl: data.inviteUrl, isResend: true });
+      setInviteSent({ email: s.email, name: s.name, inviteUrl: data.inviteUrl, isResend: true, emailSent: data.emailSent === true, emailError: data.emailError || '' });
     } catch (e: unknown) {
       alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось');
     } finally {
@@ -402,7 +402,7 @@ function InviteSentModal({
   data,
   onClose,
 }: {
-  data: { email: string; name: string; inviteUrl: string; isResend: boolean };
+  data: { email: string; name: string; inviteUrl: string; isResend: boolean; emailSent: boolean; emailError: string };
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -430,16 +430,12 @@ function InviteSentModal({
           <Mail size={20} />
         </div>
         <h3 className="font-serif text-2xl mb-2">
-          {data.isResend ? 'Пароль сброшен' : 'Приглашение отправлено'}
+          {data.emailSent ? 'Приглашение передано почтовому серверу' : 'Приглашение создано, письмо не отправлено'}
         </h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Письмо со ссылкой отправлено на <span className="font-medium text-foreground">{data.email}</span>.
-          {data.isResend
-            ? ' Старый пароль перестал работать.'
-            : ` ${data.name} получит инструкции по созданию пароля.`}
-        </p>
+        {data.emailSent ? <p className="text-sm text-slate-600 mb-4">Почтовый сервер принял письмо для <span className="font-medium text-foreground">{data.email}</span>. Проверьте входящие и папку «Спам».</p> : <p role="alert" className="text-sm text-amber-900 bg-amber-50 rounded-xl p-3 mb-4">{data.emailError || 'Отправка письма не подтверждена. Проверьте SMTP на VPS.'} Аккаунт сотрудника сохранен.</p>}
+        {data.isResend && <p className="text-sm text-slate-600 mb-4">Старый пароль перестал работать. Для входа используйте новое приглашение.</p>}
         <p className="text-xs text-slate-500 mb-2">
-          Если письмо не пришло (попало в спам, неверный адрес) — скопируйте ссылку и передайте лично:
+          Ссылку приглашения также можно скопировать и передать сотруднику лично:
         </p>
         <div className="mb-4">
           <div className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 break-all max-h-24 overflow-y-auto">

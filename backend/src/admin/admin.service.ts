@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, ConflictException, ForbiddenException,
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { smtpFailure } from '../mail/smtp';
 import { parentInvite, staffInvite } from '../mail/mail.templates';
 import { Role } from '@prisma/client';
 import { AdmissionsService } from '../admissions/admissions.module';
@@ -455,8 +456,8 @@ export class AdminService {
     const user = await this.prisma.user.create({ data: { email, password: tempPassword, name, role } });
     const inviteToken = authService.generateInviteToken(user.id);
     const inviteUrl = this.buildInviteUrl(inviteToken);
-    await this.sendStaffInviteEmail({ to: email, name, role, inviteUrl, isResend: false });
-    return { inviteToken, inviteUrl, userId: user.id };
+    const delivery = await this.sendStaffInviteEmail({ to: email, name, role, inviteUrl, isResend: false });
+    return { inviteToken, inviteUrl, userId: user.id, ...delivery };
   }
 
   private manageableStaff(id: string, actor: { id: string; role: string }) {
@@ -550,14 +551,14 @@ export class AdminService {
     ]);
     const inviteToken = authService.generateInviteToken(id);
     const inviteUrl = this.buildInviteUrl(inviteToken);
-    await this.sendStaffInviteEmail({
+    const delivery = await this.sendStaffInviteEmail({
       to: target.email,
       name: target.name,
       role: target.role,
       inviteUrl,
       isResend: true,
     });
-    return { inviteToken, inviteUrl };
+    return { inviteToken, inviteUrl, ...delivery };
   }
 
   private buildInviteUrl(token: string): string {
@@ -579,9 +580,10 @@ export class AdminService {
       isResend: opts.isResend,
     });
     try {
-      await this.mail.send({ to: opts.to, subject, html, text });
+      const result = await this.mail.send({ to: opts.to, subject, html, text });
+      return { emailSent: result.sent, emailError: result.sent ? '' : 'Почта не настроена: заполните SMTP на VPS.' };
     } catch (err) {
-      this.logger.warn(`Не удалось отправить приглашение сотруднику ${opts.to}: ${(err as Error).message}`);
+      return { emailSent: false, emailError: smtpFailure(err).hint };
     }
   }
 

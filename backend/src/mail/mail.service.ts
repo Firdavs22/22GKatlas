@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { MailDeliveryError, smtpConfiguration, smtpFailure } from './smtp';
 
 interface SendArgs {
   to: string;
@@ -14,7 +15,7 @@ interface SendArgs {
  *
  * Поведение зависит от ENV:
  *  - SMTP_HOST задан → пытается реально отправлять через указанный SMTP
- *  - SMTP_HOST не задан → DEV-режим: письмо логируется в консоль, реальная отправка не происходит
+ *  - SMTP_HOST не задан → письмо не отправляется; содержимое и ссылки не логируются
  *
  * Когда настроишь Yandex 360 — заполни в .env:
  *   SMTP_HOST=smtp.yandex.ru
@@ -30,55 +31,69 @@ export class MailService {
   private transporter: nodemailer.Transporter | null = null;
   private readonly from: string;
   private readonly enabled: boolean;
+  private readonly configurationIssues: string[];
 
   constructor(private config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST');
-    this.enabled = !!host;
-    this.from = this.config.get<string>('SMTP_FROM') || 'GloboAtlas <noreply@localhost>';
+    const settings = smtpConfiguration((key) => this.config.get<string>(key));
+    this.enabled = !!settings.host;
+    this.from = settings.from;
+    this.configurationIssues = settings.issues;
 
     if (this.enabled) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: Number(this.config.get<string>('SMTP_PORT') || 465),
-        secure: this.config.get<string>('SMTP_SECURE') !== 'false',
-        auth: {
-          user: this.config.get<string>('SMTP_USER'),
-          pass: this.config.get<string>('SMTP_PASS'),
-        },
-      });
-      this.logger.log(`SMTP включен: ${host}`);
+      if (!settings.issues.length)
+        this.transporter = nodemailer.createTransport(settings.options);
+      this.logger.log(
+        'MAIL_EVENT ' +
+          JSON.stringify({
+            event: settings.issues.length
+              ? 'configuration_error'
+              : 'configured',
+            port: settings.port,
+            secure: settings.secure,
+            issues: settings.issues,
+          }),
+      );
     } else {
       this.logger.warn(
-        'SMTP не настроен (SMTP_HOST не задан). Письма будут логироваться в консоль вместо реальной отправки.',
+        'MAIL_EVENT {"event":"disabled","code":"SMTP_NOT_CONFIGURED"}',
       );
     }
   }
 
-  async send({ to, subject, html, text }: SendArgs): Promise<{ sent: boolean; preview?: string }> {
-    if (!this.enabled || !this.transporter) {
-      // Dev-режим: показываем письмо в логе, ничего не отправляем
-      const preview =
-        `\n──────── EMAIL (DEV, не отправлено) ────────\n` +
-        `To: ${to}\nSubject: ${subject}\n` +
-        `Text: ${text || '(нет)'}\n` +
-        `─────────────────────────────────────────────\n`;
-      this.logger.log(preview);
-      return { sent: false, preview };
+  async send({
+    to,
+    subject,
+    html,
+    text,
+  }: SendArgs): Promise<{ sent: boolean; preview?: string }> {
+    if (!this.enabled) {
+      this.logger.warn(
+        'MAIL_EVENT {"event":"not_sent","code":"SMTP_NOT_CONFIGURED"}',
+      );
+      return { sent: false };
     }
+    if (this.configurationIssues.length || !this.transporter)
+      throw new MailDeliveryError({
+        code: 'SMTP_CONFIG',
+        hint: this.configurationIssues.join('. ') || 'Проверьте настройки SMTP',
+      });
 
     try {
-      const info = await this.transporter.sendMail({
+      await this.transporter.sendMail({
         from: this.from,
         to,
         subject,
         html,
         text,
       });
-      this.logger.log(`Письмо отправлено: ${info.messageId} → ${to}`);
+      this.logger.log('MAIL_EVENT {"event":"accepted_by_smtp"}');
       return { sent: true };
     } catch (err) {
-      this.logger.error(`Ошибка SMTP: ${(err as Error).message}`);
-      throw err;
+      const failure = smtpFailure(err);
+      this.logger.error(
+        'MAIL_EVENT ' + JSON.stringify({ event: 'failed', ...failure }),
+      );
+      throw new MailDeliveryError(failure);
     }
   }
 }
