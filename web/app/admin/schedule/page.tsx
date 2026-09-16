@@ -42,7 +42,7 @@ export default function AdminSchedule() {
       setGroups(r.data);
       if (r.data[0]) setSelectedGroup(r.data[0].id);
     });
-    api.get('/admin/staff').then(r => setTeachers(r.data.filter((u: User) => u.role === 'teacher')));
+    api.get('/admin/staff-options').then(r => setTeachers(r.data.filter((u: User) => u.role === 'teacher')));
   }, []);
 
   useEffect(() => {

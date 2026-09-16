@@ -8,6 +8,8 @@ import {
 import PageLayout from '@/components/PageLayout';
 import { Card, SectionLabel, StatTile } from '@/components/ui';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { errorText, Notice } from '@/components/WorkUI';
 
 type DashboardStats = {
   children: number;
@@ -33,6 +35,9 @@ function formatToday(): string {
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  const manager = !!user && ['superadmin', 'director'].includes(user.role);
+  const [error, setError] = useState('');
   const [stats, setStats] = useState<DashboardStats>({
     children: 0, activeChildren: 0, inAdaptation: 0, groups: 0, capacity: 0, staff: 0,
     unpaidAmount: 0, pendingPayments: 0, overduePayments: 0,
@@ -43,7 +48,7 @@ export default function AdminDashboard() {
     Promise.all([
       api.get('/admin/children'),
       api.get('/admin/groups'),
-      api.get('/admin/staff'),
+      api.get('/admin/staff-options'),
       api.get('/admin/payments'),
       api.get('/admin/attendance'),
       api.get('/activities/menu'),
@@ -80,7 +85,7 @@ export default function AdminDashboard() {
           (e: { eventDate: string }) => new Date(e.eventDate) >= now,
         ).length,
       });
-    });
+    }).catch(e => setError(errorText(e)));
   }, []);
 
   const occupancy = stats.capacity ? Math.round((stats.activeChildren / stats.capacity) * 100) : 0;
@@ -111,8 +116,9 @@ export default function AdminDashboard() {
       title={<>Сводка по <span className="italic">саду</span></>}
       wide
     >
+      <Notice error={error} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-        {metrics.map(m => {
+        {metrics.filter(m => manager || m.href !== '/admin/staff').map(m => {
           const Icon = m.icon;
           return (
             <Link key={m.label} href={m.href} className="group">
@@ -132,7 +138,7 @@ export default function AdminDashboard() {
 
       <SectionLabel>Быстрый доступ</SectionLabel>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-        {quickLinks.map(l => {
+        {quickLinks.filter(l => user?.role === 'superadmin' || l.href !== '/admin/skills').map(l => {
           const Icon = l.icon;
           return (
             <Link key={l.href} href={l.href} className="group">

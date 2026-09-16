@@ -34,6 +34,7 @@ export class TimeEntryDto {
 export class EventQuery {
   @IsISO8601({ strict: true }) from!: string;
   @IsISO8601({ strict: true }) to!: string;
+  @IsOptional() @IsIn(['personal', 'common']) scope?: 'personal' | 'common';
 }
 export class TeamEventDto {
   @IsString() @MinLength(1) @MaxLength(160) title!: string;

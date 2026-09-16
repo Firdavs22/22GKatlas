@@ -87,7 +87,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
         if (!claimed.count) return;
         const owners = await tx.user.findMany({
           where: {
-            role: { in: ['admin', 'superadmin', 'director'] },
+            role: { in: ['sales_manager', 'superadmin', 'director'] },
             deletedAt: null,
             blockedAt: null,
             ...(lead.ownerId ? { id: lead.ownerId } : {}),
@@ -184,7 +184,7 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
     const [owners, groups, parents, children] = await Promise.all([
       this.prisma.user.findMany({
         where: {
-          role: { in: ['admin', 'superadmin', 'director'] },
+          role: { in: ['sales_manager', 'superadmin', 'director'] },
           deletedAt: null,
           blockedAt: null,
         },
@@ -284,13 +284,13 @@ export class CrmService implements OnModuleInit, OnModuleDestroy {
       !(await this.prisma.user.findFirst({
         where: {
           id: dto.ownerId,
-          role: { in: ['admin', 'superadmin', 'director'] },
+          role: { in: ['sales_manager', 'superadmin', 'director'] },
           blockedAt: null,
           deletedAt: null,
         },
       }))
     )
-      throw new BadRequestException('Выберите действующего администратора');
+      throw new BadRequestException('Выберите действующего менеджера продаж или руководителя');
     return {
       parentName: dto.parentName.trim(),
       phone:

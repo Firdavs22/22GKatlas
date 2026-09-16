@@ -39,7 +39,7 @@ import {
 @Controller('crm')
 @Feature('crm')
 @UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
-@Roles('admin', 'superadmin')
+@Roles('sales_manager', 'director', 'superadmin')
 class CrmController {
   constructor(private crm: CrmService) {}
   @Get('stages') stages() {

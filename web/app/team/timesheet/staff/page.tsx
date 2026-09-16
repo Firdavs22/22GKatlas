@@ -1,5 +1,5 @@
 import StaffTimesheet from "@/components/StaffTimesheet";
 
 export default function Page() {
-  return <StaffTimesheet />;
+  return <StaffTimesheet manageStaff />;
 }

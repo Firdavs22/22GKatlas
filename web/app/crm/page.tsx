@@ -191,7 +191,7 @@ function Modal({
 export default function CrmPage() {
   const { user } = useAuth();
   const allowed =
-    !!user && ["admin", "superadmin", "director"].includes(user.role);
+    !!user && ["sales_manager", "superadmin", "director"].includes(user.role);
   const [stages, setStages] = useState<Stage[]>([]),
     [leads, setLeads] = useState<Lead[]>([]);
   const [lookups, setLookups] = useState<Lookups>({
@@ -582,7 +582,7 @@ export default function CrmPage() {
   if (user && !allowed)
     return (
       <PageLayout title="CRM">
-        <p>Раздел доступен администрации.</p>
+        <p>Раздел доступен менеджеру продаж, директору и главному администратору.</p>
       </PageLayout>
     );
   return (
@@ -814,7 +814,7 @@ export default function CrmPage() {
                   <AdmissionChecklist value={detail.documentChecklist} />
                 </div>
               )}
-              {detail.enrollment && (
+              {detail.enrollment && user?.role !== "sales_manager" && (
                 <Link
                   className="text-brand underline block mt-2"
                   href={"/admin/children/" + detail.enrollment.child.id}
@@ -989,7 +989,7 @@ export default function CrmPage() {
                 <p className="text-xs text-slate-400">
                   {actionLabels[h.kind] || h.kind} · {dateTime(h.createdAt)} ·{" "}
                   {lookups.owners.find((o) => o.id === h.actorId)?.name ||
-                    (h.actorId ? "Администратор" : "Прием заявок")}
+                    (h.actorId ? "Сотрудник" : "Прием заявок")}
                 </p>
                 <p className="text-sm mt-1 whitespace-pre-wrap">{h.text}</p>
               </li>

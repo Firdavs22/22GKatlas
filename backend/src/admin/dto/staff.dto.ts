@@ -11,7 +11,7 @@ export class InviteStaffDto {
   @MaxLength(120)
   name!: string;
 
-  @IsIn(['director', 'admin', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
+  @IsIn(['director', 'admin', 'sales_manager', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
   role!: Role;
 }
 
@@ -23,7 +23,7 @@ export class UpdateStaffDto {
   name?: string;
 
   @IsOptional()
-  @IsIn(['director', 'admin', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
+  @IsIn(['director', 'admin', 'sales_manager', 'methodist', 'teacher', 'psychologist', 'pediatrician'])
   role?: Role;
 
   @IsOptional()

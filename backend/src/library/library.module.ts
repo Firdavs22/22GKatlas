@@ -71,14 +71,14 @@ class LibraryController {
     return { ...data, title: data.title.trim() };
   }
   @Post()
-  @Roles('admin', 'superadmin', 'methodist')
+  @Roles('director', 'superadmin', 'methodist')
   create(@Body() dto: DocumentDto, @CurrentUser() user: { id: string }) {
     return this.prisma.methodicalDocument.create({
       data: { ...this.data(dto), authorId: user.id },
     });
   }
   @Put(':id')
-  @Roles('admin', 'superadmin', 'methodist')
+  @Roles('director', 'superadmin', 'methodist')
   async update(@Param('id') id: string, @Body() dto: DocumentDto) {
     const result = await this.prisma.methodicalDocument.updateMany({
       where: { id, revision: dto.revision ?? -1 },
@@ -89,7 +89,7 @@ class LibraryController {
     return this.prisma.methodicalDocument.findUnique({ where: { id } });
   }
   @Delete(':id')
-  @Roles('admin', 'superadmin', 'methodist')
+  @Roles('director', 'superadmin', 'methodist')
   async remove(@Param('id') id: string, @Body() dto: RevisionDto) {
     const result = await this.prisma.methodicalDocument.deleteMany({
       where: { id, revision: dto.revision },

@@ -26,7 +26,7 @@ export class FileAccessService {
 
   async assertCanRead(filename: string, user: FileRequester): Promise<void> {
     if (!/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(filename)) throw new ForbiddenException('Нет доступа к файлу');
-    if (['admin', 'superadmin', 'director'].includes(user.role)) return;
+    if (['superadmin', 'director'].includes(user.role)) return;
     const meta = await this.prisma.fileMeta.findUnique({ where: { filename } });
 
     // Resolve the current owning records rather than caching an uploader's role.
@@ -59,6 +59,7 @@ export class FileAccessService {
     // uploader access. Teachers and specialists never inherit child-file access.
     const childDocuments = references.filter(reference => reference.kind === 'child-document');
     if (childDocuments.length || meta?.scope === 'child-document') {
+      if (user.role === 'admin') return;
       if (user.role === 'parent') {
         for (const reference of childDocuments) {
           if (!reference.data.deleted && await this.childAccess(reference.data.childId, user)) return;
@@ -72,6 +73,7 @@ export class FileAccessService {
       if (enabledFeatures().library && documents.some(reference => canReadDocument(reference.data as any, user.role))) return;
       throw new ForbiddenException('Нет доступа к материалу');
     }
+    if (user.role === 'admin') return;
     if (meta?.uploaderId === user.id || meta?.scope === 'public') return;
     for (const reference of references) {
       if (await this.canReadReference(reference, user)) return;

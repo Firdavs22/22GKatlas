@@ -5,6 +5,7 @@ const PUBLIC_PATHS = ['/login', '/invite', '/forgot', '/reset', '/privacy'];
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   methodist: ['/library', '/team'],
+  sales_manager: ['/crm'],
   admin: ['/admin'],
   director: ['/admin'],
   superadmin: ['/admin'],
@@ -16,6 +17,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
 
 const ROLE_HOME: Record<string, string> = {
   methodist: '/library',
+  sales_manager: '/crm',
   admin: '/admin',
   director: '/admin',
   superadmin: '/admin',
@@ -48,10 +50,13 @@ export function middleware(request: NextRequest) {
 
   // Role-based access
   if (role) {
+    if (pathname.startsWith('/team/timesheet/staff') && !['superadmin', 'director'].includes(role)) {
+      return NextResponse.redirect(new URL(role === 'parent' ? '/parent' : '/team/timesheet', request.url));
+    }
     const allowedPrefixes = ROLE_PREFIXES[role] || [];
-    const commonPrefixes = ['/profile', '/notifications', '/settings', '/library', ...(role !== 'parent' ? ['/team'] : []), ...(['admin', 'superadmin', 'director'].includes(role) ? ['/crm'] : [])];
+    const commonPrefixes = ['/profile', '/notifications', '/settings', '/library', ...(role !== 'parent' ? ['/team'] : []), ...(['sales_manager', 'superadmin', 'director'].includes(role) ? ['/crm'] : [])];
     const allAllowed = [...allowedPrefixes, ...commonPrefixes];
-    const isAllowed = allAllowed.some((prefix) => pathname.startsWith(prefix));
+    const isAllowed = allAllowed.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
     if (!isAllowed) {
       return NextResponse.redirect(new URL(ROLE_HOME[role] || '/login', request.url));
     }

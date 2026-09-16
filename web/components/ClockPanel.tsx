@@ -65,9 +65,16 @@ export default function ClockPanel({
       setBusy(false);
     }
   }
-  if (!status?.enabled && !active && !error) return null;
+  if (!own && !active && !error) return null;
   return (
     <section className="rounded-2xl bg-slate-50 border border-slate-200 p-4 mb-5 space-y-3">
+      {own && !status && !error && <p className="text-sm text-slate-500">Загрузка отметок рабочего времени…</p>}
+      {own && status && !status.enabled && (
+        <>
+          <p className="font-medium">Ручной учет рабочего времени</p>
+          <p className="text-sm text-slate-600">Выберите день в табеле и укажите фактическое время. Отметки «Начал работу» и «Завершил работу» появятся после подключения учета через рабочую сеть сада.</p>
+        </>
+      )}
       {own && status?.enabled && (
         <>
           <p className="font-medium">

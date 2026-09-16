@@ -97,7 +97,7 @@ export default function AdminChildren() {
   useEffect(() => {
     reloadChildren(showArchived);
     api.get('/admin/groups').then(r => setGroups(r.data));
-    api.get('/admin/staff').then(r =>
+    api.get('/admin/staff-options').then(r =>
       setStaff(r.data.filter((s: User) => ['psychologist', 'pediatrician', 'teacher'].includes(s.role))),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -133,6 +133,9 @@ export class AdminController {
   }
 
   // ── STAFF ── director and superadmin ─────────────────────────────
+  @Get('staff-options')
+  staffOptions() { return this.adminService.staffOptions(); }
+
   @Get('staff')
   @Roles('superadmin', 'director')
   getStaff() { return this.adminService.getStaff(); }

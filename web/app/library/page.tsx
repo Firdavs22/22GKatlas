@@ -45,7 +45,7 @@ const empty: Doc = {
 };
 export default function LibraryPage() {
   const { user } = useAuth(),
-    editor = !!user && ["admin", "superadmin", "director", "methodist"].includes(user.role);
+    editor = !!user && ["superadmin", "director", "methodist"].includes(user.role);
   const [docs, setDocs] = useState<Doc[]>([]),
     [edit, setEdit] = useState<Doc | null>(null),
     [opened, setOpened] = useState<Doc | null>(null);

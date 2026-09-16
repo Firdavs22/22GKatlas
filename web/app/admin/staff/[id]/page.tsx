@@ -12,6 +12,7 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: 'Администратор',
   director: 'Директор',
   methodist: 'Методист',
+  sales_manager: 'Менеджер продаж',
   teacher: 'Педагог',
   parent: 'Родитель',
   psychologist: 'Психолог',
@@ -128,7 +129,9 @@ export default function AdminStaffDetail() {
 
           {['admin', 'superadmin', 'director'].includes(staff.role) && (
             <div className="text-sm text-slate-400 p-6 rounded-xl bg-slate-50 text-center mt-3">
-              У администратора есть доступ ко всем данным системы.
+              {staff.role === 'admin'
+                ? 'Администратор ведет детей, родителей и повседневную работу сада. Управление чужими табелями, CRM и редактирование методики ему недоступны.'
+                : 'Руководитель управляет работой сада, сотрудниками, табелями, CRM и методическими материалами.'}
             </div>
           )}
         </Card>

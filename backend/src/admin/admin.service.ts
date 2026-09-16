@@ -413,10 +413,18 @@ export class AdminService {
   }
 
   // ── STAFF ─────────────────────────────────────────────────
+  staffOptions() {
+    return this.prisma.user.findMany({
+      where: { role: { not: 'parent' }, deletedAt: null, blockedAt: null },
+      select: { id: true, name: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   getStaff() {
     return this.prisma.user.findMany({
       where: {
-        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'director', 'methodist'] },
+        role: { in: ['teacher', 'psychologist', 'pediatrician', 'admin', 'superadmin', 'director', 'methodist', 'sales_manager'] },
         deletedAt: null,
       },
       select: {

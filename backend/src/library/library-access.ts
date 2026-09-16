@@ -1,5 +1,5 @@
 export const canEditLibrary = (role: string) =>
-  ['admin', 'superadmin', 'director', 'methodist'].includes(role);
+  ['superadmin', 'director', 'methodist'].includes(role);
 export function canReadDocument(
   document: { audience: string; published: boolean },
   role: string,

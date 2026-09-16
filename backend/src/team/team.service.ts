@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 
 export type Actor = { id: string; role: string };
 export const isManager = (user: Actor) =>
-  ['admin', 'superadmin', 'director'].includes(user.role);
+  ['superadmin', 'director'].includes(user.role);
 const activeStaff = {
   role: { not: 'parent' as const },
   blockedAt: null,
@@ -269,15 +269,26 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
         startsAt: { lt: to },
         endsAt: { gt: from },
         cancelled: false,
-        ...(!isManager(actor)
+        ...(query.scope === 'personal'
           ? {
               OR: [
-                { visibility: 'staff' },
                 { authorId: actor.id },
                 { participantIds: { has: actor.id } },
               ],
             }
-          : {}),
+          : query.scope === 'common'
+            ? isManager(actor)
+              ? {}
+              : { visibility: 'staff' }
+            : !isManager(actor)
+              ? {
+                  OR: [
+                    { visibility: 'staff' },
+                    { authorId: actor.id },
+                    { participantIds: { has: actor.id } },
+                  ],
+                }
+              : {}),
       },
       orderBy: { startsAt: 'asc' },
     });
@@ -383,7 +394,12 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
             type: 'team_event',
             title: 'Скоро встреча команды',
             body: 'Откройте календарь команды, чтобы посмотреть доступные вам события.',
-            data: { url: '/team/calendar' },
+            data: {
+              url:
+                event.visibility === 'staff'
+                  ? '/team/calendar'
+                  : '/team/calendar/personal',
+            },
           })),
         });
       });

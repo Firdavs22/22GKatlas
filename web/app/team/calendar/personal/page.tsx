@@ -1,5 +1,5 @@
 import TeamCalendar from "@/components/TeamCalendar";
 
 export default function Page() {
-  return <TeamCalendar scope="common" />;
+  return <TeamCalendar scope="personal" />;
 }

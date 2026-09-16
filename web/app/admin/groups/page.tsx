@@ -54,7 +54,7 @@ export default function AdminGroups() {
 
   useEffect(() => {
     api.get('/admin/groups').then(r => setGroups(r.data));
-    api.get('/admin/staff').then(r => setTeachers(r.data.filter((u: User) => u.role === 'teacher')));
+    api.get('/admin/staff-options').then(r => setTeachers(r.data.filter((u: User) => u.role === 'teacher')));
   }, []);
 
   const reload = () => api.get('/admin/groups').then(r => setGroups(r.data));

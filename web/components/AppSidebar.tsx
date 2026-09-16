@@ -7,13 +7,14 @@ import {
   UtensilsCrossed, Wallet, ListChecks, BookOpen, Bell, LogOut,
   Grid3x3, Flame, NotebookPen, Images, ClipboardList, Users,
   Stethoscope, Brain, Megaphone, BarChart3, ChefHat, GraduationCap,
-  Settings, MessageSquare,
+  Settings, MessageSquare, Clock, Menu, X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { API_URL } from '@/lib/network';
-import { Child } from '@/lib/types';
+import { Child, ROLE_HOME } from '@/lib/types';
 import OnboardingModal from '@/components/OnboardingModal';
+import { workspaceItems } from '@/lib/workspace-navigation';
 
 interface SidebarBranding {
   label: string;
@@ -41,7 +42,8 @@ interface NavItem {
 
 const NAV: Record<string, NavItem[]> = {
   director: [],
-  methodist: [{ href: '/library', label: 'Кабинет методиста', icon: BookOpen }],
+  methodist: [],
+  sales_manager: [],
   parent: [
     { href: '/parent', label: 'Главная', icon: Home },
     { href: '/parent/child', label: 'Карточка ребенка', icon: ClipboardList },
@@ -104,6 +106,7 @@ const NAV: Record<string, NavItem[]> = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
+  sales_manager: 'Менеджер продаж',
   director: 'Директор',
   methodist: 'Методист',
   parent: 'Родитель',
@@ -115,6 +118,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_ICON: Record<string, typeof Home> = {
+  sales_manager: ClipboardList,
   director: Users,
   methodist: BookOpen,
   parent: Home,
@@ -208,6 +212,25 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const [unreadChats, setUnreadChats] = useState(0);
   const [brand, setBrand] = useState<SidebarBranding>(DEFAULT_SIDEBAR);
+  const [modules, setModules] = useState<Record<string, boolean>>({});
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    setModules({});
+    if (!user) return;
+    let active = true;
+    api.get('/modules').then(r => { if (active) setModules(r.data); }).catch(() => {});
+    return () => { active = false; };
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!user) return;
@@ -238,14 +261,28 @@ export default function AppSidebar() {
 
   if (!user) return null;
 
-  const items = (NAV[user.role] || []).filter(
+  const workIcons = { calendar: Calendar, clock: Clock, library: BookOpen, crm: ClipboardList };
+  const mainItems = (NAV[user.role] || []).filter(
     item => !item.superadminOnly || user.role === 'superadmin' || (user.role === 'director' && item.directorAllowed),
   );
+  const workItems = workspaceItems(user.role, modules).map(item => ({ ...item, icon: workIcons[item.kind] }));
+  const allItems: NavItem[] = [...mainItems, ...workItems];
+  const home = ROLE_HOME[user.role];
+  const items: NavItem[] = [
+    ...allItems.filter(item => item.href === home),
+    ...workItems.filter(item => item.href !== home),
+    ...mainItems.filter(item => item.href !== home),
+  ];
   const isActive = (href: string) =>
-    pathname === href || (href !== `/${user.role}` && pathname.startsWith(href + '/'));
+    pathname === href || (!['/admin', '/teacher', '/parent', '/psychologist', '/pediatrician', '/team/calendar', '/team/timesheet'].includes(href) && pathname.startsWith(href + '/'));
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 border-r border-slate-200 bg-white flex-col h-screen sticky top-0">
+    <>
+    <button type="button" aria-label={mobileOpen ? 'Закрыть меню' : 'Открыть меню'} aria-expanded={mobileOpen} aria-controls="app-navigation" onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden fixed left-4 top-3 z-[60] rounded-xl border border-slate-200 bg-white p-2 text-brand shadow-sm">
+      {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+    </button>
+    {mobileOpen && <button type="button" aria-label="Закрыть меню" onClick={() => setMobileOpen(false)} className="md:hidden fixed inset-0 bg-black/30 z-40" />}
+    <aside id="app-navigation" className={`${mobileOpen ? 'flex' : 'hidden'} md:flex w-64 shrink-0 border-r border-slate-200 bg-white flex-col h-[100dvh] fixed z-50 md:z-auto md:sticky left-0 top-0 pt-12 md:pt-0`}>
       {/* Brand */}
       <div className="px-5 pt-6 pb-4 flex items-center gap-3">
         {brand.hasIcon ? (
@@ -300,6 +337,7 @@ export default function AppSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
                     active
                       ? 'bg-brand-pale/60 text-brand font-medium'
@@ -345,7 +383,8 @@ export default function AppSidebar() {
         </button>
       </div>
 
-      <OnboardingModal role={user.role} />
     </aside>
+    <OnboardingModal role={user.role} />
+    </>
   );
 }

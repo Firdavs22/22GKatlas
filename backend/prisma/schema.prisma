@@ -50,6 +50,7 @@ model User {
 }
 
 enum Role {
+  sales_manager
   director
   methodist
   admin

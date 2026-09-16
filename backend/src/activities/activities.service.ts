@@ -83,7 +83,7 @@ export class ActivitiesService {
   ): Promise<boolean> {
     if (event.audience === 'all') return true;
     if (event.audience === 'staff') {
-      return ['admin', 'superadmin', 'director', 'methodist', 'teacher', 'psychologist', 'pediatrician'].includes(user.role);
+      return ['admin', 'superadmin', 'director', 'methodist', 'sales_manager', 'teacher', 'psychologist', 'pediatrician'].includes(user.role);
     }
     if (event.audience === 'parents') return user.role === 'parent' || ['admin', 'superadmin', 'director'].includes(user.role);
     if (event.audience === 'group') {

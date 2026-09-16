@@ -52,7 +52,7 @@ export default function AdminChildDetail() {
   useEffect(() => {
     reloadChild();
     api.get('/admin/groups').then(r => setGroups(r.data)).catch(() => {});
-    api.get('/admin/staff').then(r =>
+    api.get('/admin/staff-options').then(r =>
       setAllSpecialists(r.data.filter((u: SpecialistUser) => ['psychologist', 'pediatrician'].includes(u.role)))
     ).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

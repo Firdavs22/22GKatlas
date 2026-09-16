@@ -39,6 +39,7 @@ import {
   'superadmin',
   'teacher',
   'methodist',
+  'sales_manager',
   'psychologist',
   'pediatrician',
 )

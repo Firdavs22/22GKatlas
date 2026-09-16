@@ -12,6 +12,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Администратор',
   director: 'Директор',
   methodist: 'Методист',
+  sales_manager: 'Менеджер продаж',
   teacher: 'Педагог',
   psychologist: 'Психолог',
   pediatrician: 'Педиатр',
@@ -22,6 +23,7 @@ const DELETE_CONFIRM_WORD = 'УДАЛИТЬ';
 const ROLE_ORDER: { id: string; label: string }[] = [
   { id: 'director', label: 'Директора' },
   { id: 'methodist', label: 'Методисты' },
+  { id: 'sales_manager', label: 'Менеджеры продаж' },
   { id: 'teacher', label: 'Педагоги' },
   { id: 'psychologist', label: 'Психологи' },
   { id: 'pediatrician', label: 'Педиатры' },
@@ -238,6 +240,7 @@ export default function AdminStaff() {
             >
               {me?.role === 'superadmin' && <option value="director">Директор</option>}
               <option value="methodist">Методист</option>
+              <option value="sales_manager">Менеджер продаж</option>
               <option value="teacher">Педагог</option>
               <option value="psychologist">Психолог</option>
               <option value="pediatrician">Педиатр</option>
