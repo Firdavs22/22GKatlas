@@ -54,7 +54,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(role === 'parent' ? '/parent' : '/team/timesheet', request.url));
     }
     const allowedPrefixes = ROLE_PREFIXES[role] || [];
-    const commonPrefixes = ['/profile', '/notifications', '/settings', '/library', ...(role !== 'parent' ? ['/team'] : []), ...(['sales_manager', 'superadmin', 'director'].includes(role) ? ['/crm'] : [])];
+    const commonPrefixes = ['/profile', '/notifications', '/settings', '/library', ...(role !== 'parent' ? ['/team', '/chats'] : []), ...(['sales_manager', 'superadmin', 'director'].includes(role) ? ['/crm'] : [])];
     const allAllowed = [...allowedPrefixes, ...commonPrefixes];
     const isAllowed = allAllowed.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
     if (!isAllowed) {

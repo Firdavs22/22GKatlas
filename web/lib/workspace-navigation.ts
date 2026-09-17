@@ -1,7 +1,7 @@
 export type WorkspaceItem = {
   href: string;
   label: string;
-  kind: "calendar" | "clock" | "library" | "crm";
+  kind: "calendar" | "clock" | "library" | "crm" | "chat";
 };
 
 export function workspaceItems(
@@ -27,16 +27,20 @@ export function workspaceItems(
               ]
             : []),
           {
-            href: "/team/calendar/personal",
-            label: "Личный календарь",
-            kind: "calendar" as const,
-          },
-          {
             href: "/team/calendar",
-            label: "Общий календарь",
+            label: "Календарь",
             kind: "calendar" as const,
           },
         ]
+      : []),
+    ...([
+      "admin",
+      "superadmin",
+      "director",
+      "methodist",
+      "sales_manager",
+    ].includes(role)
+      ? [{ href: "/chats", label: "Чаты", kind: "chat" as const }]
       : []),
     ...(modules.library
       ? [

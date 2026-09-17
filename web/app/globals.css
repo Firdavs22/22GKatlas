@@ -9,6 +9,10 @@
   --border: #E2E8F0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

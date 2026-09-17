@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatsService } from './chats.service';
 import { ChatsGateway } from './chats.gateway';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CreateChatDto, SendMessageDto } from './chats.dto';
 
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
@@ -13,17 +14,27 @@ export class ChatsController {
   ) {}
 
   @Get()
-  getChats(@CurrentUser() user: any) { return this.chatsService.getChatsForUser(user.id); }
+  getChats(@CurrentUser() user: any) {
+    return this.chatsService.getChatsForUser(user.id);
+  }
 
   @Get('unread-total')
-  getUnreadTotal(@CurrentUser() user: any) { return this.chatsService.getUnreadTotal(user.id); }
+  getUnreadTotal(@CurrentUser() user: any) {
+    return this.chatsService.getUnreadTotal(user.id);
+  }
 
   @Get('staff')
-  getAvailableStaff(@CurrentUser() user: any) { return this.chatsService.getAvailableStaff(user); }
+  getAvailableStaff(@CurrentUser() user: any) {
+    return this.chatsService.getAvailableStaff(user);
+  }
 
   @Post()
-  createChat(@Body() dto: { targetUserId: string; type: string }, @CurrentUser() user: any) {
-    return this.chatsService.createOrGetChat(dto.targetUserId, dto.type, user.id);
+  createChat(@Body() dto: CreateChatDto, @CurrentUser() user: any) {
+    return this.chatsService.createOrGetChat(
+      dto.targetUserId,
+      dto.type,
+      user.id,
+    );
   }
 
   @Get(':id/messages')
@@ -32,9 +43,14 @@ export class ChatsController {
   }
 
   @Post(':id/messages')
-  async sendMessage(@Param('id') id: string, @Body() dto: { text: string; attachments?: string[] }, @CurrentUser() user: any) {
+  async sendMessage(
+    @Param('id') id: string,
+    @Body() dto: SendMessageDto,
+    @CurrentUser() user: any,
+  ) {
     const message = await this.chatsService.sendMessage(id, dto, user.id);
-    await this.chatsGateway.notifyNewMessage(id, message);
+    // A saved message remains successful even if realtime transport is unavailable.
+    await this.chatsGateway.notifyNewMessage(id, message).catch(() => {});
     return message;
   }
 }

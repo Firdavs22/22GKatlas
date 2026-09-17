@@ -570,6 +570,7 @@ model ChatRoom {
 }
 
 enum ChatType {
+  staff_staff
   teacher_parent
   pediatrician_parent
   teacher_psychologist

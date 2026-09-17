@@ -1,5 +1,5 @@
-import TeamCalendar from "@/components/TeamCalendar";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <TeamCalendar scope="personal" />;
+  redirect("/team/calendar?scope=personal");
 }

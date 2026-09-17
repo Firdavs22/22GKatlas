@@ -271,15 +271,14 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
         cancelled: false,
         ...(query.scope === 'personal'
           ? {
+              visibility: 'participants',
               OR: [
                 { authorId: actor.id },
                 { participantIds: { has: actor.id } },
               ],
             }
           : query.scope === 'common'
-            ? isManager(actor)
-              ? {}
-              : { visibility: 'staff' }
+            ? { visibility: 'staff' }
             : !isManager(actor)
               ? {
                   OR: [
@@ -398,7 +397,7 @@ export class TeamService implements OnModuleInit, OnModuleDestroy {
               url:
                 event.visibility === 'staff'
                   ? '/team/calendar'
-                  : '/team/calendar/personal',
+                  : '/team/calendar?scope=personal',
             },
           })),
         });

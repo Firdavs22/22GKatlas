@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Nunito } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
+import AppShell from '@/components/AppShell';
 
 const nunito = Nunito({
   subsets: ['latin', 'cyrillic'],
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru" className={nunito.variable}>
       <body className="antialiased bg-background text-foreground font-sans">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider><AppShell>{children}</AppShell></AuthProvider>
       </body>
     </html>
   );

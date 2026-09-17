@@ -105,7 +105,7 @@ export interface Skill {
 
 export interface ChatRoom {
   id: string;
-  type: 'teacher_parent' | 'pediatrician_parent' | 'teacher_psychologist';
+  type: 'teacher_parent' | 'pediatrician_parent' | 'teacher_psychologist' | 'admin_parent' | 'psychologist_parent' | 'staff_staff';
   childId?: string;
   participants: { userId: string; lastReadAt?: string }[];
   messages?: ChatMessage[];

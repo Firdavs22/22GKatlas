@@ -31,10 +31,14 @@ const toInput = (value: string) => {
     .slice(0, 16);
 };
 export default function TeamCalendar({
-  scope,
+  initialScope = "all",
 }: {
-  scope: "personal" | "common";
+  initialScope?: "all" | "personal" | "common";
 }) {
+  const [scope, setScope] = useState(initialScope);
+  useEffect(() => {
+    setScope(initialScope);
+  }, [initialScope]);
   const { user } = useAuth(),
     manager = !!user && ["superadmin", "director"].includes(user.role);
   const [month, setMonth] = useState(localDate().slice(0, 7)),
@@ -53,7 +57,11 @@ export default function TeamCalendar({
       end = new Date(start);
     end.setMonth(end.getMonth() + 1);
     const r = await api.get("/team/events", {
-      params: { from: start.toISOString(), to: end.toISOString(), scope },
+      params: {
+        from: start.toISOString(),
+        to: end.toISOString(),
+        scope: scope === "all" ? undefined : scope,
+      },
     });
     if (version === requestVersion.current) {
       setEvents(r.data);
@@ -115,7 +123,9 @@ export default function TeamCalendar({
       if (id) await api.put("/team/events/" + id, body);
       else await api.post("/team/events", body);
       setEdit(null);
-      await load();
+      const savedScope = body.visibility === "staff" ? "common" : "personal";
+      if (scope !== "all" && scope !== savedScope) setScope(savedScope);
+      else await load();
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -141,7 +151,7 @@ export default function TeamCalendar({
   const offset = (first.getDay() + 6) % 7;
   return (
     <PageLayout
-      title={scope === "personal" ? "Личный календарь" : "Общий календарь"}
+      title="Календарь"
       eyebrow="Встречи · Планы · Мероприятия"
       actions={
         <button className={buttonClass} onClick={create}>
@@ -149,13 +159,49 @@ export default function TeamCalendar({
         </button>
       }
     >
-      <p className="text-sm text-slate-600 mb-5">
-        {scope === "personal"
-          ? "Ваши события и встречи, на которые вас пригласили. События для всей команды находятся в общем календаре."
-          : manager
-            ? "Все события команды. Встречи для выбранных участников доступны участникам, автору и руководству."
-            : "События для всей команды. Ваши приглашения и планы находятся в личном календаре."}
+      <p className="text-sm text-slate-600 mb-4">
+        Личные события видны автору, приглашенным участникам и руководству.
+        Общие события видит вся команда.
       </p>
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div
+          role="group"
+          aria-label="События календаря"
+          className="inline-flex rounded-full border border-slate-200 bg-white p-1"
+        >
+          {(
+            [
+              ["all", "Все"],
+              ["personal", "Личные"],
+              ["common", "Общие"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              disabled={busy}
+              aria-pressed={scope === value}
+              onClick={() => setScope(value)}
+              className={
+                "rounded-full px-4 py-2 text-sm transition-colors " +
+                (scope === value
+                  ? "bg-brand text-white"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-violet-700 inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-violet-500" />
+          Личные
+        </span>
+        <span className="text-xs text-teal-700 inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-teal-500" />
+          Общие
+        </span>
+      </div>
       <div className="flex gap-4 items-center">
         <input
           aria-label="Месяц"
@@ -205,7 +251,16 @@ export default function TeamCalendar({
                 {items.slice(0, 2).map((e) => (
                   <span
                     key={e.id}
-                    className="block text-[10px] sm:text-xs truncate text-brand"
+                    className={
+                      "block rounded px-1 mt-1 text-[10px] sm:text-xs truncate " +
+                      (e.visibility === "staff"
+                        ? "bg-teal-50 text-teal-800"
+                        : "bg-violet-50 text-violet-800")
+                    }
+                    title={
+                      (e.visibility === "staff" ? "Общее: " : "Личное: ") +
+                      e.title
+                    }
                   >
                     {e.title}
                   </span>
@@ -232,12 +287,19 @@ export default function TeamCalendar({
             .map((e) => (
               <article
                 key={e.id}
-                className="rounded-2xl bg-white border border-slate-200 p-5"
+                className={
+                  "rounded-2xl bg-white border p-5 border-l-4 " +
+                  (e.visibility === "staff"
+                    ? "border-teal-200 border-l-teal-500"
+                    : "border-violet-200 border-l-violet-500")
+                }
               >
                 <div className="flex justify-between gap-3">
                   <h2 className="font-semibold">{e.title}</h2>
                   <span className="text-xs text-slate-500">
-                    {e.visibility === "staff" ? "Вся команда" : "Участники"}
+                    {e.visibility === "staff"
+                      ? "Общее · вся команда"
+                      : "Личное · по участникам"}
                   </span>
                 </div>
                 <p className="text-sm text-brand my-2">
@@ -281,7 +343,7 @@ export default function TeamCalendar({
             ))}
           {!events.length && (
             <p className="p-8 text-slate-500">
-              Событий в этом месяце пока нет.
+              Нет событий для выбранного фильтра в этом месяце.
             </p>
           )}
         </div>
@@ -337,7 +399,7 @@ export default function TeamCalendar({
                 />
               </Field>
             </div>
-            <Field label="Кто видит">
+            <Field label="Личное или общее событие">
               <select
                 className={inputClass}
                 value={edit.visibility}
@@ -346,14 +408,18 @@ export default function TeamCalendar({
                 }
               >
                 <option value="participants">
-                  Только участники и руководитель
+                  Личное — я и выбранные участники
                 </option>
-                <option value="staff">Вся команда</option>
+                <option value="staff">Общее — вся команда</option>
               </select>
             </Field>
             {edit.visibility === "participants" && (
               <fieldset className="max-h-40 overflow-auto border rounded-xl p-3">
-                <legend className="text-sm">Участники</legend>
+                <legend className="text-sm">Кого пригласить</legend>
+                <p className="text-xs text-slate-500 mb-2">
+                  Без других участников событие останется вашим личным.
+                  Руководство также имеет доступ.
+                </p>
                 {staff.map((s) => (
                   <label className="block text-sm py-1" key={s.id}>
                     <input

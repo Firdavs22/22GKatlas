@@ -241,7 +241,8 @@ export default function AppSidebar() {
       .catch(() => {});
     load();
     const id = setInterval(load, 30_000);
-    return () => { stopped = true; clearInterval(id); };
+    window.addEventListener('chat:updated', load);
+    return () => { stopped = true; clearInterval(id); window.removeEventListener('chat:updated', load); };
   }, [user, pathname]);
 
   useEffect(() => {
@@ -261,7 +262,7 @@ export default function AppSidebar() {
 
   if (!user) return null;
 
-  const workIcons = { calendar: Calendar, clock: Clock, library: BookOpen, crm: ClipboardList };
+  const workIcons = { calendar: Calendar, clock: Clock, library: BookOpen, crm: ClipboardList, chat: MessageCircle };
   const mainItems = (NAV[user.role] || []).filter(
     item => !item.superadminOnly || user.role === 'superadmin' || (user.role === 'director' && item.directorAllowed),
   );
