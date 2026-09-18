@@ -9,10 +9,14 @@ env_path = pathlib.Path('.env')
 if not env_path.is_file():
     raise SystemExit('Файл .env не найден. Запустите скрипт в проекте на VPS.')
 print('Нужен внешний IP подключения сада, не адрес VPS. Для нескольких адресов используйте запятую.')
-with open('/dev/tty', 'r+') as terminal:
-    terminal.write('Внешний IP сада: ')
-    terminal.flush()
-    raw = terminal.readline().strip()
+try:
+    # stdin contains this Python script; read the answer from the terminal.
+    # A buffered r+ stream requires seeking, which /dev/tty does not support.
+    with open('/dev/tty', 'r') as terminal:
+        print('Внешний IP сада: ', end='', flush=True)
+        raw = terminal.readline().strip()
+except OSError:
+    raise SystemExit('Не удалось открыть терминал. Запустите скрипт вручную в интерактивном SSH-сеансе. Настройки не изменены.') from None
 addresses = [value.strip() for value in raw.split(',') if value.strip()]
 if not addresses or len(addresses) > 20:
     raise SystemExit('Укажите от 1 до 20 адресов. Настройки не изменены.')
