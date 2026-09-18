@@ -362,9 +362,7 @@ export class ChildrenService {
     const title = typeof dto?.title === 'string' ? dto.title.trim() : '';
     const rawText = typeof dto?.text === 'string' ? dto.text.trim() : '';
     const text = rawText || title || 'Наблюдение';
-    const photos = Array.isArray(dto?.photos)
-      ? dto.photos.filter((p: unknown): p is string => typeof p === 'string')
-      : [];
+    const photos = dto.photos ?? dto.attachments ?? [];
     const tags = Array.isArray(dto?.tags)
       ? dto.tags.filter((t: unknown): t is string => typeof t === 'string')
       : [];
@@ -377,7 +375,7 @@ export class ChildrenService {
         areaId: typeof dto?.areaId === 'string' && dto.areaId ? dto.areaId : null,
         tags,
         photos,
-        visible: dto?.visible === false ? false : true,
+        visible: dto.visible ?? !dto.privateToTeacher,
       },
     });
   }

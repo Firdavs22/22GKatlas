@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Put,
-  Query,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -19,7 +18,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Feature, FeatureGuard } from '../features/features.module';
-import { DocumentDto } from './library.dto';
+import { DocumentDto, ReviewDocumentDto } from './library.dto';
 import { canEditLibrary, canReadDocument } from './library-access';
 import { RevisionDto } from '../team/team.dto';
 
@@ -28,7 +27,7 @@ import { RevisionDto } from '../team/team.dto';
 @UseGuards(JwtAuthGuard, RolesGuard, FeatureGuard)
 class LibraryController {
   constructor(private prisma: PrismaService) {}
-  @Get() async list(@CurrentUser() user: { role: string }) {
+  @Get() async list(@CurrentUser() user: { id: string; role: string }) {
     const allowed = [
       'all',
       ...(user.role !== 'parent' ? ['staff'] : []),
@@ -38,22 +37,51 @@ class LibraryController {
         ? ['specialists']
         : []),
     ];
-    return this.prisma.methodicalDocument.findMany({
+    const docs = await this.prisma.methodicalDocument.findMany({
       where: canEditLibrary(user.role)
         ? {}
-        : { published: true, audience: { in: allowed } },
+        : {
+            OR: [
+              {
+                published: true,
+                reviewStatus: 'approved',
+                audience: { in: allowed },
+              },
+              ...(user.role === 'teacher' ? [{ authorId: user.id }] : []),
+            ],
+          },
       orderBy: { updatedAt: 'desc' },
     });
+    const authors = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(docs.map((doc) => doc.authorId))] } },
+      select: { id: true, name: true },
+    });
+    return docs.map((doc) => ({
+      ...doc,
+      reviewComment:
+        canEditLibrary(user.role) || doc.authorId === user.id
+          ? doc.reviewComment
+          : '',
+      authorName:
+        authors.find((author) => author.id === doc.authorId)?.name || 'Автор',
+    }));
   }
   @Get(':id') async get(
     @Param('id') id: string,
-    @CurrentUser() user: { role: string },
+    @CurrentUser() user: { id: string; role: string },
   ) {
     const doc = await this.prisma.methodicalDocument.findUnique({
       where: { id },
     });
-    if (!doc || !canReadDocument(doc, user.role)) throw new NotFoundException();
-    return doc;
+    if (!doc || !canReadDocument(doc, user.role, user.id))
+      throw new NotFoundException();
+    return {
+      ...doc,
+      reviewComment:
+        canEditLibrary(user.role) || doc.authorId === user.id
+          ? doc.reviewComment
+          : '',
+    };
   }
   private data(dto: DocumentDto) {
     if (
@@ -77,11 +105,138 @@ class LibraryController {
       data: { ...this.data(dto), authorId: user.id },
     });
   }
+
+  @Post('proposals')
+  @Roles('teacher')
+  async propose(@Body() dto: DocumentDto, @CurrentUser() user: { id: string }) {
+    const data = this.data(dto);
+    return this.prisma.$transaction(async (tx) => {
+      const doc = await tx.methodicalDocument.create({
+        data: {
+          ...data,
+          authorId: user.id,
+          published: false,
+          reviewStatus: 'pending',
+        },
+      });
+      await this.notifyReviewers(tx, doc.id);
+      return doc;
+    });
+  }
+
+  @Post(':id/resubmit')
+  @Roles('teacher')
+  async resubmit(
+    @Param('id') id: string,
+    @Body() dto: DocumentDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    const data = this.data(dto);
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.methodicalDocument.updateMany({
+        where: {
+          id,
+          authorId: user.id,
+          reviewStatus: 'returned',
+          revision: dto.revision ?? -1,
+        },
+        data: {
+          ...data,
+          published: false,
+          reviewStatus: 'pending',
+          reviewComment: '',
+          reviewedById: null,
+          reviewedAt: null,
+          revision: { increment: 1 },
+        },
+      });
+      if (!result.count)
+        throw new ConflictException(
+          'Можно повторно отправить только свое предложение, возвращенное на доработку. Обновите список.',
+        );
+      await this.notifyReviewers(tx, id);
+      return tx.methodicalDocument.findUniqueOrThrow({ where: { id } });
+    });
+  }
+
+  private async notifyReviewers(
+    tx: import('@prisma/client').Prisma.TransactionClient,
+    id: string,
+  ) {
+    const reviewers = await tx.user.findMany({
+      where: {
+        role: { in: ['methodist', 'director', 'superadmin'] },
+        deletedAt: null,
+        blockedAt: null,
+      },
+      select: { id: true },
+    });
+    if (reviewers.length)
+      await tx.notification.createMany({
+        data: reviewers.map((reviewer) => ({
+          userId: reviewer.id,
+          type: 'library_review',
+          title: 'Материал на проверку',
+          body: 'Педагог предложил материал. Откройте вкладку «На проверке» в библиотеке.',
+          data: { url: '/library', documentId: id },
+        })),
+      });
+  }
+
+  @Post(':id/review')
+  @Roles('director', 'superadmin', 'methodist')
+  async review(
+    @Param('id') id: string,
+    @Body() dto: ReviewDocumentDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    if (dto.decision === 'return' && !dto.comment.trim())
+      throw new BadRequestException('Напишите, что нужно доработать');
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.methodicalDocument.updateMany({
+        where: { id, reviewStatus: 'pending', revision: dto.revision },
+        data: {
+          reviewStatus: dto.decision === 'approve' ? 'approved' : 'returned',
+          published: dto.decision === 'approve',
+          audience: dto.audience,
+          reviewComment: dto.comment.trim(),
+          reviewedById: user.id,
+          reviewedAt: new Date(),
+          revision: { increment: 1 },
+        },
+      });
+      if (!result.count)
+        throw new ConflictException(
+          'Предложение уже рассмотрено или изменено. Обновите список.',
+        );
+      const doc = await tx.methodicalDocument.findUniqueOrThrow({
+        where: { id },
+      });
+      const author = await tx.user.findFirst({
+        where: { id: doc.authorId, deletedAt: null, blockedAt: null },
+        select: { id: true },
+      });
+      if (author)
+        await tx.notification.create({
+          data: {
+            userId: author.id,
+            type: 'library_review',
+            title:
+              dto.decision === 'approve'
+                ? 'Ваш материал опубликован'
+                : 'Материал требует доработки',
+            body: 'Результат проверки доступен в разделе «Правила и материалы», вкладка «Мои предложения».',
+            data: { url: '/library', documentId: id },
+          },
+        });
+      return doc;
+    });
+  }
   @Put(':id')
   @Roles('director', 'superadmin', 'methodist')
   async update(@Param('id') id: string, @Body() dto: DocumentDto) {
     const result = await this.prisma.methodicalDocument.updateMany({
-      where: { id, revision: dto.revision ?? -1 },
+      where: { id, revision: dto.revision ?? -1, reviewStatus: 'approved' },
       data: { ...this.data(dto), revision: { increment: 1 } },
     });
     if (!result.count)

@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 import { useEffect, useRef, useState } from 'react';
 import { Check, AlertCircle, Loader2, Pencil, Camera, X, Plus } from 'lucide-react';
 import { Card, Button, SectionLabel } from '@/components/ui';
@@ -297,10 +298,10 @@ export default function ChildEditCard({ child, groups, onUpdated }: ChildEditCar
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                 Дата рождения
               </label>
-              <input
+              <DatePicker
                 type="date"
                 value={birthDate}
-                onChange={e => setBirthDate(e.target.value)}
+                onValueChange={value => setBirthDate(value)}
                 className={inputCls}
               />
             </div>

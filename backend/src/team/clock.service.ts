@@ -81,6 +81,7 @@ export class ClockService {
       enabled: clockEnabled(),
       allowed: workplaceAllows(ip),
       timezone: process.env.TEAM_TIMEZONE || 'Europe/Moscow',
+      serverTime: new Date().toISOString(),
       active,
     };
   }

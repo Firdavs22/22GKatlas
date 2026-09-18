@@ -32,3 +32,11 @@ export class DocumentDto {
   links!: string[];
   @IsOptional() @IsInt() @Min(1) revision?: number;
 }
+
+export class ReviewDocumentDto {
+  @IsInt() @Min(1) revision!: number;
+  @IsIn(['approve', 'return']) decision!: 'approve' | 'return';
+  @IsString() @MaxLength(3000) comment!: string;
+  @IsIn(['all', 'staff', 'teachers', 'parents', 'specialists'])
+  audience!: string;
+}

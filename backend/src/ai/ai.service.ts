@@ -1,187 +1,113 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
+import { GenerateObservationDto } from './ai.dto';
 
-export interface GenerateObservationInput {
-  /** Краткий заголовок: "Переливание воды", "Розовая башня — повторение" */
-  title: string;
-  /** Опциональный навык: { id, title } */
-  skill?: { id: string; title: string };
-  /** Опциональная область (Практическая жизнь, Сенсорика, ...) */
-  area?: { id: string; title: string };
-  /** Возраст ребенка в годах — для адаптации лексики */
-  childAgeYears?: number;
-  /** Любая свободная заметка от педагога */
-  hint?: string;
-}
+// Only server-owned text is allowed across the external provider boundary.
+const TOPICS: Record<string, string> = {
+  general: 'концентрация, самостоятельность и координация',
+  practical: 'практическая жизнь и самостоятельность',
+  sensory: 'сенсорное развитие и сравнение свойств предметов',
+  math: 'математические представления и счет',
+  language: 'развитие речи и подготовка к письму',
+  world: 'знакомство с окружающим миром',
+  social: 'общение и распознавание эмоций',
+  movement: 'движение, равновесие и мелкая моторика',
+};
+const LEGACY_AREAS: Record<string, string> = {
+  'Практическая жизнь': 'practical',
+  Сенсорика: 'sensory',
+  Математика: 'math',
+  Язык: 'language',
+  Космос: 'world',
+};
+type SafeInput = { topic: string; requestReference: string };
 
-export interface GenerateObservationOutput {
-  /** Сгенерированный текст для подписи к посту/наблюдению */
-  text: string;
-  /** Имя провайдера, который ответил ('stub', 'gemma', 'claude', 'openai' …) */
-  provider: string;
-}
-
-interface AiProvider {
-  readonly name: string;
-  generateObservation(input: GenerateObservationInput): Promise<string>;
-}
-
-/**
- * Сервис генерации описаний наблюдений.
- *
- * Плагинная архитектура: реальный AI подключается через переменную окружения AI_PROVIDER.
- * Поддерживаемые значения:
- *   - не задан / 'stub' — детерминированный шаблон без AI (работает всегда)
- *   - 'gemma'           — OpenAI-совместимый эндпоинт (vLLM/llama.cpp/Ollama локально)
- *                         Нужны: AI_API_URL, опционально AI_API_KEY, AI_MODEL
- *   - 'openai'          — OpenAI API (TODO: добавить когда понадобится)
- *   - 'claude'          — Anthropic API (TODO: добавить когда понадобится)
- *
- * Без AI_PROVIDER эндпоинт `/ai/observation` все равно работает — возвращает stub-текст,
- * чтобы UI не блокировался.
- */
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly provider: AiProvider;
+  constructor(private config: ConfigService) {}
 
-  constructor(private config: ConfigService) {
-    const providerName = (config.get<string>('AI_PROVIDER') || 'stub').toLowerCase();
-
-    switch (providerName) {
-      case 'gemma':
-      case 'openai-compat': {
-        const url = config.get<string>('AI_API_URL');
-        if (!url) {
-          this.logger.warn('AI_PROVIDER=gemma, но AI_API_URL не задан. Откатываемся на stub.');
-          this.provider = new StubProvider();
-        } else {
-          this.provider = new OpenAiCompatProvider({
-            url,
-            apiKey: config.get<string>('AI_API_KEY'),
-            model: config.get<string>('AI_MODEL') || 'gemma',
-          });
-        }
-        break;
-      }
-      case 'stub':
-      default:
-        this.provider = new StubProvider();
-        break;
-    }
-
-    this.logger.log(`AI provider: ${this.provider.name}`);
-  }
-
-  async generateObservation(input: GenerateObservationInput): Promise<GenerateObservationOutput> {
-    if (!input?.title?.trim()) {
-      throw new BadRequestException('Укажите заголовок наблюдения');
+  async generateObservation(input: GenerateObservationDto) {
+    const key =
+      input.topic && Object.hasOwn(TOPICS, input.topic)
+        ? input.topic
+        : input.area?.title && Object.hasOwn(LEGACY_AREAS, input.area.title)
+          ? LEGACY_AREAS[input.area.title]
+          : 'general';
+    const safe: SafeInput = {
+      topic: TOPICS[key],
+      requestReference: randomUUID(),
+    };
+    const provider = (
+      this.config.get<string>('AI_PROVIDER') || 'stub'
+    ).toLowerCase();
+    if (
+      !['gemma', 'openai-compat'].includes(provider) ||
+      !this.config.get<string>('AI_API_URL')
+    ) {
+      return {
+        text: this.template(safe),
+        provider: 'stub',
+        privacy: 'topic-only',
+      };
     }
     try {
-      const text = await this.provider.generateObservation(input);
-      return { text, provider: this.provider.name };
-    } catch (err) {
-      this.logger.warn(`AI provider ${this.provider.name} failed: ${(err as Error).message}`);
-      // Fallback to stub on provider error — UX gracefully degrades
-      const text = await new StubProvider().generateObservation(input);
-      return { text, provider: 'stub-fallback' };
-    }
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Provider: stub (без AI)
-// ──────────────────────────────────────────────────────────────────────────
-
-class StubProvider implements AiProvider {
-  readonly name = 'stub';
-
-  async generateObservation(input: GenerateObservationInput): Promise<string> {
-    const skill = input.skill?.title || input.title;
-    const area = input.area?.title;
-
-    // Базовый шаблон. Это не AI — это безопасный fallback.
-    const lines: string[] = [
-      `Упражнение «${skill}» помогает развивать концентрацию, координацию и самостоятельность.`,
-    ];
-
-    if (area) {
-      const areaHints: Record<string, string> = {
-        'Практическая жизнь': 'Работа с реальными материалами развивает мелкую моторику и порядок действий.',
-        'Сенсорика': 'Через тактильное взаимодействие ребенок учится различать качества предметов: размер, форма, текстура.',
-        'Математика': 'Конкретные материалы помогают понять абстрактные математические идеи.',
-        'Язык': 'Упражнение обогащает словарь и подготавливает руку к письму.',
-        'Космос': 'Расширяет представление о мире и своем месте в нем.',
+      return {
+        text: await this.external(safe),
+        provider: 'openai-compat',
+        privacy: 'topic-only',
       };
-      const hint = areaHints[area];
-      if (hint) lines.push(hint);
+    } catch {
+      // Provider errors may echo prompt/headers. Never include their body or URL in logs.
+      this.logger.warn('AI request failed; returning a local template.');
+      return {
+        text: this.template(safe),
+        provider: 'stub-fallback',
+        privacy: 'topic-only',
+      };
     }
-
-    if (input.hint?.trim()) {
-      lines.push(input.hint.trim());
-    }
-
-    return lines.join(' ');
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Provider: OpenAI-compatible HTTP endpoint (Gemma via vLLM/Ollama/etc.)
-// ──────────────────────────────────────────────────────────────────────────
-
-class OpenAiCompatProvider implements AiProvider {
-  readonly name: string;
-  private readonly url: string;
-  private readonly apiKey?: string;
-  private readonly model: string;
-
-  constructor(opts: { url: string; apiKey?: string; model: string }) {
-    this.url = opts.url.replace(/\/$/, '');
-    this.apiKey = opts.apiKey;
-    this.model = opts.model;
-    this.name = `openai-compat:${opts.model}`;
   }
 
-  async generateObservation(input: GenerateObservationInput): Promise<string> {
-    const system =
-      'Ты — педагог детского сада. Пиши коротко и по делу: 1–2 предложения о том, ' +
-      'на что направлено упражнение и какие навыки развивает. Без воды и канцеляризмов. ' +
-      'Тон спокойный, человеческий, для родителя.';
+  private template(input: SafeInput) {
+    return `Направление занятия — ${input.topic}. Работа с материалами помогает тренировать внимание и постепенно осваивать новые действия. Добавьте собственное наблюдение о том, как проходило занятие.`;
+  }
 
-    const userParts: string[] = [`Наблюдение: ${input.title}.`];
-    if (input.skill?.title) userParts.push(`Навык: ${input.skill.title}.`);
-    if (input.area?.title) userParts.push(`Область: ${input.area.title}.`);
-    if (input.childAgeYears) userParts.push(`Возраст ребенка: ${input.childAgeYears} лет.`);
-    if (input.hint?.trim()) userParts.push(`Контекст от педагога: ${input.hint.trim()}.`);
-    userParts.push('Напиши краткое описание для родителя.');
-
-    const body = {
-      model: this.model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userParts.join(' ') },
-      ],
-      max_tokens: 200,
-      temperature: 0.7,
-    };
-
-    const res = await fetch(`${this.url}/chat/completions`, {
+  private async external(input: SafeInput): Promise<string> {
+    const url = this.config.get<string>('AI_API_URL')!.replace(/\/$/, '');
+    const apiKey = this.config.get<string>('AI_API_KEY');
+    const response = await fetch(`${url}/chat/completions`, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(20000),
       headers: {
         'Content-Type': 'application/json',
-        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: this.config.get<string>('AI_MODEL') || 'gemma',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Составь короткую заготовку описания занятия в детском саду для родителя. Объясни, какие навыки помогает развивать направление. Не выдумывай факты, успехи, поведение, имена или медицинские сведения о конкретном ребенке. Два предложения. Педагог дополнит заготовку своими наблюдениями.',
+          },
+          {
+            role: 'user',
+            content: `Код запроса: ${input.requestReference}. Направление: ${input.topic}.`,
+          },
+        ],
+        max_tokens: 250,
+        temperature: 0.5,
+      }),
     });
-
-    if (!res.ok) {
-      throw new Error(`AI HTTP ${res.status}: ${await res.text()}`);
-    }
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+    if (!response.ok) throw new Error('AI request rejected');
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: unknown } }[];
     };
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error('AI: empty response');
-    return text;
+    const text = data.choices?.[0]?.message?.content;
+    if (typeof text !== 'string' || !text.trim() || text.length > 8000)
+      throw new Error('Invalid AI response');
+    return text.trim();
   }
 }

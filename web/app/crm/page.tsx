@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from "@/components/DatePicker";
 
 import {
   FormEvent,
@@ -947,12 +948,12 @@ export default function CrmPage() {
                   />
                 </Field>
                 <Field label="Дата следующего контакта">
-                  <input
+                  <DatePicker
                     type="datetime-local"
                     className={inputClass}
                     value={activity.nextActionAt}
-                    onChange={(e) =>
-                      setActivity({ ...activity, nextActionAt: e.target.value })
+                    onValueChange={(value) =>
+                      setActivity({ ...activity, nextActionAt: value })
                     }
                   />
                 </Field>
@@ -1139,12 +1140,12 @@ export default function CrmPage() {
               />
             </Field>
             <Field label="Дата контакта">
-              <input
+              <DatePicker
                 type="datetime-local"
                 className={inputClass}
                 value={form.nextActionAt}
-                onChange={(e) =>
-                  setForm({ ...form, nextActionAt: e.target.value })
+                onValueChange={(value) =>
+                  setForm({ ...form, nextActionAt: value })
                 }
               />
             </Field>
@@ -1231,13 +1232,13 @@ export default function CrmPage() {
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Начало посещения *">
-                <input
+                <DatePicker
                   required
                   type="date"
                   className={inputClass}
                   value={enroll.startsOn}
-                  onChange={(e) =>
-                    setEnroll({ ...enroll, startsOn: e.target.value })
+                  onValueChange={(value) =>
+                    setEnroll({ ...enroll, startsOn: value })
                   }
                 />
               </Field>
@@ -1361,14 +1362,14 @@ export default function CrmPage() {
               />
             </Field>
             <Field label="Дата рождения *">
-              <input
+              <DatePicker
                 required
                 disabled={!!enroll.childId}
                 type="date"
                 className={inputClass}
                 value={enroll.birthDate}
-                onChange={(e) =>
-                  setEnroll({ ...enroll, birthDate: e.target.value })
+                onValueChange={(value) =>
+                  setEnroll({ ...enroll, birthDate: value })
                 }
               />
             </Field>

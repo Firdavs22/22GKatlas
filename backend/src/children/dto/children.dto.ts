@@ -1,5 +1,19 @@
-import { IsArray, IsBoolean, IsEnum, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
-import { HomeTaskStatus, NoteType, NoteVisibility, ProgressStage } from '@prisma/client';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import {
+  HomeTaskStatus,
+  NoteType,
+  NoteVisibility,
+  ProgressStage,
+} from '@prisma/client';
 
 export class UpdateProgressDto {
   @IsString()
@@ -15,9 +29,37 @@ export class UpdateProgressDto {
 }
 
 export class CreateObservationDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  title?: string;
+
   @IsString()
   @MaxLength(10_000)
   text!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  areaId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(2048, { each: true })
+  photos?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  tags?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  visible?: boolean;
 
   @IsOptional()
   @IsString()
@@ -26,7 +68,9 @@ export class CreateObservationDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(2048, { each: true })
   attachments?: string[];
 
   @IsOptional()

@@ -138,11 +138,16 @@ model MethodicalDocument {
   attachments String[]
   links       String[]
   authorId    String
+  reviewStatus String @default("approved")
+  reviewComment String @default("")
+  reviewedById String?
+  reviewedAt DateTime?
   revision    Int      @default(1)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([audience, published])
+  @@index([reviewStatus, authorId])
 }
 
 model Child {

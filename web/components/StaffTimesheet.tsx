@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from "@/components/DatePicker";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import PageLayout from "@/components/PageLayout";
 import {
@@ -184,11 +185,11 @@ export default function StaffTimesheet({
       )}
       <div className="flex flex-wrap items-end gap-4">
         <Field label="Месяц">
-          <input
+          <DatePicker
             type="month"
             className={inputClass}
             value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            onValueChange={(value) => setMonth(value)}
           />
         </Field>
         {manager && (

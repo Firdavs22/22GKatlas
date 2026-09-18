@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, X, Pencil } from 'lucide-react';
@@ -194,10 +195,10 @@ export default function MenuManager() {
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                 Начало
               </label>
-              <input
+              <DatePicker
                 type="date"
                 value={startDate}
-                onChange={e => setStartDate(e.target.value)}
+                onValueChange={value => setStartDate(value)}
                 className={inputCls}
                 required
               />
@@ -206,10 +207,10 @@ export default function MenuManager() {
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                 Окончание
               </label>
-              <input
+              <DatePicker
                 type="date"
                 value={endDate}
-                onChange={e => setEndDate(e.target.value)}
+                onValueChange={value => setEndDate(value)}
                 className={inputCls}
                 required
               />

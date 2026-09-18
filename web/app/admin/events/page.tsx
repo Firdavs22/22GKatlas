@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Calendar } from 'lucide-react';
 import PageLayout from '@/components/PageLayout';
@@ -132,10 +133,10 @@ export default function AdminEvents() {
               <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                 Дата события
               </label>
-              <input
+              <DatePicker
                 type="date"
                 value={eventDate}
-                onChange={e => setEventDate(e.target.value)}
+                onValueChange={value => setEventDate(value)}
                 required
                 className={`${inputCls} md:w-1/2`}
               />

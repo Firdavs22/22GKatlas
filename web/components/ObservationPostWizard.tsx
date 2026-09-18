@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { Card, Button, SectionLabel } from '@/components/ui';
 import AuthMedia from '@/components/AuthMedia';
 import PostMedia from '@/components/PostMedia';
+import { errorText } from '@/components/WorkUI';
 
 interface Area { id: string; title: string; }
 interface ChildLite { id: string; name: string; }
@@ -57,6 +58,7 @@ export default function ObservationPostWizard({
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [aiTopic, setAiTopic] = useState('general'), [aiStatus, setAiStatus] = useState('');
 
   // Step 3: visibility & publish
   const [visible, setVisible] = useState(true);
@@ -97,17 +99,17 @@ export default function ObservationPostWizard({
   };
 
   const generate = async () => {
-    if (!title.trim()) return;
+    if (!childId || generating) return;
     setGenerating(true);
+    setAiStatus('');
     try {
-      const area = areas.find(a => a.id === areaId);
       const { data } = await api.post('/ai/observation', {
-        title: title.trim(),
-        area: area ? { id: area.id, title: area.title } : undefined,
+        childId, topic: aiTopic,
       });
       if (data?.text) setText(data.text);
+      setAiStatus(data?.provider?.startsWith('stub') ? 'Использована локальная заготовка: внешний ИИ не подключен или временно недоступен.' : 'Заготовка готова. Добавьте свои наблюдения и проверьте текст перед публикацией.');
     } catch (err) {
-      console.warn('AI failed:', err);
+      setAiStatus(errorText(err));
     } finally {
       setGenerating(false);
     }
@@ -128,8 +130,7 @@ export default function ObservationPostWizard({
       const childName = children.find(c => c.id === childId)?.name || '';
       onPublished({ ...data, childName });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setPublishError(msg || 'Не удалось опубликовать');
+      setPublishError(errorText(err));
     } finally {
       setPublishing(false);
     }
@@ -200,6 +201,9 @@ export default function ObservationPostWizard({
               setText={setText}
               generating={generating}
               onGenerate={generate}
+              aiTopic={aiTopic}
+              setAiTopic={setAiTopic}
+              aiStatus={aiStatus}
             />
           )}
           {step === 3 && (
@@ -403,6 +407,7 @@ function Step2Context({
   setText,
   generating,
   onGenerate,
+  aiTopic, setAiTopic, aiStatus,
 }: {
   children: ChildLite[];
   areas: Area[];
@@ -416,6 +421,9 @@ function Step2Context({
   setText: (v: string) => void;
   generating: boolean;
   onGenerate: () => void;
+  aiTopic: string;
+  setAiTopic: (value: string) => void;
+  aiStatus: string;
 }) {
   return (
     <div className="space-y-5">
@@ -433,6 +441,7 @@ function Step2Context({
           </label>
           <select
             value={childId}
+            disabled={generating}
             onChange={e => setChildId(e.target.value)}
             className={inputCls}
           >
@@ -467,6 +476,12 @@ function Step2Context({
       </div>
 
       <div>
+        <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Направление для заготовки ИИ</label>
+        <select className={inputCls} value={aiTopic} disabled={generating} onChange={e => setAiTopic(e.target.value)}>
+          {Object.entries({ general: 'Общее развитие', practical: 'Практическая жизнь', sensory: 'Сенсорика', math: 'Математика', language: 'Речь и письмо', world: 'Окружающий мир', social: 'Общение и эмоции', movement: 'Движение и моторика' }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+      </div>
+      <div>
         <div className="flex items-baseline justify-between mb-1">
           <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500">
             Описание для родителей
@@ -474,7 +489,7 @@ function Step2Context({
           <button
             type="button"
             onClick={onGenerate}
-            disabled={!title.trim() || generating}
+            disabled={!childId || generating}
             className="inline-flex items-center gap-1 text-xs text-brand hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed"
           >
             {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -483,14 +498,16 @@ function Step2Context({
         </div>
         <textarea
           value={text}
+          disabled={generating}
           onChange={e => setText(e.target.value)}
           placeholder="Что развивает упражнение, как ребенок с ним работал…"
           rows={6}
           className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 resize-none"
         />
         <p className="text-xs text-slate-400 mt-1">
-          AI-генерация работает по заголовку и области. Текст всегда можно поправить.
+          Внешний ИИ получает только выбранное направление и случайный код запроса. Имя, ID ребенка, заголовок, заметки и фотографии ему не передаются. Дополните заготовку реальными наблюдениями перед публикацией.
         </p>
+        {aiStatus && <p role="status" className="text-xs text-brand mt-2">{aiStatus}</p>}
       </div>
     </div>
   );

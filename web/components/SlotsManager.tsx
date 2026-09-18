@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Calendar, MapPin } from 'lucide-react';
 import { Card, Button, Badge, SectionLabel } from '@/components/ui';
@@ -78,10 +79,10 @@ export default function SlotsManager() {
                 <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                   Начало
                 </label>
-                <input
+                <DatePicker
                   type="datetime-local"
                   value={startsAt}
-                  onChange={e => setStartsAt(e.target.value)}
+                  onValueChange={value => setStartsAt(value)}
                   required
                   className={inputCls}
                 />
@@ -90,10 +91,10 @@ export default function SlotsManager() {
                 <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                   Конец
                 </label>
-                <input
+                <DatePicker
                   type="datetime-local"
                   value={endsAt}
-                  onChange={e => setEndsAt(e.target.value)}
+                  onValueChange={value => setEndsAt(value)}
                   required
                   className={inputCls}
                 />

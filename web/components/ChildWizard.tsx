@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 import { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Check, Plus, UserPlus, Mail } from 'lucide-react';
 import { Card, Button, SectionLabel } from '@/components/ui';
@@ -220,10 +221,10 @@ function Step1({ data, update }: { data: WizardData; update: <K extends keyof Wi
         <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
           Дата рождения
         </label>
-        <input
+        <DatePicker
           type="date"
           value={data.birthDate}
-          onChange={e => update('birthDate', e.target.value)}
+          onValueChange={value => update('birthDate', value)}
           max={new Date().toISOString().slice(0, 10)}
           className={inputCls}
         />
@@ -362,10 +363,10 @@ function Step3({
         <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1.5">
           Дата зачисления
         </label>
-        <input
+        <DatePicker
           type="date"
           value={data.startDate}
-          onChange={e => update('startDate', e.target.value)}
+          onValueChange={value => update('startDate', value)}
           className={inputCls}
         />
       </div>

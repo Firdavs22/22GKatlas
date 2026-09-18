@@ -51,7 +51,7 @@ export class FileAccessService {
         UNION ALL SELECT 'site', jsonb_build_object('value', value) FROM "SiteContent"
         UNION ALL SELECT 'avatar', jsonb_build_object('id', id, 'url', avatar) FROM "User"
         UNION ALL SELECT 'menu', jsonb_build_object('content', content) FROM "Menu"
-        UNION ALL SELECT 'library', jsonb_build_object('audience', audience, 'published', published, 'urls', attachments, 'body', body) FROM "MethodicalDocument"
+        UNION ALL SELECT 'library', jsonb_build_object('audience', audience, 'published', published, 'authorId', "authorId", 'reviewStatus', "reviewStatus", 'urls', attachments, 'body', body) FROM "MethodicalDocument"
       ) refs WHERE data::text ~ ${pattern}
     `;
     // Child documents keep their stricter ACL even when copied into a public
@@ -70,7 +70,7 @@ export class FileAccessService {
     // Library attachments retain document permissions even if their URL is copied elsewhere.
     const documents = references.filter(reference => reference.kind === 'library');
     if (documents.length) {
-      if (enabledFeatures().library && documents.some(reference => canReadDocument(reference.data as any, user.role))) return;
+      if (enabledFeatures().library && documents.some(reference => canReadDocument(reference.data as any, user.role, user.id))) return;
       throw new ForbiddenException('Нет доступа к материалу');
     }
     if (user.role === 'admin') return;

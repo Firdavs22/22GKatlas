@@ -1,4 +1,5 @@
 'use client';
+import DatePicker from "@/components/DatePicker";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Pencil, X, FileText, UserMinus, Search } from 'lucide-react';
@@ -422,10 +423,10 @@ export default function AdminChildren() {
                     <label className="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">
                       Дата рождения *
                     </label>
-                    <input
+                    <DatePicker
                       type="date"
                       value={form.birthDate}
-                      onChange={e => setForm(p => ({ ...p, birthDate: e.target.value }))}
+                      onValueChange={value => setForm(p => ({ ...p, birthDate: value }))}
                       required
                       className={inputCls}
                     />

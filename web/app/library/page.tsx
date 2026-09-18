@@ -21,6 +21,10 @@ type Doc = {
   attachments: string[];
   links: string[];
   revision?: number;
+  authorId?: string;
+  authorName?: string;
+  reviewStatus?: "pending" | "approved" | "returned";
+  reviewComment?: string;
 };
 const kinds: Record<string, string> = {
   policy: "Правила сада",
@@ -45,7 +49,13 @@ const empty: Doc = {
 };
 export default function LibraryPage() {
   const { user } = useAuth(),
-    editor = !!user && ["superadmin", "director", "methodist"].includes(user.role);
+    editor =
+      !!user && ["superadmin", "director", "methodist"].includes(user.role),
+    proposer = user?.role === "teacher";
+  const [view, setView] = useState<"catalog" | "proposals">("catalog");
+  const [reviewComment, setReviewComment] = useState(""),
+    [reviewAudience, setReviewAudience] = useState("teachers");
+  const [success, setSuccess] = useState("");
   const [docs, setDocs] = useState<Doc[]>([]),
     [edit, setEdit] = useState<Doc | null>(null),
     [opened, setOpened] = useState<Doc | null>(null);
@@ -62,8 +72,9 @@ export default function LibraryPage() {
   }
   useEffect(() => {
     load().catch((e) => setError(errorText(e)));
-  }, []);
+  }, [user?.id]);
   function start(doc: Doc = { ...empty }) {
+    setSuccess("");
     setOpened(null);
     setEdit({ ...doc });
     setLinks(doc.links.join("\n"));
@@ -89,12 +100,19 @@ export default function LibraryPage() {
         kind: body.kind,
         body: body.body,
         audience: body.audience,
-        published: body.published,
+        published: editor ? body.published : false,
         attachments: body.attachments,
         links: body.links,
         ...(body.revision ? { revision: body.revision } : {}),
       };
-      if (id) await api.put("/library/" + id, dto);
+      if (!editor) {
+        await api.post(
+          id ? `/library/${id}/resubmit` : "/library/proposals",
+          dto,
+        );
+        setView("proposals");
+        setSuccess("Материал отправлен методисту на проверку.");
+      } else if (id) await api.put("/library/" + id, dto);
       else await api.post("/library", dto);
       setEdit(null);
       await load();
@@ -141,18 +159,108 @@ export default function LibraryPage() {
       setBusy(false);
     }
   }
+  async function review(decision: "approve" | "return") {
+    if (!opened || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.post(`/library/${opened.id}/review`, {
+        revision: opened.revision,
+        decision,
+        comment: reviewComment,
+        audience: reviewAudience,
+      });
+      setOpened(null);
+      setSuccess(
+        decision === "approve"
+          ? "Материал одобрен и опубликован."
+          : "Материал возвращен педагогу на доработку.",
+      );
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const filteredDocs = docs.filter((d) => {
+    const inView =
+      view === "catalog"
+        ? !d.reviewStatus || d.reviewStatus === "approved"
+        : editor
+          ? d.reviewStatus !== "approved"
+          : d.authorId === user?.id;
+    return (
+      inView &&
+      (!kind || d.kind === kind) &&
+      (d.title + " " + d.body).toLowerCase().includes(search.toLowerCase())
+    );
+  });
+  const statusLabel = (doc: Doc) =>
+    doc.reviewStatus === "pending"
+      ? "На проверке"
+      : doc.reviewStatus === "returned"
+        ? "Нужна доработка"
+        : doc.published
+          ? "Опубликован"
+          : "Черновик";
   return (
     <PageLayout
       title={editor ? "Кабинет методиста" : "Правила и материалы"}
       eyebrow="Библиотека сада"
       actions={
-        editor && (
+        (editor || proposer) && (
           <button className={buttonClass} onClick={() => start()}>
-            Создать материал
+            {editor ? "Создать материал" : "Предложить материал или правило"}
           </button>
         )
       }
     >
+      {(editor || proposer) && (
+        <div
+          className="flex flex-wrap gap-2 mb-5"
+          role="group"
+          aria-label="Раздел библиотеки"
+        >
+          <button
+            className={
+              view === "catalog"
+                ? buttonClass
+                : "rounded-full border px-4 py-2 text-sm"
+            }
+            onClick={() => setView("catalog")}
+          >
+            Библиотека
+          </button>
+          <button
+            className={
+              view === "proposals"
+                ? buttonClass
+                : "rounded-full border px-4 py-2 text-sm"
+            }
+            onClick={() => setView("proposals")}
+          >
+            {editor
+              ? `На проверке (${docs.filter((d) => d.reviewStatus === "pending").length})`
+              : "Мои предложения"}
+          </button>
+          <button
+            className="text-sm text-brand px-3"
+            disabled={busy}
+            onClick={() => load().catch((e) => setError(errorText(e)))}
+          >
+            Обновить
+          </button>
+        </div>
+      )}
+      {success && (
+        <p
+          role="status"
+          className="rounded-xl bg-emerald-50 text-emerald-800 p-3 mb-4 text-sm"
+        >
+          {success}
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         <input
           aria-label="Поиск материалов"
@@ -180,49 +288,54 @@ export default function LibraryPage() {
         <p className="my-6">Загрузка материалов…</p>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
-          {docs
-            .filter(
-              (d) =>
-                (!kind || d.kind === kind) &&
-                (d.title + " " + d.body)
-                  .toLowerCase()
-                  .includes(search.toLowerCase()),
-            )
-            .map((d) => (
-              <article
-                key={d.id}
-                className="rounded-2xl bg-white border border-slate-200 p-5"
-              >
-                <span className="text-xs text-brand">{kinds[d.kind]}</span>
-                <h2 className="font-semibold mt-2">{d.title}</h2>
-                <p className="text-sm text-slate-500 mt-2 line-clamp-3">
-                  {d.body}
+          {filteredDocs.map((d) => (
+            <article
+              key={d.id}
+              className="rounded-2xl bg-white border border-slate-200 p-5"
+            >
+              <span className="text-xs text-brand">{kinds[d.kind]}</span>
+              <h2 className="font-semibold mt-2">{d.title}</h2>
+              <p className="text-sm text-slate-500 mt-2 line-clamp-3">
+                {d.body}
+              </p>
+              {(editor || view === "proposals") && (
+                <p className="text-xs mt-3 text-slate-500">
+                  {audiences[d.audience]} · {statusLabel(d)} ·{" "}
+                  {d.authorName || "Автор"}
                 </p>
-                {editor && (
-                  <p className="text-xs mt-3 text-slate-500">
-                    {audiences[d.audience]} ·{" "}
-                    {d.published ? "Опубликован" : "Черновик"}
-                  </p>
-                )}
-                <div className="flex gap-4 mt-4 text-sm">
-                  <button
-                    className="text-brand"
-                    onClick={async () => {
-                      try {
-                        setOpened((await api.get("/library/" + d.id)).data);
-                      } catch (e) {
-                        setError(errorText(e));
-                      }
-                    }}
-                  >
-                    Открыть
+              )}
+              <div className="flex gap-4 mt-4 text-sm">
+                <button
+                  className="text-brand"
+                  onClick={async () => {
+                    try {
+                      const doc = (await api.get("/library/" + d.id)).data;
+                      setOpened(doc);
+                      setReviewComment("");
+                      setReviewAudience(doc.audience);
+                      setError("");
+                    } catch (e) {
+                      setError(errorText(e));
+                    }
+                  }}
+                >
+                  Открыть
+                </button>
+                {((editor && d.reviewStatus === "approved") ||
+                  (proposer &&
+                    d.authorId === user?.id &&
+                    d.reviewStatus === "returned")) && (
+                  <button onClick={() => start(d)}>
+                    {proposer ? "Доработать" : "Изменить"}
                   </button>
-                  {editor && <button onClick={() => start(d)}>Изменить</button>}
-                </div>
-              </article>
-            ))}
-          {!docs.length && (
-            <p className="text-slate-500">Доступных материалов пока нет.</p>
+                )}
+              </div>
+            </article>
+          ))}
+          {!filteredDocs.length && (
+            <p className="text-slate-500">
+              В этом разделе пока нет материалов.
+            </p>
           )}
         </div>
       )}
@@ -237,6 +350,12 @@ export default function LibraryPage() {
             </button>
             <p className="text-sm text-brand mb-2">{kinds[opened.kind]}</p>
             <h2 className="text-2xl font-semibold">{opened.title}</h2>
+            <p className="text-sm text-slate-500 mt-2">{statusLabel(opened)}</p>
+            {opened.reviewComment && (
+              <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 whitespace-pre-wrap">
+                Комментарий методиста: {opened.reviewComment}
+              </p>
+            )}
             <p className="whitespace-pre-wrap mt-5">{opened.body}</p>
             <div className="space-y-2 mt-5">
               {opened.attachments.map((url, i) => (
@@ -264,7 +383,9 @@ export default function LibraryPage() {
             </div>
             {editor && (
               <div className="flex gap-5 mt-6">
-                <button onClick={() => start(opened)}>Редактировать</button>
+                {opened.reviewStatus === "approved" && (
+                  <button onClick={() => start(opened)}>Редактировать</button>
+                )}
                 <button
                   disabled={busy}
                   className="text-red-700"
@@ -274,6 +395,60 @@ export default function LibraryPage() {
                 </button>
               </div>
             )}
+            {proposer &&
+              opened.authorId === user?.id &&
+              opened.reviewStatus === "returned" && (
+                <button
+                  className={buttonClass + " mt-5"}
+                  onClick={() => start(opened)}
+                >
+                  Доработать и отправить повторно
+                </button>
+              )}
+            {editor && opened.reviewStatus === "pending" && (
+              <section className="mt-6 border-t pt-5 space-y-4">
+                <h3 className="font-semibold">Проверка предложения</h3>
+                <Field label="Кому опубликовать после одобрения">
+                  <select
+                    className={inputClass}
+                    value={reviewAudience}
+                    onChange={(e) => setReviewAudience(e.target.value)}
+                  >
+                    {Object.entries(audiences).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Комментарий (обязателен для доработки)">
+                  <textarea
+                    className={inputClass}
+                    rows={3}
+                    maxLength={3000}
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                  />
+                </Field>
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => review("approve")}
+                  >
+                    Одобрить и опубликовать
+                  </button>
+                  <button
+                    disabled={busy || !reviewComment.trim()}
+                    className="text-amber-800 disabled:opacity-40"
+                    onClick={() => review("return")}
+                  >
+                    Вернуть на доработку
+                  </button>
+                </div>
+              </section>
+            )}
+            <Notice error={error} />
           </article>
         </div>
       )}
@@ -284,7 +459,11 @@ export default function LibraryPage() {
             className="bg-white rounded-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-auto space-y-4"
           >
             <h2 className="text-xl font-semibold">
-              {edit.id ? "Редактировать материал" : "Создать материал"}
+              {editor
+                ? edit.id
+                  ? "Редактировать материал"
+                  : "Создать материал"
+                : "Предложить материал методисту"}
             </h2>
             <Field label="Название">
               <input
@@ -333,9 +512,9 @@ export default function LibraryPage() {
               </Field>
             </div>
             <p className="text-xs text-slate-500">
-              Методист и администраторы управляют всеми материалами. «Все
-              пользователи» включает родителей. Черновик доступен только
-              редакторам.
+              {editor
+                ? "Материалами управляют методист, директор и суперадминистратор. «Все пользователи» включает родителей."
+                : "Предложение увидят только вы, методист и руководство. После проверки методист выберет аудиторию и опубликует материал либо вернет его с комментарием."}
             </p>
             <Field label="Содержимое">
               <textarea
@@ -386,20 +565,22 @@ export default function LibraryPage() {
                 </button>
               </div>
             ))}
-            <label className="flex gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={edit.published}
-                onChange={(e) =>
-                  setEdit({ ...edit, published: e.target.checked })
-                }
-              />
-              Опубликовать для выбранной аудитории
-            </label>
+            {editor && (
+              <label className="flex gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={edit.published}
+                  onChange={(e) =>
+                    setEdit({ ...edit, published: e.target.checked })
+                  }
+                />
+                Опубликовать для выбранной аудитории
+              </label>
+            )}
             <Notice error={error} />
             <div className="flex gap-4">
               <button className={buttonClass} disabled={busy}>
-                Сохранить
+                {editor ? "Сохранить" : "Отправить на проверку"}
               </button>
               <button
                 disabled={busy}

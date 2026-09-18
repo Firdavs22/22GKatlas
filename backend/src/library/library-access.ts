@@ -1,10 +1,19 @@
 export const canEditLibrary = (role: string) =>
   ['superadmin', 'director', 'methodist'].includes(role);
 export function canReadDocument(
-  document: { audience: string; published: boolean },
+  document: {
+    audience: string;
+    published: boolean;
+    authorId?: string;
+    reviewStatus?: string;
+  },
   role: string,
+  userId?: string,
 ) {
   if (canEditLibrary(role)) return true;
+  if (userId && role === 'teacher' && document.authorId === userId) return true;
+  if (document.reviewStatus && document.reviewStatus !== 'approved')
+    return false;
   if (!document.published) return false;
   return (
     document.audience === 'all' ||

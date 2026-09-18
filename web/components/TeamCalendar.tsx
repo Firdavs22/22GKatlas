@@ -1,4 +1,5 @@
 "use client";
+import DatePicker from "@/components/DatePicker";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import PageLayout from "@/components/PageLayout";
 import {
@@ -48,7 +49,8 @@ export default function TeamCalendar({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [loaded, setLoaded] = useState(false),
-    [day, setDay] = useState("");
+    [day, setDay] = useState(localDate());
+  const dayPanel = useRef<HTMLElement>(null);
   const requestVersion = useRef(0);
   async function load() {
     const version = ++requestVersion.current;
@@ -69,7 +71,13 @@ export default function TeamCalendar({
     }
   }
   useEffect(() => {
-    setDay("");
+    setDay((current) =>
+      current.startsWith(month)
+        ? current
+        : month === localDate().slice(0, 7)
+          ? localDate()
+          : month + "-01",
+    );
     setLoaded(false);
     setEvents([]);
     setEdit(null);
@@ -149,6 +157,20 @@ export default function TeamCalendar({
   const first = new Date(month + "-01T12:00:00"),
     count = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const offset = (first.getDay() + 6) % 7;
+  function shiftMonth(delta: number) {
+    setMonth(
+      localDate(
+        new Date(first.getFullYear(), first.getMonth() + delta, 1, 12),
+      ).slice(0, 7),
+    );
+  }
+  const onDay = (event: Event, date: string) => {
+    const start = new Date(date + "T00:00:00"),
+      end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return new Date(event.startsAt) < end && new Date(event.endsAt) > start;
+  };
+  const visibleEvents = events.filter((event) => !day || onDay(event, day));
   return (
     <PageLayout
       title="Календарь"
@@ -202,14 +224,37 @@ export default function TeamCalendar({
           Общие
         </span>
       </div>
-      <div className="flex gap-4 items-center">
-        <input
+      <div className="flex flex-wrap gap-3 items-center">
+        <button
+          aria-label="Предыдущий месяц"
+          className="rounded-full border px-3 py-2"
+          onClick={() => shiftMonth(-1)}
+        >
+          ←
+        </button>
+        <DatePicker
           aria-label="Месяц"
           type="month"
           className={inputClass + " max-w-xs"}
           value={month}
-          onChange={(e) => setMonth(e.target.value)}
+          onValueChange={(value) => setMonth(value)}
         />
+        <button
+          aria-label="Следующий месяц"
+          className="rounded-full border px-3 py-2"
+          onClick={() => shiftMonth(1)}
+        >
+          →
+        </button>
+        <button
+          className="text-brand text-sm"
+          onClick={() => {
+            setMonth(localDate().slice(0, 7));
+            setDay(localDate());
+          }}
+        >
+          Сегодня
+        </button>
         {day && (
           <button className="text-brand" onClick={() => setDay("")}>
             Весь месяц
@@ -221,133 +266,170 @@ export default function TeamCalendar({
         Время: {Intl.DateTimeFormat().resolvedOptions().timeZone}. Напоминания
         появляются в разделе «Уведомления».
       </p>
-      {Number.isFinite(count) && (
-        <div className="grid grid-cols-7 rounded-2xl overflow-hidden border border-slate-200 bg-white mb-6">
-          {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => (
-            <div key={d} className="p-2 text-center text-xs bg-slate-50">
-              {d}
-            </div>
-          ))}
-          {Array.from({ length: offset }, (_, i) => (
-            <div key={"empty" + i} />
-          ))}
-          {Array.from({ length: count }, (_, i) => {
-            const date = month + "-" + String(i + 1).padStart(2, "0"),
-              items = events.filter(
-                (e) =>
-                  localDate(new Date(e.startsAt)) <= date &&
-                  localDate(new Date(e.endsAt)) >= date,
-              );
-            return (
-              <button
-                key={date}
-                className={
-                  "min-h-20 text-left p-2 border-t border-r border-slate-100 " +
-                  (day === date ? "bg-brand-pale" : "")
-                }
-                onClick={() => setDay(date)}
-              >
-                <span className="text-sm">{i + 1}</span>
-                {items.slice(0, 2).map((e) => (
+      <div className="grid lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)] gap-6 items-start">
+        {Number.isFinite(count) && (
+          <div className="grid grid-cols-7 rounded-2xl overflow-hidden border border-slate-200 bg-white mb-6">
+            {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => (
+              <div key={d} className="p-2 text-center text-xs bg-slate-50">
+                {d}
+              </div>
+            ))}
+            {Array.from({ length: offset }, (_, i) => (
+              <div key={"empty" + i} />
+            ))}
+            {Array.from({ length: count }, (_, i) => {
+              const date = month + "-" + String(i + 1).padStart(2, "0"),
+                items = events.filter((e) => onDay(e, date));
+              return (
+                <button
+                  key={date}
+                  className={
+                    "min-h-20 text-left p-2 border-t border-r border-slate-100 " +
+                    (day === date ? "bg-brand-pale" : "")
+                  }
+                  aria-pressed={day === date}
+                  aria-label={`${new Date(date + "T12:00:00").toLocaleDateString("ru-RU")}, событий: ${items.length}`}
+                  onClick={() => {
+                    setDay(date);
+                    if (window.innerWidth < 1024)
+                      dayPanel.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                  }}
+                >
                   <span
-                    key={e.id}
                     className={
-                      "block rounded px-1 mt-1 text-[10px] sm:text-xs truncate " +
-                      (e.visibility === "staff"
-                        ? "bg-teal-50 text-teal-800"
-                        : "bg-violet-50 text-violet-800")
-                    }
-                    title={
-                      (e.visibility === "staff" ? "Общее: " : "Личное: ") +
-                      e.title
+                      "text-sm inline-flex items-center justify-center w-7 h-7 rounded-full " +
+                      (date === localDate() ? "bg-brand text-white" : "")
                     }
                   >
-                    {e.title}
+                    {i + 1}
                   </span>
-                ))}
-                {items.length > 2 && (
-                  <span className="text-xs">+{items.length - 2}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {!loaded ? (
-        <p>Загрузка календаря…</p>
-      ) : (
-        <div className="space-y-3">
-          {events
-            .filter(
-              (e) =>
-                !day ||
-                (localDate(new Date(e.startsAt)) <= day &&
-                  localDate(new Date(e.endsAt)) >= day),
-            )
-            .map((e) => (
-              <article
-                key={e.id}
-                className={
-                  "rounded-2xl bg-white border p-5 border-l-4 " +
-                  (e.visibility === "staff"
-                    ? "border-teal-200 border-l-teal-500"
-                    : "border-violet-200 border-l-violet-500")
-                }
-              >
-                <div className="flex justify-between gap-3">
-                  <h2 className="font-semibold">{e.title}</h2>
-                  <span className="text-xs text-slate-500">
-                    {e.visibility === "staff"
-                      ? "Общее · вся команда"
-                      : "Личное · по участникам"}
-                  </span>
-                </div>
-                <p className="text-sm text-brand my-2">
-                  {new Date(e.startsAt).toLocaleString("ru-RU")} —{" "}
-                  {new Date(e.endsAt).toLocaleString("ru-RU")}
-                </p>
-                <p className="text-sm whitespace-pre-wrap">{e.description}</p>
-                <p className="text-xs text-slate-500 mt-2">
-                  {e.visibility === "staff"
-                    ? "Все сотрудники"
-                    : staff
-                        .filter((s) => e.participantIds.includes(s.id))
-                        .map((s) => s.name)
-                        .join(", ")}
-                </p>
-                {(manager || e.authorId === user?.id) && (
-                  <div className="flex gap-4 mt-3 text-sm">
-                    <button
-                      className="text-brand"
-                      onClick={() => {
-                        setError("");
-                        setEdit({
-                          ...e,
-                          startsAt: toInput(e.startsAt),
-                          endsAt: toInput(e.endsAt),
-                        });
-                      }}
+                  {items.slice(0, 2).map((e) => (
+                    <span
+                      key={e.id}
+                      className={
+                        "block rounded px-1 mt-1 text-[10px] sm:text-xs truncate " +
+                        (e.visibility === "staff"
+                          ? "bg-teal-50 text-teal-800"
+                          : "bg-violet-50 text-violet-800")
+                      }
+                      title={
+                        (e.visibility === "staff" ? "Общее: " : "Личное: ") +
+                        e.title
+                      }
                     >
-                      Изменить
-                    </button>
-                    <button
-                      disabled={busy}
-                      className="text-red-700"
-                      onClick={() => cancel(e)}
-                    >
-                      Отменить событие
-                    </button>
+                      {e.title}
+                    </span>
+                  ))}
+                  {items.length > 2 && (
+                    <span className="text-xs">+{items.length - 2}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <section
+          ref={dayPanel}
+          className="rounded-2xl bg-slate-50 border border-slate-200 p-4 scroll-mt-5"
+          aria-label="События выбранного дня"
+        >
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                {day ? "Выбранный день" : "Весь месяц"}
+              </p>
+              <h2 className="text-lg font-semibold mt-1">
+                {day
+                  ? new Date(day + "T12:00:00").toLocaleDateString("ru-RU", {
+                      day: "numeric",
+                      month: "long",
+                      weekday: "long",
+                    })
+                  : first.toLocaleDateString("ru-RU", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+              </h2>
+            </div>
+            <button className={buttonClass} onClick={create}>
+              + Добавить событие
+            </button>
+          </div>
+          {!loaded ? (
+            <p>Загрузка календаря…</p>
+          ) : (
+            <div className="space-y-3">
+              {visibleEvents.map((e) => (
+                <article
+                  key={e.id}
+                  className={
+                    "rounded-2xl bg-white border p-5 border-l-4 " +
+                    (e.visibility === "staff"
+                      ? "border-teal-200 border-l-teal-500"
+                      : "border-violet-200 border-l-violet-500")
+                  }
+                >
+                  <div className="flex justify-between gap-3">
+                    <h2 className="font-semibold">{e.title}</h2>
+                    <span className="text-xs text-slate-500">
+                      {e.visibility === "staff"
+                        ? "Общее · вся команда"
+                        : "Личное · по участникам"}
+                    </span>
                   </div>
-                )}
-              </article>
-            ))}
-          {!events.length && (
-            <p className="p-8 text-slate-500">
-              Нет событий для выбранного фильтра в этом месяце.
-            </p>
+                  <p className="text-sm text-brand my-2">
+                    {new Date(e.startsAt).toLocaleString("ru-RU")} —{" "}
+                    {new Date(e.endsAt).toLocaleString("ru-RU")}
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">{e.description}</p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {e.visibility === "staff"
+                      ? "Все сотрудники"
+                      : staff
+                          .filter((s) => e.participantIds.includes(s.id))
+                          .map((s) => s.name)
+                          .join(", ")}
+                  </p>
+                  {(manager || e.authorId === user?.id) && (
+                    <div className="flex gap-4 mt-3 text-sm">
+                      <button
+                        className="text-brand"
+                        onClick={() => {
+                          setError("");
+                          setEdit({
+                            ...e,
+                            startsAt: toInput(e.startsAt),
+                            endsAt: toInput(e.endsAt),
+                          });
+                        }}
+                      >
+                        Изменить
+                      </button>
+                      <button
+                        disabled={busy}
+                        className="text-red-700"
+                        onClick={() => cancel(e)}
+                      >
+                        Отменить событие
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+              {!visibleEvents.length && (
+                <p className="p-8 text-slate-500">
+                  {day
+                    ? "В этот день событий пока нет. Добавьте встречу или план работы."
+                    : "Нет событий для выбранного фильтра в этом месяце."}
+                </p>
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </section>
+      </div>
       {edit && (
         <div className="fixed inset-0 z-50 bg-black/40 flex justify-center items-center p-4">
           <form
@@ -379,23 +461,23 @@ export default function TeamCalendar({
             </Field>
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Начало">
-                <input
+                <DatePicker
                   required
                   type="datetime-local"
                   className={inputClass}
                   value={edit.startsAt}
-                  onChange={(e) =>
-                    setEdit({ ...edit, startsAt: e.target.value })
+                  onValueChange={(value) =>
+                    setEdit({ ...edit, startsAt: value })
                   }
                 />
               </Field>
               <Field label="Конец">
-                <input
+                <DatePicker
                   required
                   type="datetime-local"
                   className={inputClass}
                   value={edit.endsAt}
-                  onChange={(e) => setEdit({ ...edit, endsAt: e.target.value })}
+                  onValueChange={(value) => setEdit({ ...edit, endsAt: value })}
                 />
               </Field>
             </div>
